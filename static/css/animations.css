@@ -1,53 +1,568 @@
-﻿/* G-Portal Authentic Theme - Complete Variable Set */
-:root {
-    /* Primary G-Portal Colors */
-    --gp-dark-purple: #463751;
-    --gp-darker-purple: #3a2f43;
-    --gp-darkest: #2e2538;
-    --gp-cyan: #50fcea;
-    --gp-cyan-dark: #3dd9c7;
-    --gp-cyan-glow: rgba(80, 252, 234, 0.4);
-    --gp-purple-tint: #564466;
-    --gp-dark-bg: #1f1a24;
-    --gp-sidebar: #2a2433;
-    --gp-card-bg: #3a3246;
-    
-    /* Text Colors */
-    --gp-text: #ffffff;
-    --gp-text-dim: #a09aaa;
-    --gp-text-bright: #f0f0f0;
-    
-    /* UI Elements */
-    --gp-border: rgba(80, 252, 234, 0.2);
-    --gp-border-active: rgba(80, 252, 234, 0.6);
-    --gp-shadow: rgba(0, 0, 0, 0.5);
-    --gp-success: #34d399;
-    --gp-warning: #fbbf24;
-    --gp-error: #ef4444;
-    --gp-info: var(--gp-cyan);
-    
-    /* Component Specific */
-    --gp-button-primary: var(--gp-cyan);
-    --gp-button-secondary: rgba(80, 252, 234, 0.1);
-    --gp-input-bg: var(--gp-darkest);
-    --gp-hover-bg: rgba(70, 55, 81, 0.4);
-    
-    /* Layout */
-    --gp-spacing-xs: 0.25rem;
-    --gp-spacing-sm: 0.5rem;
-    --gp-spacing-md: 1rem;
-    --gp-spacing-lg: 1.5rem;
-    --gp-spacing-xl: 2rem;
-    --gp-radius: 8px;
-    --gp-radius-sm: 4px;
-    --gp-radius-lg: 12px;
-    
-    /* Transitions */
-    --gp-transition: all 0.2s ease;
-    --gp-transition-fast: all 0.15s ease;
-    --gp-transition-slow: all 0.3s ease;
+/* GUST Bot Enhanced - Animation Styles */
+/* ==================================== */
+/* Animations, transitions, hover effects, and interactive states */
+
+/* Base Transition Settings */
+* {
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Import G-Portal font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* Navigation Tab Animations */
+.nav-tab {
+    transition: all 0.2s ease;
+    transform: translateX(0);
+}
 
+.nav-tab:hover {
+    transform: translateX(4px);
+}
+
+.nav-tab.active {
+    transform: translateX(8px);
+    box-shadow: 0 4px 14px 0 rgba(168, 85, 247, 0.3);
+}
+
+/* Button Hover Effects */
+.btn {
+    transition: all 0.2s ease;
+    transform: translateY(0);
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.btn:active {
+    transform: translateY(0);
+    transition: all 0.1s ease;
+}
+
+/* Button Specific Hover Colors */
+.bg-purple-600:hover { background-color: #6d28d9; }
+.bg-purple-700:hover { background-color: #5b21b6; }
+.bg-green-600:hover { background-color: #15803d; }
+.bg-green-700:hover { background-color: #166534; }
+.bg-blue-600:hover { background-color: #1d4ed8; }
+.bg-blue-700:hover { background-color: #1e40af; }
+.bg-yellow-600:hover { background-color: #a16207; }
+.bg-yellow-700:hover { background-color: #92400e; }
+.bg-red-600:hover { background-color: #b91c1c; }
+.bg-red-700:hover { background-color: #991b1b; }
+.bg-gray-600:hover { background-color: #374151; }
+.bg-gray-700:hover { background-color: #4b5563; }
+
+/* Live Indicator Animation */
+.live-indicator {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+    }
+}
+
+/* Loading Spinner Animation */
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Fade In Animation */
+.fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Slide In Animation */
+.slide-in-left {
+    animation: slideInLeft 0.3s ease-out;
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Card Hover Effects */
+.card {
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Server Item Hover Effects */
+.server-item {
+    transition: all 0.2s ease;
+}
+
+.server-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-color: var(--purple-500);
+}
+
+/* Form Input Focus Animations */
+input, select, textarea {
+    transition: all 0.2s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+}
+
+/* Console Message Animations */
+.console-message {
+    animation: slideInMessage 0.3s ease-out;
+}
+
+@keyframes slideInMessage {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+        background-color: rgba(168, 85, 247, 0.1);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+        background-color: transparent;
+    }
+}
+
+/* Connection Status Animations */
+.connection-connecting {
+    animation: connecting 1.5s ease-in-out infinite;
+}
+
+@keyframes connecting {
+    0%, 100% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+/* Success Flash Animation */
+.flash-success {
+    animation: flashSuccess 0.6s ease-in-out;
+}
+
+@keyframes flashSuccess {
+    0%, 100% {
+        background-color: transparent;
+    }
+    50% {
+        background-color: rgba(34, 197, 94, 0.2);
+    }
+}
+
+/* Error Flash Animation */
+.flash-error {
+    animation: flashError 0.6s ease-in-out;
+}
+
+@keyframes flashError {
+    0%, 100% {
+        background-color: transparent;
+    }
+    50% {
+        background-color: rgba(239, 68, 68, 0.2);
+    }
+}
+
+/* Typing Indicator Animation */
+.typing-indicator {
+    animation: typing 1.4s ease-in-out infinite;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        opacity: 0.3;
+    }
+    30% {
+        opacity: 1;
+    }
+}
+
+/* Bounce Animation */
+.bounce {
+    animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+/* Scale Hover Effect */
+.scale-hover {
+    transition: transform 0.2s ease;
+}
+
+.scale-hover:hover {
+    transform: scale(1.05);
+}
+
+/* Status Badge Animations */
+.status-badge {
+    transition: all 0.2s ease;
+}
+
+.status-badge.online {
+    animation: onlinePulse 3s ease-in-out infinite;
+}
+
+@keyframes onlinePulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+    }
+}
+
+.status-badge.offline {
+    animation: offlinePulse 3s ease-in-out infinite;
+}
+
+@keyframes offlinePulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+    }
+}
+
+/* Progress Bar Animation */
+.progress-bar {
+    animation: progressSlide 2s ease-in-out;
+}
+
+@keyframes progressSlide {
+    from {
+        width: 0%;
+    }
+    to {
+        width: var(--progress-width, 100%);
+    }
+}
+
+/* Notification Slide Animation */
+.notification {
+    animation: notificationSlide 0.5s ease-out;
+}
+
+@keyframes notificationSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Modal Animations */
+.modal-backdrop {
+    transition: opacity 0.3s ease;
+}
+
+.modal-content {
+    transition: all 0.3s ease;
+    animation: modalAppear 0.3s ease-out;
+}
+
+@keyframes modalAppear {
+    from {
+        opacity: 0;
+        transform: translateY(-50px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Dropdown Animations */
+.dropdown {
+    transition: all 0.2s ease;
+    transform-origin: top;
+}
+
+.dropdown.open {
+    animation: dropdownOpen 0.2s ease-out;
+}
+
+@keyframes dropdownOpen {
+    from {
+        opacity: 0;
+        transform: scaleY(0.8) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scaleY(1) translateY(0);
+    }
+}
+
+/* Loading Dots Animation */
+.loading-dots {
+    display: inline-block;
+}
+
+.loading-dots::after {
+    content: '';
+    animation: loadingDots 1.5s ease-in-out infinite;
+}
+
+@keyframes loadingDots {
+    0%, 20% {
+        content: '.';
+    }
+    40% {
+        content: '..';
+    }
+    60%, 100% {
+        content: '...';
+    }
+}
+
+/* Shake Animation for Errors */
+.shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-5px);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translateX(5px);
+    }
+}
+
+/* Glow Effect */
+.glow {
+    transition: box-shadow 0.3s ease;
+}
+
+.glow:hover {
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+}
+
+/* Ripple Effect */
+.ripple {
+    position: relative;
+    overflow: hidden;
+}
+
+.ripple::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.ripple:active::before {
+    width: 300px;
+    height: 300px;
+}
+
+/* Smooth Scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar with Animation */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--gray-800);
+    transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--gray-600);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-500);
+}
+
+/* Tab Content Transition */
+.view {
+    transition: all 0.3s ease;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.view.hidden {
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+}
+
+/* Console Auto-scroll Animation */
+.console-output {
+    scroll-behavior: smooth;
+}
+
+/* Live Connection Indicator */
+.live-connection-indicator {
+    position: relative;
+}
+
+.live-connection-indicator::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(34, 197, 94, 0.1) 50%, transparent 70%);
+    animation: liveFlow 3s linear infinite;
+}
+
+@keyframes liveFlow {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* Text Typing Animation */
+.typewriter {
+    overflow: hidden;
+    border-right: 2px solid var(--green-400);
+    white-space: nowrap;
+    animation: typing 3.5s steps(40, end), blink-caret 0.75s step-end infinite;
+}
+
+@keyframes typing {
+    from {
+        width: 0;
+    }
+    to {
+        width: 100%;
+    }
+}
+
+@keyframes blink-caret {
+    from, to {
+        border-color: transparent;
+    }
+    50% {
+        border-color: var(--green-400);
+    }
+}
+
+/* Stagger Animation for Lists */
+.stagger-item {
+    animation: staggerIn 0.5s ease-out both;
+}
+
+.stagger-item:nth-child(1) { animation-delay: 0.1s; }
+.stagger-item:nth-child(2) { animation-delay: 0.2s; }
+.stagger-item:nth-child(3) { animation-delay: 0.3s; }
+.stagger-item:nth-child(4) { animation-delay: 0.4s; }
+.stagger-item:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes staggerIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Prefers Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    .live-indicator {
+        animation: none;
+    }
+    
+    .pulse {
+        animation: none;
+    }
+    
+    .spin {
+        animation: none;
+    }
+}

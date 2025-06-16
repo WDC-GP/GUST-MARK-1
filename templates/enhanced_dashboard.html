@@ -1,201 +1,60 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GUST Bot - Enhanced with Live Console (FIXED)</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-        <style>
-    /* G-Portal Authentic Theme - Enhanced Dashboard */
-    
-    /* Import clean, modern font */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
-    /* G-Portal Color Variables */
-    :root {
-        --gp-dark-purple: #463751;
-        --gp-darker-purple: #3a2f43;
-        --gp-darkest: #2e2538;
-        --gp-cyan: #50fcea;
-        --gp-cyan-dark: #3dd9c7;
-        --gp-cyan-glow: rgba(80, 252, 234, 0.4);
-        --gp-purple-tint: #564466;
-        --gp-dark-bg: #1f1a24;
-        --gp-sidebar: #2a2433;
-        --gp-card-bg: #3a3246;
-        --gp-text: #ffffff;
-        --gp-text-dim: #a09aaa;
-        --gp-border: rgba(80, 252, 234, 0.2);
-    }
-    
-    /* Override body background with G-Portal style */
-    body {
-        background: linear-gradient(135deg, var(--gp-dark-bg) 0%, var(--gp-darkest) 50%, var(--gp-dark-purple) 100%);
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        color: var(--gp-text);
-        min-height: 100vh;
-    }
-    
-    /* Enhanced Sidebar - G-Portal Style */
-    .w-64.bg-gray-800 {
-        background: linear-gradient(180deg, var(--gp-sidebar) 0%, var(--gp-darkest) 100%);
-        border-right: 1px solid var(--gp-border);
-        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
-    }
-    
-    /* Brand Title - G-Portal Style */
-    h1.text-xl {
-        font-family: 'Inter', sans-serif;
-        font-weight: 700;
-        font-size: 1.5rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: var(--gp-cyan) !important;
-        text-shadow: 0 0 20px var(--gp-cyan-glow);
-        margin-bottom: 0.5rem;
-    }
-    
-    /* Navigation Tabs - G-Portal Style */
-    .nav-tab {
-        font-family: 'Inter', sans-serif;
-        font-weight: 500;
-        background: rgba(70, 55, 81, 0.3);
-        border: 1px solid transparent;
-        color: var(--gp-text-dim);
-        transition: all 0.2s ease;
-        position: relative;
-        overflow: hidden;
-        margin-bottom: 0.25rem;
-    }
-    
-    .nav-tab:hover:not(.active) {
-        background: rgba(70, 55, 81, 0.5);
-        color: var(--gp-text);
-        border-color: rgba(80, 252, 234, 0.1);
-        transform: translateX(3px);
-    }
-    
-    /* Active nav tab - G-Portal cyan */
-    .nav-tab.active {
-        background: linear-gradient(90deg, rgba(80, 252, 234, 0.15) 0%, rgba(80, 252, 234, 0.05) 100%);
-        border: 1px solid var(--gp-cyan);
-        color: var(--gp-cyan);
-        font-weight: 600;
-        box-shadow: 
-            inset 0 0 20px rgba(80, 252, 234, 0.1),
-            0 0 10px rgba(80, 252, 234, 0.3);
-    }
-    
-    .nav-tab.active::before {
-        content: '';
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 3px;
-        background: var(--gp-cyan);
-        box-shadow: 0 0 10px var(--gp-cyan-glow);
-    }
-    
-    /* Cards/Panels - G-Portal style */
-    .bg-gray-800 {
-        background: linear-gradient(135deg, var(--gp-card-bg) 0%, rgba(70, 55, 81, 0.5) 100%);
-        border: 1px solid rgba(80, 252, 234, 0.1);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        backdrop-filter: blur(10px);
-    }
-    
-    /* Buttons - G-Portal style */
-    .bg-yellow-600, .bg-purple-600, .bg-orange-600 {
-        background: var(--gp-cyan) !important;
-        color: var(--gp-darkest) !important;
-        border: none;
-        font-weight: 600;
-    }
-    
-    .bg-yellow-600:hover, .bg-purple-600:hover, .bg-orange-600:hover {
-        background: var(--gp-cyan-dark) !important;
-        box-shadow: 0 4px 15px rgba(80, 252, 234, 0.4);
-        transform: translateY(-1px);
-    }
-    
-    /* Input fields - G-Portal style */
-    input, select, textarea {
-        background: var(--gp-darkest) !important;
-        border: 1px solid rgba(80, 252, 234, 0.2) !important;
-        color: var(--gp-text) !important;
-        font-family: 'Inter', sans-serif;
-    }
-    
-    input:focus, select:focus, textarea:focus {
-        border-color: var(--gp-cyan) !important;
-        box-shadow: 0 0 0 3px rgba(80, 252, 234, 0.1) !important;
-        outline: none !important;
-    }
-    
-    /* Console styling */
-    .bg-black {
-        background: var(--gp-darkest) !important;
-        border: 1px solid var(--gp-border);
-    }
-    
-    /* Console messages */
-    .message-type-command { 
-        border-left-color: var(--gp-cyan) !important;
-    }
-    
-    /* Headers */
-    h2.text-3xl {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--gp-cyan) !important;
-        text-shadow: 0 0 20px var(--gp-cyan-glow);
-    }
-    
-    /* Status indicators */
-    .text-green-400 {
-        color: var(--gp-cyan) !important;
-        text-shadow: 0 0 5px var(--gp-cyan-glow);
-    }
-    
-    /* Stat cards */
-    .text-4xl {
-        font-family: 'Inter', sans-serif;
-        font-weight: 700;
-        color: var(--gp-cyan) !important;
-        text-shadow: 0 0 15px var(--gp-cyan-glow);
-    }
-    
-    /* Additional G-Portal touches */
-    .text-purple-400, .text-orange-500, .text-orange-400 {
-        color: var(--gp-cyan) !important;
-    }
-    
-    /* Scrollbar */
-    ::-webkit-scrollbar {
-        width: 8px;
-        background: var(--gp-darkest);
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: var(--gp-dark-purple);
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: var(--gp-purple-tint);
-        border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: var(--gp-cyan);
-    }
-</style>
+    <style>
+        .nav-tab {
+            transition: all 0.2s ease;
+        }
+        .nav-tab.active {
+            background: linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%);
+        }
+        .live-indicator {
+            animation: pulse 2s infinite;
+        }
+        .message-type-chat { border-left: 4px solid #3B82F6; }
+        .message-type-auth { border-left: 4px solid #10B981; }
+        .message-type-save { border-left: 4px solid #F59E0B; }
+        .message-type-error { border-left: 4px solid #EF4444; }
+        .message-type-system { border-left: 4px solid #6B7280; }
+        .message-type-command { border-left: 4px solid #8B5CF6; }
+        .message-type-player { border-left: 4px solid #06B6D4; }
+        .message-type-kill { border-left: 4px solid #DC2626; }
+        .message-type-warning { border-left: 4px solid #F59E0B; }
+        .message-type-event { border-left: 4px solid #F59E0B; }
+        .message-type-ban { border-left: 4px solid #DC2626; }
+        
+        /* Console live message styling */
+        .console-live-message {
+            position: relative;
+            padding-left: 8px;
+        }
+        .console-live-message::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: #06B6D4;
+            border-radius: 2px;
+        }
+        .console-live-message.message-type-chat::before { background: #3B82F6; }
+        .console-live-message.message-type-auth::before { background: #10B981; }
+        .console-live-message.message-type-save::before { background: #F59E0B; }
+        .console-live-message.message-type-error::before { background: #EF4444; }
+        .console-live-message.message-type-kill::before { background: #DC2626; }
+        .console-live-message.message-type-warning::before { background: #F59E0B; }
+    </style>
 </head>
 <body class="bg-gray-900 text-white">
     <div class="flex h-screen">
         <!-- Sidebar -->
         <div class="w-64 bg-gray-800 p-4 overflow-y-auto">
-            <h1 class="text-xl font-bold text-cyan-400 mb-2">🚀 GUST Enhanced</h1>
+            <h1 class="text-xl font-bold text-purple-400 mb-2">🚀 GUST Enhanced</h1>
             <div class="text-xs text-green-400 mb-6">✅ KOTH Fixed + Live Console FIXED</div>
             
             <!-- Navigation Tabs -->
@@ -302,7 +161,7 @@
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <div class="bg-gray-800 p-6 rounded-lg">
-                        <h3 class="text-lg font-semibold text-cyan-400">Active Servers</h3>
+                        <h3 class="text-lg font-semibold text-purple-400">Active Servers</h3>
                         <p class="text-3xl font-bold" id="activeServers">0</p>
                     </div>
                     <div class="bg-gray-800 p-6 rounded-lg">
@@ -323,7 +182,7 @@
                     <h3 class="text-xl font-semibold mb-4">Enhanced GUST Bot Features</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="bg-gray-700 p-4 rounded">
-                            <h4 class="font-semibold text-cyan-400 mb-3">Core Features</h4>
+                            <h4 class="font-semibold text-purple-400 mb-3">Core Features</h4>
                             <ul class="text-sm text-gray-300 space-y-1">
                                 <li>• ✅ Working G-Portal API commands</li>
                                 <li>• 🎯 Fixed KOTH events (vanilla compatible)</li>
@@ -507,7 +366,7 @@
                             <!-- No servers message -->
                             <div class="mb-4">
                                 <div class="text-sm text-gray-400">
-                                    No servers? <button onclick="showTab('server-manager')" class="text-cyan-400 hover:text-purple-300 underline">Add servers in Server Manager</button>
+                                    No servers? <button onclick="showTab('server-manager')" class="text-purple-400 hover:text-purple-300 underline">Add servers in Server Manager</button>
                                 </div>
                             </div>
                             
@@ -530,7 +389,7 @@
                                     All servers from Server Manager are automatically connected for live monitoring.
                                 </div>
                                 <div class="text-xs text-blue-300 mt-2">
-                                    Add servers in <button onclick="showTab('server-manager')" class="text-cyan-400 hover:text-purple-300 underline">Server Manager</button> to see them here.
+                                    Add servers in <button onclick="showTab('server-manager')" class="text-purple-400 hover:text-purple-300 underline">Server Manager</button> to see them here.
                                 </div>
                             </div>
                         </div>
@@ -578,7 +437,7 @@
                                     <option value="">Choose a server...</option>
                                 </select>
                                 <div class="text-sm text-gray-400 mt-1">
-                                    No servers? <button onclick="showTab('server-manager')" class="text-cyan-400 hover:text-purple-300 underline">Add servers here</button>
+                                    No servers? <button onclick="showTab('server-manager')" class="text-purple-400 hover:text-purple-300 underline">Add servers here</button>
                                 </div>
                             </div>
                             <input type="number" id="eventDuration" placeholder="Duration (minutes)" value="30" class="w-full bg-gray-700 p-3 rounded">
@@ -680,7 +539,7 @@
                                     <option value="">Choose a server...</option>
                                 </select>
                                 <div class="text-sm text-gray-400 mt-1">
-                                    No servers? <button onclick="showTab('server-manager')" class="text-cyan-400 hover:text-purple-300 underline">Manage servers</button>
+                                    No servers? <button onclick="showTab('server-manager')" class="text-purple-400 hover:text-purple-300 underline">Manage servers</button>
                                 </div>
                             </div>
                             <textarea id="clanDescription" placeholder="Description" class="w-full bg-gray-700 p-3 rounded h-20"></textarea>
@@ -708,7 +567,7 @@
                                     <option value="">Choose a server...</option>
                                 </select>
                                 <div class="text-sm text-gray-400 mt-1">
-                                    No servers? <button onclick="showTab('server-manager')" class="text-cyan-400 hover:text-purple-300 underline">Manage servers</button>
+                                    No servers? <button onclick="showTab('server-manager')" class="text-purple-400 hover:text-purple-300 underline">Manage servers</button>
                                 </div>
                             </div>
                             <input type="number" id="banDuration" placeholder="Duration (minutes)" class="w-full bg-gray-700 p-3 rounded">
