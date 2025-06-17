@@ -9,7 +9,7 @@
 
 **Complete Rust Server Management Solution with Real-time Monitoring & Logs**
 
-[Quick Start](#-quick-start) • [Features](#-features) • [Demo](#-demo) • [Documentation](documentation.md)
+[Quick Start](#-quick-start) • [Features](#-features) • [Demo](#-demo) • [Documentation](DOCUMENTATION.md)
 
 </div>
 
@@ -107,7 +107,7 @@ pip install websockets
 ### 📚 Complete Documentation
 For detailed information, see our comprehensive documentation:
 
-**[📋 Complete Documentation](documentation.md)**
+**[📋 Complete Documentation](DOCUMENTATION.md)**
 
 Includes:
 - Detailed setup instructions
@@ -147,6 +147,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for the Rust community**
 
-[⭐ Star this repo](https://github.com/WDC-GP/GUST-MARK-1) • [🍴 Fork it](https://github.com/WDC-GP/GUST-MARK-1/fork) • [📖 Full Documentation](documentation.md)
+[⭐ Star this repo](https://github.com/WDC-GP/GUST-MARK-1) • [🍴 Fork it](https://github.com/WDC-GP/GUST-MARK-1/fork) • [📖 Full Documentation](DOCUMENTATION.md)
 
 </div>
