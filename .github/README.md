@@ -9,7 +9,7 @@
 
 **Complete Rust Server Management Solution with Real-time Monitoring & Logs**
 
-[Quick Start](#-quick-start) • [Features](#-features) • [Demo](#-demo) • [Documentation](.github/documentation.md)
+[Quick Start](#-quick-start) • [Features](#-features) • [Demo](#-demo) • [Documentation](documentation.md)
 
 </div>
 
@@ -107,7 +107,7 @@ pip install websockets
 ### 📚 Complete Documentation
 For detailed information, see our comprehensive documentation:
 
-**[📋 Complete Documentation](.github/documentation.md)**
+**[📋 Complete Documentation](documentation.md)**
 
 Includes:
 - Detailed setup instructions
@@ -119,13 +119,13 @@ Includes:
 - Security best practices
 
 ### 🎨 Additional Resources
-- [Theme Customization](.github/THEME_QUICK_REF.md)
-- [Contributing Guidelines](.github/CONTRIBUTING.md)
-- [API Reference](.github/API_REFERENCE.md)
+- [Theme Customization](THEME_QUICK_REF.md)
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [API Reference](API_REFERENCE.md)
 
 ## 🤝 Contributing
 
-We welcome contributions! See [Contributing Guidelines](.github/CONTRIBUTING.md) for:
+We welcome contributions! See [Contributing Guidelines](CONTRIBUTING.md) for:
 - Development setup
 - Code standards
 - Testing procedures
@@ -147,6 +147,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for the Rust community**
 
-[⭐ Star this repo](https://github.com/WDC-GP/GUST-MARK-1) • [🍴 Fork it](https://github.com/WDC-GP/GUST-MARK-1/fork) • [📖 Full Documentation](.github/documentation.md)
+[⭐ Star this repo](https://github.com/WDC-GP/GUST-MARK-1) • [🍴 Fork it](https://github.com/WDC-GP/GUST-MARK-1/fork) • [📖 Full Documentation](documentation.md)
 
 </div>
