@@ -1,5 +1,87 @@
-<!-- Dashboard View Content --> 
-<div id="dashboard-view" class="view"> 
-    <h2 class="text-3xl font-bold mb-6">📊 Dashboard</h2> 
-    <!-- Dashboard content will be moved here --> 
-</div> 
+﻿<!-- ============================================================================
+     GUST Bot Enhanced - dashboard View Component
+     ============================================================================
+     Extracted from enhanced_dashboard.html on 2025-06-17 12:20:33
+     
+     This view contains the complete tab content for the dashboard section.
+     Advanced boundary detection used to ensure complete content extraction.
+     ============================================================================ -->
+
+<div id="dashboard-view" class="view">
+                <h2 class="text-3xl font-bold mb-6">GUST Bot Enhanced Dashboard</h2>
+                
+                <!-- Feature Highlights -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-green-800 border border-green-600 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-green-300 mb-2">✅ KOTH Events Fixed!</h3>
+                        <p class="text-green-200 mb-3">KOTH events now work with vanilla Rust servers - no plugins required!</p>
+                        <ul class="text-sm text-green-200">
+                            <li>• Uses only standard Rust console commands</li>
+                            <li>• 5-minute preparation countdown</li>
+                            <li>• 28+ arena location options</li>
+                            <li>• Automatic reward distribution</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="bg-blue-800 border border-blue-600 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-blue-300 mb-2">📺 Auto Live Console!</h3>
+                        <p class="text-blue-200 mb-3" id="liveConsoleDescription">Automatically connects to all servers for real-time monitoring.</p>
+                        <ul class="text-sm text-blue-200" id="liveConsoleFeatures">
+                            <li>• Automatic connection to all servers ✅</li>
+                            <li>• Real-time message streaming ✅</li>
+                            <li>• Auto-reconnection if disconnected ✅</li>
+                            <li>• Combined console display ✅</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-gray-800 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-purple-400">Active Servers</h3>
+                        <p class="text-3xl font-bold" id="activeServers">0</p>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-green-400">Active Events</h3>
+                        <p class="text-3xl font-bold" id="activeEvents">0</p>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-yellow-400">Total Clans</h3>
+                        <p class="text-3xl font-bold" id="totalClans">0</p>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-blue-400">Live Connections</h3>
+                        <p class="text-3xl font-bold" id="liveConnections">0</p>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold mb-4">Enhanced GUST Bot Features</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-gray-700 p-4 rounded">
+                            <h4 class="font-semibold text-purple-400 mb-3">Core Features</h4>
+                            <ul class="text-sm text-gray-300 space-y-1">
+                                <li>• ✅ Working G-Portal API commands</li>
+                                <li>• 🎯 Fixed KOTH events (vanilla compatible)</li>
+                                <li>• 📺 Auto live console monitoring (all servers)</li>
+                                <li>• 💰 Economy & gambling systems</li>
+                                <li>• 🛡️ Clan management tools</li>
+                                <li>• 🚫 User administration & bans</li>
+                            </ul>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded">
+                            <h4 class="font-semibold text-green-400 mb-3">System Status</h4>
+                            <ul class="text-sm text-gray-300 space-y-1">
+                                <li id="dbStatus">• Database: Checking...</li>
+                                <li id="tokenStatus">• G-Portal Token: Checking...</li>
+                                <li id="modeStatus">• Mode: Checking...</li>
+                                <li id="websocketStatus">• WebSocket Support: Checking...</li>
+                                <li class="text-green-400">• KOTH Events: Fixed ✅</li>
+                                <li class="text-green-400">• Auto Live Console: Enabled ✅</li>
+                            </ul>
+                            <button onclick="refreshToken()" id="refreshTokenBtn" class="mt-3 bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-xs hidden">
+                                Refresh Token
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>

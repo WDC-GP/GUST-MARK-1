@@ -1,4 +1,82 @@
-<!-- Navigation Sidebar Component --> 
-<div class="w-64 bg-gray-800 p-4 overflow-y-auto"> 
-    <!-- Sidebar content will be moved here --> 
-</div> 
+﻿<!-- ============================================================================
+     GUST Bot Enhanced - Sidebar Navigation Component
+     ============================================================================
+     Extracted from enhanced_dashboard.html on 2025-06-17 12:20:33
+     
+     This component contains the main navigation sidebar with all tabs.
+     ============================================================================ -->
+
+<div class="w-64 bg-gray-800 p-4 overflow-y-auto">
+            <h1 class="text-xl font-bold text-purple-400 mb-2">🚀 GUST Enhanced</h1>
+            <div class="text-xs text-green-400 mb-6">✅ KOTH Fixed + Live Console FIXED</div>
+            
+            <!-- Navigation Tabs -->
+            <div class="mb-6">
+                <h3 class="text-sm font-semibold mb-3 text-gray-400">Navigation</h3>
+                <div class="space-y-2">
+                    <button onclick="showTab('dashboard')" 
+                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700 active" 
+                            id="dashboard-tab">
+                        📊 Dashboard
+                    </button>
+                    <button onclick="showTab('server-manager')" 
+                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                            id="server-manager-tab">
+                        🖥️ Server Manager
+                    </button>
+                    <button onclick="showTab('console')" 
+                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                            id="console-tab">
+                        🔧 Console & Live Monitor
+                    </button>
+                    <button onclick="showTab('events')" 
+                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                            id="events-tab">
+                        🎯 Events
+                    </button>
+                    <button onclick="showTab('economy')" 
+                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                            id="economy-tab">
+                        💰 Economy
+                    </button>
+                    <button onclick="showTab('gambling')" 
+                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                            id="gambling-tab">
+                        🎰 Gambling
+                    </button>
+                    <button onclick="showTab('clans')" 
+                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                            id="clans-tab">
+                        🛡️ Clans
+                    </button>
+                    <button onclick="showTab('bans')" 
+                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                            id="bans-tab">
+                        🚫 User Mgmt
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Live Status -->
+            <div class="mb-6 p-3 bg-gray-700 rounded">
+                <h3 class="text-sm font-semibold mb-2">📡 System Status</h3>
+                <div id="systemStatus" class="text-sm">
+                    <div class="text-gray-400">Loading...</div>
+                </div>
+                <div id="liveIndicator" class="flex items-center mt-2">
+                    <div class="w-3 h-3 bg-gray-500 rounded-full mr-2"></div>
+                    <span class="text-xs">Ready</span>
+                </div>
+            </div>
+            
+            <!-- Live Console Test Button -->
+            <div class="mb-6">
+                <button onclick="testLiveConsole()" class="w-full bg-blue-600 hover:bg-blue-700 p-2 rounded text-sm">
+                    🔍 Test Live Console
+                </button>
+            </div>
+            
+            <div class="mt-auto pt-8">
+                <a href="/logout" class="block p-2 rounded hover:bg-red-700 text-red-400">🚪 Logout</a>
+            </div>
+        </div>
