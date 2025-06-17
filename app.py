@@ -1,4 +1,4 @@
-"""
+﻿"""
 GUST Bot Enhanced - Main Flask Application
 =========================================
 Main application class that combines all components
@@ -23,12 +23,19 @@ from utils.helpers import load_token, format_command, validate_server_id, valida
 # Import systems
 from systems.koth import VanillaKothSystem
 
-# Import WebSocket components
-if WEBSOCKETS_AVAILABLE:
-    from websocket.manager import WebSocketManager
 
 # Import route blueprints
 from routes.auth import auth_bp
+from routes.servers import init_servers_routes
+from routes.events import init_events_routes
+from routes.economy import init_economy_routes
+from routes.gambling import init_gambling_routes
+from routes.clans import init_clans_routes
+from routes.users import init_users_routes
+from routes.logs import init_logs_routes
+# Import WebSocket components
+if WEBSOCKETS_AVAILABLE:
+    from websocket.manager import WebSocketManager
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +63,17 @@ class GustBotEnhanced:
         self.economy = {}
         self.clans = []
         self.console_output = deque(maxlen=Config.CONSOLE_MESSAGE_BUFFER_SIZE)
+        self.gambling_history = []
+        self.managed_servers = []
+        self.event_history = []
+        self.transaction_history = []
+        self.logs = []
+        self.gambling = []
+        self.users = []
+        self.live_connections = {}
+        self.gambling = []
+        self.users = []
+        self.live_connections = {}
         
         # Database connection (optional)
         self.init_database()
@@ -107,15 +125,30 @@ class GustBotEnhanced:
             self.db = None
     
     def setup_routes(self):
-        """Setup Flask routes and blueprints"""
-        
-        # Register authentication blueprint
+        """Setup Flask routes and blueprints"""                # Register authentication blueprint
         self.app.register_blueprint(auth_bp)
-        
-        # Import and register other route blueprints
-        from routes.servers import init_servers_routes
+
+        # Register other route blueprints
         servers_bp = init_servers_routes(self.app, self.db, self.servers)
         self.app.register_blueprint(servers_bp)
+
+        events_bp = init_events_routes(self.app, self.db, self.events, self.vanilla_koth, self.console_output)
+        self.app.register_blueprint(events_bp)
+
+        economy_bp = init_economy_routes(self.app, self.db, self.economy)
+        self.app.register_blueprint(economy_bp)
+
+        gambling_bp = init_gambling_routes(self.app, self.db, self.gambling)
+        self.app.register_blueprint(gambling_bp)
+
+        clans_bp = init_clans_routes(self.app, self.db, self.clans)
+        self.app.register_blueprint(clans_bp)
+
+        users_bp = init_users_routes(self.app, self.db, self.users, self.console_output)
+        self.app.register_blueprint(users_bp)
+        # Logs routes
+        logs_bp = init_logs_routes(self.app, self.db, self.logs)
+        self.app.register_blueprint(logs_bp)
         
         # Setup main routes
         @self.app.route('/')
@@ -812,3 +845,11 @@ class GustBotEnhanced:
                 self.websocket_manager.stop()
         except Exception as e:
             logger.error(f"\n❌ Error: {e}")
+
+
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-"""
+﻿"""
 GUST Bot Enhanced - Configuration Settings
 ==========================================
 All configuration settings and dependency checks
@@ -200,3 +200,8 @@ def print_startup_info(websockets_available, mongodb_available):
     print("🚀 Starting enhanced GUST bot...")
     print("Press Ctrl+C to stop the server")
     print("=" * 80)
+
+    # Logs Configuration
+    LOGS_DIRECTORY = 'logs'
+    MAX_LOG_FILES = 50
+    LOG_RETENTION_DAYS = 30

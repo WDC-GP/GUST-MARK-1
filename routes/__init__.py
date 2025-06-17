@@ -1,4 +1,4 @@
-"""
+﻿"""
 GUST Bot Enhanced - Routes Package
 =================================
 Flask route blueprints for different features
@@ -11,6 +11,7 @@ This package contains all Flask route blueprints organized by functionality:
 - Gambling games
 - Clan management
 - User administration and moderation
+- Server logs management
 
 Each route module is designed to be modular and can be used independently.
 """
@@ -22,6 +23,7 @@ from .economy import init_economy_routes
 from .gambling import init_gambling_routes
 from .clans import init_clans_routes
 from .users import init_users_routes
+from .logs import init_logs_routes
 
 __all__ = [
     'auth_bp',
@@ -31,6 +33,7 @@ __all__ = [
     'init_gambling_routes',
     'init_clans_routes',
     'init_users_routes',
+    'init_logs_routes',
     'get_routes_info',
     'register_all_routes'
 ]
@@ -100,10 +103,17 @@ def get_routes_info():
                 'description': 'User administration and moderation',
                 'endpoints': ['temp_ban', 'permanent_ban', 'unban', 'give_items'],
                 'features': ['ban_management', 'item_giving', 'user_history']
+            },
+            {
+                'name': 'logs',
+                'blueprint': 'logs_bp',
+                'description': 'Server log management operations',
+                'endpoints': ['get_logs', 'download_logs', 'refresh_logs', 'download_log_file'],
+                'features': ['api_integration', 'log_parsing', 'file_downloads']
             }
         ],
-        'total_modules': 7,
-        'initialization_required': ['servers', 'events', 'economy', 'gambling', 'clans', 'users'],
+        'total_modules': 8,
+        'initialization_required': ['servers', 'events', 'economy', 'gambling', 'clans', 'users', 'logs'],
         'direct_blueprints': ['auth']
     }
 
@@ -114,7 +124,7 @@ def register_all_routes(app, **kwargs):
     Args:
         app: Flask application instance
         **kwargs: Dependencies for route initialization (db, storage objects, etc.)
-    
+        
     Returns:
         dict: Registration results for each route module
     """
@@ -136,7 +146,8 @@ def register_all_routes(app, **kwargs):
             'economy': init_economy_routes,
             'gambling': init_gambling_routes,
             'clans': init_clans_routes,
-            'users': init_users_routes
+            'users': init_users_routes,
+            'logs': init_logs_routes
         }
         
         for route_name, initializer in route_initializers.items():
@@ -193,7 +204,7 @@ def validate_route_dependencies(**kwargs):
     Returns:
         tuple: (is_valid, missing_dependencies)
     """
-    required_deps = ['db', 'servers_storage', 'events_storage', 'economy_storage', 'clans_storage']
+    required_deps = ['db', 'servers_storage', 'events_storage', 'economy_storage', 'clans_storage', 'logs_storage']
     optional_deps = ['console_output', 'vanilla_koth', 'gust_bot']
     
     missing = []
