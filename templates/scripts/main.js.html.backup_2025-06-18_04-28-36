@@ -310,22 +310,10 @@ ${data.error ? 'Error: ' + data.error : 'Working!'}`;
         // CENTRALIZED SERVER MANAGEMENT FUNCTIONS
         // ===========================================
         
-                async function loadManagedServers() {
+        async function loadManagedServers() {
             try {
                 const response = await fetch('/api/servers');
-                let servers = await response.json();
-                
-                // CRITICAL FIX: Store in both local AND global variables
-                managedServers = servers;
-                window.managedServers = servers;  // ← THIS IS THE KEY FIX
-                
-                // If no servers found, create demo servers for testing
-                if (servers.length === 0) {
-                    console.log('🎭 No servers found, creating demo servers...');
-                    servers = await createDemoServersIfNeeded();
-                    managedServers = servers;
-                    window.managedServers = servers;
-                }
+                managedServers = await response.json();
                 
                 // Update all server dropdowns
                 updateAllServerDropdowns();
@@ -337,7 +325,6 @@ ${data.error ? 'Error: ' + data.error : 'Working!'}`;
             } catch (error) {
                 console.error('Error loading managed servers:', error);
                 managedServers = [];
-                window.managedServers = [];  // ← Also set global to empty array
             }
         }
         
@@ -1439,29 +1426,4 @@ Check console for announcements.`);
         
         // Initialize
         loadDashboard();
-        // ===================================================================
-        // SERVER LOADING FIX - PREVENTION STRATEGY
-        // ===================================================================
-        // Auto-fix server loading on page load to prevent User Management issues
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(() => {
-                if (!window.managedServers || window.managedServers.length === 0) {
-                    console.log('🔄 Auto-fixing server loading for User Management...');
-                    loadManagedServers();
-                }
-            }, 2000);
-        });
-        
-        // Additional fix for tab switching
-        document.addEventListener('tabChanged', function(e) {
-            if (e.detail && e.detail.tabId === 'user-management') {
-                if (!window.managedServers || window.managedServers.length === 0) {
-                    console.log('🔄 Loading servers for User Management tab...');
-                    loadManagedServers();
-                }
-            }
-        });
-        
-        console.log('✅ GUST Server Loading Fix Applied - User Management server selection will work correctly');
 </script>

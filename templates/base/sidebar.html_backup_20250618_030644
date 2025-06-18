@@ -49,12 +49,6 @@
                             id="clans-tab">
                         🛡️ Clans
                     </button>
-                    <button onclick="showTab('user-management')" 
-                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
-                            id="user-management-tab">
-                        👤 User Management
-                    </button>
-                    </button>
                     
         <button onclick="showLogsTab()" class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" id="logs-tab">
             📋 Server Logs

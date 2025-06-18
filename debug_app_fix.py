@@ -1,4 +1,26 @@
+#!/usr/bin/env python3
 """
+Debug app.py to find where user_storage becomes None
+====================================================
+Adds extensive debugging to track the user_storage issue
+"""
+
+import os
+import shutil
+from datetime import datetime
+
+def create_debug_app():
+    """Create debug version of app.py with extensive logging"""
+    
+    print("🔍 Creating debug version of app.py...")
+    
+    # Create backup
+    if os.path.exists("app.py"):
+        backup_file = f"app_backup_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py"
+        shutil.copy2("app.py", backup_file)
+        print(f"✅ Created backup: {backup_file}")
+    
+    debug_content = '''"""
 GUST Bot Enhanced - DEBUG VERSION
 =================================
 Debug version with extensive user_storage tracking
@@ -12,7 +34,7 @@ import schedule
 import secrets
 from datetime import datetime, timedelta
 from collections import deque
-from flask import Flask, render_template, session, redirect, url_for, jsonify, request
+from flask import Flask, render_template, session, redirect, url_for, jsonify
 import logging
 
 # Debug function to track user_storage
@@ -328,331 +350,6 @@ class GustBotEnhanced:
         
         debug_user_storage("After main route", self.user_storage)
         
-        # ===========================================
-        # MISSING DIRECT ROUTES (Added to fix 404 errors)
-        # ===========================================
-        print("🔍 DEBUG: Adding missing direct routes (not covered by blueprints)")
-        
-        # Import auth decorator for protected routes
-        from routes.auth import require_auth
-        
-        # ===========================================
-        # HEALTH CHECK ENDPOINT
-        # ===========================================
-        @self.app.route('/health')
-        def health_check():
-            """Enhanced health check endpoint"""
-            try:
-                health_data = {
-                    'status': 'healthy',
-                    'timestamp': datetime.now().isoformat(),
-                    'version': '1.0.0',
-                    'uptime': 'active',
-                    'database': 'MongoDB' if self.db else 'InMemoryStorage',
-                    'websockets_available': WEBSOCKETS_AVAILABLE,
-                    'live_connections': len(getattr(self.websocket_manager, 'connections', {})) if hasattr(self, 'websocket_manager') and self.websocket_manager else 0,
-                    'managed_servers': len(self.servers),
-                    'user_storage_type': type(self.user_storage).__name__ if self.user_storage else 'None',
-                    'features': {
-                        'user_management': bool(self.user_storage and hasattr(self.user_storage, 'register')),
-                        'console_commands': True,
-                        'live_console': WEBSOCKETS_AVAILABLE,
-                        'event_management': hasattr(self, 'vanilla_koth'),
-                        'clan_management': True,
-                        'economy_system': True,
-                        'gambling_system': True
-                    }
-                }
-                return jsonify(health_data)
-            except Exception as e:
-                return jsonify({
-                    'status': 'error',
-                    'timestamp': datetime.now().isoformat(),
-                    'error': str(e)
-                }), 500
-        
-        # ===========================================
-        # CONSOLE ENDPOINTS (Direct routes)
-        # ===========================================
-        @self.app.route('/api/console/output')
-        @require_auth
-        def get_console_output():
-            """Get console output"""
-            try:
-                output = []
-                if hasattr(self, 'console_output') and self.console_output:
-                    output = list(self.console_output)
-                else:
-                    output = [
-                        {
-                            'timestamp': datetime.now().isoformat(),
-                            'message': 'GUST Bot Console - Ready',
-                            'status': 'system',
-                            'source': 'console_system',
-                            'type': 'system'
-                        }
-                    ]
-                return jsonify(output)
-            except Exception as e:
-                return jsonify([{
-                    'timestamp': datetime.now().isoformat(),
-                    'message': f'Console output error: {str(e)}',
-                    'status': 'error',
-                    'source': 'console_system',
-                    'type': 'error'
-                }]), 500
-        
-        @self.app.route('/api/console/send', methods=['POST'])
-        @require_auth
-        def send_console_command():
-            """Send console command"""
-            try:
-                data = request.json or {}
-                command = data.get('command', '').strip()
-                server_id = data.get('serverId')
-                region = data.get('region', 'US')
-                
-                if not command or not server_id:
-                    return jsonify({'success': False, 'error': 'Command and server ID required'})
-                
-                # Add command to console output
-                if hasattr(self, 'console_output'):
-                    self.console_output.append({
-                        'timestamp': datetime.now().isoformat(),
-                        'command': command,
-                        'server_id': server_id,
-                        'status': 'sent',
-                        'source': 'console_api',
-                        'type': 'command'
-                    })
-                
-                # For demo mode, always return success
-                return jsonify({
-                    'success': True,
-                    'message': f'Command sent to server {server_id}',
-                    'command': command,
-                    'server_id': server_id,
-                    'demo_mode': not bool(self.db)
-                })
-                
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                })
-        
-        # ===========================================
-        # LIVE CONSOLE ENDPOINTS
-        # ===========================================
-        @self.app.route('/api/console/live/connect', methods=['POST'])
-        @require_auth
-        def connect_live_console():
-            """Connect to live console WebSocket"""
-            try:
-                data = request.json or {}
-                server_id = data.get('serverId')
-                region = data.get('region', 'US')
-                
-                if not server_id:
-                    return jsonify({'success': False, 'error': 'Server ID required'})
-                
-                # If WebSockets not available, return appropriate message
-                if not WEBSOCKETS_AVAILABLE:
-                    return jsonify({
-                        'success': False,
-                        'error': 'WebSocket support not available. Install with: pip install websockets',
-                        'websockets_available': False
-                    })
-                
-                # If WebSocket manager not available
-                if not hasattr(self, 'websocket_manager') or not self.websocket_manager:
-                    return jsonify({
-                        'success': False,
-                        'error': 'WebSocket manager not initialized',
-                        'websockets_available': WEBSOCKETS_AVAILABLE
-                    })
-                
-                # For demo mode, simulate connection
-                if not hasattr(self, 'db') or not self.db:
-                    return jsonify({
-                        'success': True,
-                        'message': f'Demo mode: Simulated connection to server {server_id}',
-                        'server_id': server_id,
-                        'demo_mode': True
-                    })
-                
-                # TODO: Implement actual WebSocket connection logic
-                return jsonify({
-                    'success': True,
-                    'message': f'Connected to server {server_id}',
-                    'server_id': server_id
-                })
-                
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                })
-        
-        @self.app.route('/api/console/live/disconnect', methods=['POST'])
-        @require_auth
-        def disconnect_live_console():
-            """Disconnect from live console WebSocket"""
-            try:
-                data = request.json or {}
-                server_id = data.get('serverId')
-                
-                if not server_id:
-                    return jsonify({'success': False, 'error': 'Server ID required'})
-                
-                # For demo mode or when WebSockets not available
-                return jsonify({
-                    'success': True,
-                    'message': f'Disconnected from server {server_id}',
-                    'server_id': server_id
-                })
-                
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                })
-        
-        @self.app.route('/api/console/live/status')
-        @require_auth
-        def get_live_console_status():
-            """Get live console connection status"""
-            try:
-                status = {
-                    'websockets_available': WEBSOCKETS_AVAILABLE,
-                    'connections': {},
-                    'total_connections': 0,
-                    'manager_running': False
-                }
-                
-                if hasattr(self, 'websocket_manager') and self.websocket_manager:
-                    # Get actual status if WebSocket manager exists
-                    status.update({
-                        'manager_running': True,
-                        'connections': getattr(self.websocket_manager, 'connections', {}),
-                        'total_connections': len(getattr(self.websocket_manager, 'connections', {}))
-                    })
-                
-                return jsonify(status)
-                
-            except Exception as e:
-                return jsonify({
-                    'websockets_available': WEBSOCKETS_AVAILABLE,
-                    'connections': {},
-                    'total_connections': 0,
-                    'error': str(e)
-                })
-        
-        @self.app.route('/api/console/live/messages')
-        @require_auth
-        def get_live_console_messages():
-            """Get live console messages"""
-            try:
-                server_id = request.args.get('serverId')
-                limit = int(request.args.get('limit', 50))
-                message_type = request.args.get('type')
-                
-                messages = []
-                
-                # Return demo messages for now
-                messages = [
-                    {
-                        'timestamp': datetime.now().isoformat(),
-                        'message': 'Live console monitoring ready',
-                        'type': 'system',
-                        'server_id': server_id or 'all',
-                        'source': 'live_console'
-                    }
-                ]
-                
-                return jsonify({
-                    'messages': messages,
-                    'count': len(messages),
-                    'server_id': server_id,
-                    'timestamp': datetime.now().isoformat(),
-                    'websockets_available': WEBSOCKETS_AVAILABLE
-                })
-                
-            except Exception as e:
-                return jsonify({
-                    'messages': [],
-                    'count': 0,
-                    'error': str(e),
-                    'websockets_available': WEBSOCKETS_AVAILABLE
-                })
-        
-        @self.app.route('/api/console/live/test')
-        @require_auth
-        def test_live_console():
-            """Test live console functionality"""
-            try:
-                test_result = {
-                    'success': True,
-                    'websockets_available': WEBSOCKETS_AVAILABLE,
-                    'timestamp': datetime.now().isoformat(),
-                    'connections': {},
-                    'total_connections': 0,
-                    'recent_messages': [],
-                    'message_count': 0,
-                    'status': 'Live console test completed successfully'
-                }
-                
-                if hasattr(self, 'websocket_manager') and self.websocket_manager:
-                    test_result.update({
-                        'manager_available': True,
-                        'connections': getattr(self.websocket_manager, 'connections', {}),
-                        'total_connections': len(getattr(self.websocket_manager, 'connections', {}))
-                    })
-                else:
-                    test_result.update({
-                        'manager_available': False,
-                        'note': 'WebSocket manager not available - using demo mode'
-                    })
-                
-                return jsonify(test_result)
-                
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': str(e),
-                    'websockets_available': WEBSOCKETS_AVAILABLE,
-                    'timestamp': datetime.now().isoformat()
-                })
-        
-        # ===========================================
-        # CLANS ENDPOINT (Direct route)
-        # ===========================================
-        @self.app.route('/api/clans')
-        @require_auth
-        def get_clans():
-            """Get list of clans"""
-            try:
-                clans = []
-                if self.db:
-                    clans = list(self.db.clans.find({}, {'_id': 0}))
-                else:
-                    clans = getattr(self, 'clans', [])
-                
-                return jsonify(clans)
-                
-            except Exception as e:
-                return jsonify({'error': f'Failed to retrieve clans: {str(e)}'}), 500
-        
-        print("✅ Added ALL missing direct routes:")
-        print("   • /health - Health check endpoint")
-        print("   • /api/console/output - Console output")
-        print("   • /api/console/send - Send commands")
-        print("   • /api/console/live/* - Live console endpoints")
-        print("   • /api/clans - Clans data")
-        print("🔍 DEBUG: All existing blueprint routes preserved")
-        
-        debug_user_storage("After adding missing routes", self.user_storage)
-        
         # Skip other route setups for now to isolate the issue
         print("🔍 DEBUG: Completed setup_routes()")
 
@@ -667,13 +364,13 @@ class GustBotEnhanced:
         try:
             self.app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)
         except KeyboardInterrupt:
-            logger.info("\n👋 GUST Enhanced stopped by user")
+            logger.info("\\n👋 GUST Enhanced stopped by user")
             if self.websocket_manager:
                 self.websocket_manager.stop()
         except Exception as e:
             print(f"🔍 DEBUG: Exception in run method: {e}")
             debug_user_storage("During exception in run", self.user_storage)
-            logger.error(f"\n❌ Error: {e}")
+            logger.error(f"\\n❌ Error: {e}")
 
     def start_background_tasks(self):
         """Start background tasks"""
@@ -696,3 +393,15 @@ class GustBotEnhanced:
     def cleanup_expired_events(self):
         """Clean up expired events"""
         pass  # Simplified for debugging
+'''
+    
+    # Write the debug app
+    with open("app.py", "w", encoding="utf-8") as f:
+        f.write(debug_content)
+    
+    print("✅ Debug app.py created!")
+    print("🔄 Now run: python main.py")
+    print("   This will show exactly where user_storage becomes None")
+
+if __name__ == "__main__":
+    create_debug_app()

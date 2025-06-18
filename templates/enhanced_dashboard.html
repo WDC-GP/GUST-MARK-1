@@ -3,319 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GUST Bot Enhanced - Multi-Server Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); }
-        .glow { box-shadow: 0 0 20px rgba(147, 51, 234, 0.3); }
-    </style>
+    <title>GUST Bot - Enhanced with Live Console (FIXED)</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
-    <!-- Header -->
-    <header class="bg-gray-800 border-b border-gray-700 p-4">
-        <div class="container mx-auto flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-                <h1 class="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                    🤖 GUST Bot Enhanced
-                </h1>
-                <span class="bg-purple-600 text-white px-2 py-1 rounded text-sm">Multi-Server</span>
-            </div>
+<body class="bg-gray-900 text-white">
+    <div class="flex h-screen">
+        <!-- Modular Sidebar Navigation -->
+        {% include 'base/sidebar.html' %}
+        
+        <!-- Main Content Area -->
+        <div class="flex-1 p-6 overflow-auto">
+            <!-- Modular Tab Views -->
+            {% include 'views/dashboard.html' %}
+            {% include 'views/server_manager.html' %}
+            {% include 'views/console.html' %}
+            {% include 'views/events.html' %}
+            {% include 'views/economy.html' %}
+            {% include 'views/gambling.html' %}
+            {% include 'views/clans.html' %}
+            {% include 'views/user_management.html' %}
             
-            <!-- User Registration Area -->
-            <div id="userRegistrationArea" class="flex-1 max-w-md ml-8"></div>
-        </div>
-    </header>
-
-    <div class="container mx-auto px-4 py-6">
-        <!-- Server Selection Bar -->
-        <div class="bg-gray-800 p-4 rounded-lg mb-6 border border-gray-700 glow">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <h3 class="text-lg font-semibold text-purple-400">🖥️ Current Server</h3>
-                    <div id="globalServerSelector" class="min-w-[250px]"></div>
-                </div>
-                <div class="flex items-center space-x-4 text-sm text-gray-400">
-                    <span id="serverStatus">No server selected</span>
-                    <button id="refreshServersBtn" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors">
-                        🔄 Refresh
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Navigation Tabs -->
-        <div class="flex space-x-1 mb-6 bg-gray-800 p-1 rounded-lg border border-gray-700">
-            <button id="dashboardTab" class="tab-button active px-4 py-2 rounded text-sm font-medium transition-colors bg-purple-600 text-white">
-                📊 Dashboard
-            </button>
-            <button id="economyTab" class="tab-button px-4 py-2 rounded text-sm font-medium transition-colors text-gray-400 hover:text-white hover:bg-gray-700">
-                💰 Economy
-            </button>
-            <button id="gamblingTab" class="tab-button px-4 py-2 rounded text-sm font-medium transition-colors text-gray-400 hover:text-white hover:bg-gray-700">
-                🎰 Gambling
-            </button>
-            <button id="clansTab" class="tab-button px-4 py-2 rounded text-sm font-medium transition-colors text-gray-400 hover:text-white hover:bg-gray-700">
-                ⚔️ Clans
-            </button>
-            <button id="adminTab" class="tab-button px-4 py-2 rounded text-sm font-medium transition-colors text-gray-400 hover:text-white hover:bg-gray-700">
-                🔧 Admin
-            </button>
-        </div>
-
-        <!-- Tab Content -->
-        <div id="tabContent">
-            <!-- Dashboard Tab -->
-            <div id="dashboardContent" class="tab-content active">
-                <div id="enhancedDashboard"></div>
-            </div>
-
-            <!-- Economy Tab -->
-            <div id="economyContent" class="tab-content hidden">
-                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                    <h2 class="text-2xl font-bold mb-4">💰 Economy Management</h2>
-                    <p class="text-gray-300 mb-4">Server-specific economy operations. Select a server and login to manage your coins.</p>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Balance Operations -->
-                        <div class="bg-gray-700 p-4 rounded">
-                            <h3 class="font-semibold mb-3">Balance Operations</h3>
-                            <div class="space-y-3">
-                                <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded transition-colors">
-                                    Check Balance
-                                </button>
-                                <button class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded transition-colors">
-                                    View Leaderboard
-                                </button>
-                                <button class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded transition-colors">
-                                    Transaction History
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Transfer Operations -->
-                        <div class="bg-gray-700 p-4 rounded">
-                            <h3 class="font-semibold mb-3">Transfer Coins</h3>
-                            <div class="space-y-3">
-                                <input type="text" placeholder="Recipient User ID" class="w-full bg-gray-600 p-2 rounded border border-gray-500 focus:border-purple-500 focus:outline-none">
-                                <input type="number" placeholder="Amount" class="w-full bg-gray-600 p-2 rounded border border-gray-500 focus:border-purple-500 focus:outline-none">
-                                <button class="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 rounded transition-colors">
-                                    Send Coins
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Gambling Tab -->
-            <div id="gamblingContent" class="tab-content hidden">
-                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                    <h2 class="text-2xl font-bold mb-4">🎰 Gambling Games</h2>
-                    <p class="text-gray-300 mb-4">Server-specific gambling with enhanced games and statistics.</p>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- Slots -->
-                        <div class="bg-gray-700 p-4 rounded">
-                            <h3 class="font-semibold mb-3">💎 Premium Slots</h3>
-                            <div class="text-sm text-gray-300 mb-3">
-                                <div>💎💎💎 = 50x payout</div>
-                                <div>7️⃣7️⃣7️⃣ = 25x payout</div>
-                                <div>⭐⭐⭐ = 15x payout</div>
-                            </div>
-                            <input type="number" placeholder="Bet amount" class="w-full bg-gray-600 p-2 rounded mb-3 border border-gray-500 focus:border-purple-500 focus:outline-none">
-                            <button class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded transition-colors">
-                                🎰 Spin Slots
-                            </button>
-                        </div>
-
-                        <!-- Coinflip -->
-                        <div class="bg-gray-700 p-4 rounded">
-                            <h3 class="font-semibold mb-3">🪙 Coinflip</h3>
-                            <div class="text-sm text-gray-300 mb-3">
-                                50/50 chance - 2x payout
-                            </div>
-                            <input type="number" placeholder="Bet amount" class="w-full bg-gray-600 p-2 rounded mb-3 border border-gray-500 focus:border-purple-500 focus:outline-none">
-                            <div class="flex space-x-2 mb-3">
-                                <button class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded transition-colors">
-                                    Heads
-                                </button>
-                                <button class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded transition-colors">
-                                    Tails
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Dice -->
-                        <div class="bg-gray-700 p-4 rounded">
-                            <h3 class="font-semibold mb-3">🎲 Dice Roll</h3>
-                            <div class="text-sm text-gray-300 mb-3">
-                                Guess exact number - 6x payout
-                            </div>
-                            <input type="number" placeholder="Bet amount" class="w-full bg-gray-600 p-2 rounded mb-3 border border-gray-500 focus:border-purple-500 focus:outline-none">
-                            <select class="w-full bg-gray-600 p-2 rounded mb-3 border border-gray-500 focus:border-purple-500 focus:outline-none">
-                                <option>Choose number (1-6)</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                                <option value="6">6</option>
-                            </select>
-                            <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded transition-colors">
-                                🎲 Roll Dice
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Clans Tab -->
-            <div id="clansContent" class="tab-content hidden">
-                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                    <h2 class="text-2xl font-bold mb-4">⚔️ Clan Management</h2>
-                    <p class="text-gray-300 mb-4">Server-specific clans with enhanced member management and statistics.</p>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- Create/Join Clan -->
-                        <div class="bg-gray-700 p-4 rounded">
-                            <h3 class="font-semibold mb-3">Clan Operations</h3>
-                            <div class="space-y-3">
-                                <button class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded transition-colors">
-                                    Create New Clan
-                                </button>
-                                <div class="flex space-x-2">
-                                    <input type="text" placeholder="Clan tag to join" class="flex-1 bg-gray-600 p-2 rounded border border-gray-500 focus:border-purple-500 focus:outline-none">
-                                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors">
-                                        Join
-                                    </button>
-                                </div>
-                                <button class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded transition-colors">
-                                    Leave Current Clan
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Clan Info -->
-                        <div class="bg-gray-700 p-4 rounded">
-                            <h3 class="font-semibold mb-3">Your Clan</h3>
-                            <div class="text-gray-300">
-                                <div>Name: <span class="text-white">Not in a clan</span></div>
-                                <div>Role: <span class="text-white">--</span></div>
-                                <div>Members: <span class="text-white">--</span></div>
-                                <div>Total Wealth: <span class="text-white">--</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Admin Tab -->
-            <div id="adminContent" class="tab-content hidden">
-                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                    <h2 class="text-2xl font-bold mb-4">🔧 Admin Tools</h2>
-                    <p class="text-gray-300 mb-4">Server administration and user management tools.</p>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- User Management -->
-                        <div class="bg-gray-700 p-4 rounded">
-                            <h3 class="font-semibold mb-3">User Management</h3>
-                            <div class="space-y-3">
-                                <div class="flex space-x-2">
-                                    <input type="text" placeholder="User ID" class="flex-1 bg-gray-600 p-2 rounded border border-gray-500 focus:border-purple-500 focus:outline-none">
-                                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors">
-                                        Lookup
-                                    </button>
-                                </div>
-                                <div class="flex space-x-2">
-                                    <input type="number" placeholder="Amount" class="flex-1 bg-gray-600 p-2 rounded border border-gray-500 focus:border-purple-500 focus:outline-none">
-                                    <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition-colors">
-                                        Add Coins
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Server Stats -->
-                        <div class="bg-gray-700 p-4 rounded">
-                            <h3 class="font-semibold mb-3">Server Statistics</h3>
-                            <div class="text-sm space-y-2">
-                                <div>Total Users: <span class="text-white">--</span></div>
-                                <div>Active Users: <span class="text-white">--</span></div>
-                                <div>Total Coins: <span class="text-white">--</span></div>
-                                <div>Total Clans: <span class="text-white">--</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {% include 'views/logs.html' %}
         </div>
     </div>
-
-    <!-- Scripts -->
-    <script src="/static/js/core/api-client.js"></script>
-    <script src="/static/js/components/server-selector.js"></script>
-    <script src="/static/js/components/user-registration.js"></script>
-    <script src="/static/js/components/enhanced-dashboard.js"></script>
-
-    <script>
-        // Initialize application
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize components
-            const serverSelector = new ServerSelector('globalServerSelector', {
-                onServerChange: (serverId, server) => {
-                    document.getElementById('serverStatus').textContent = 
-                        server ? ${server.name} ( players) : 'No server selected';
-                }
-            });
-
-            const userRegistration = new UserRegistration('userRegistrationArea', {
-                onUserRegistered: (user) => {
-                    console.log('User registered:', user.nickname);
-                }
-            });
-
-            const dashboard = new EnhancedDashboard('enhancedDashboard', {
-                autoRefresh: true,
-                refreshInterval: 30000
-            });
-
-            // Tab switching
-            const tabs = document.querySelectorAll('.tab-button');
-            const contents = document.querySelectorAll('.tab-content');
-
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    // Remove active class from all tabs and contents
-                    tabs.forEach(t => {
-                        t.classList.remove('active', 'bg-purple-600', 'text-white');
-                        t.classList.add('text-gray-400');
-                    });
-                    contents.forEach(c => {
-                        c.classList.remove('active');
-                        c.classList.add('hidden');
-                    });
-
-                    // Add active class to clicked tab
-                    tab.classList.add('active', 'bg-purple-600', 'text-white');
-                    tab.classList.remove('text-gray-400');
-
-                    // Show corresponding content
-                    const targetId = tab.id.replace('Tab', 'Content');
-                    const targetContent = document.getElementById(targetId);
-                    if (targetContent) {
-                        targetContent.classList.add('active');
-                        targetContent.classList.remove('hidden');
-                    }
-                });
-            });
-
-            // Refresh servers button
-            document.getElementById('refreshServersBtn')?.addEventListener('click', () => {
-                serverSelector.loadServers();
-            });
-
-            console.log('GUST Bot Enhanced - Frontend Initialized');
-        });
-    </script>
+    
+    <!-- Modular JavaScript -->
+    {% include 'scripts/main.js.html' %}
+    {% include 'scripts/dashboard.js.html' %}
+    {% include 'scripts/server_manager.js.html' %}
+    {% include 'scripts/console.js.html' %}
+    {% include 'scripts/events.js.html' %}
+    {% include 'scripts/economy.js.html' %}
+    {% include 'scripts/gambling.js.html' %}
+    {% include 'scripts/clans.js.html' %}
+    {% include 'scripts/user_management.js.html' %}
+    
+    {% include 'scripts/logs.js.html' %}
 </body>
 </html>
+
+
