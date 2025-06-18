@@ -1,0 +1,51 @@
+﻿/* ============================================================================
+   GUST Bot Enhanced - Extracted Theme CSS
+   ============================================================================
+   Extracted from enhanced_dashboard.html on 2025-06-17 12:20:33
+   
+   This file contains all the G-Portal theme styling and variables
+   that were previously embedded in the main template.
+   ============================================================================ */
+
+.nav-tab {
+            transition: all 0.2s ease;
+        }
+        .nav-tab.active {
+            background: linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%);
+        }
+        .live-indicator {
+            animation: pulse 2s infinite;
+        }
+        .message-type-chat { border-left: 4px solid #3B82F6; }
+        .message-type-auth { border-left: 4px solid #10B981; }
+        .message-type-save { border-left: 4px solid #F59E0B; }
+        .message-type-error { border-left: 4px solid #EF4444; }
+        .message-type-system { border-left: 4px solid #6B7280; }
+        .message-type-command { border-left: 4px solid #8B5CF6; }
+        .message-type-player { border-left: 4px solid #06B6D4; }
+        .message-type-kill { border-left: 4px solid #DC2626; }
+        .message-type-warning { border-left: 4px solid #F59E0B; }
+        .message-type-event { border-left: 4px solid #F59E0B; }
+        .message-type-ban { border-left: 4px solid #DC2626; }
+        
+        /* Console live message styling */
+        .console-live-message {
+            position: relative;
+            padding-left: 8px;
+        }
+        .console-live-message::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: #06B6D4;
+            border-radius: 2px;
+        }
+        .console-live-message.message-type-chat::before { background: #3B82F6; }
+        .console-live-message.message-type-auth::before { background: #10B981; }
+        .console-live-message.message-type-save::before { background: #F59E0B; }
+        .console-live-message.message-type-error::before { background: #EF4444; }
+        .console-live-message.message-type-kill::before { background: #DC2626; }
+        .console-live-message.message-type-warning::before { background: #F59E0B; }

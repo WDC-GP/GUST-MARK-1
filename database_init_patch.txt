@@ -1,0 +1,30 @@
+﻿        # Initialize database with proper fallback
+        self.db = None
+        self.user_storage = None
+        
+        try:
+            from pymongo import MongoClient
+            client = MongoClient('mongodb://localhost:27017/', serverSelectionTimeoutMS=2000)
+            client.server_info()
+            self.db = client.gust_bot
+            print('✅ MongoDB connected successfully')
+            
+            # Use MongoDB storage
+            try:
+                from utils.user_helpers import UserStorage
+                self.user_storage = UserStorage(self.db)
+            except ImportError:
+                print('⚠️ UserStorage not found, using in-memory storage')
+                self.user_storage = InMemoryUserStorage()
+            
+        except Exception as e:
+            print(f'⚠️ MongoDB connection failed: {e}')
+            print('🔄 Falling back to in-memory storage (demo mode)')
+            
+            # Use in-memory storage
+            self.user_storage = InMemoryUserStorage()
+        
+        # Ensure user_storage is never None
+        if self.user_storage is None:
+            print('🛠️ Creating emergency in-memory storage')
+            self.user_storage = InMemoryUserStorage()

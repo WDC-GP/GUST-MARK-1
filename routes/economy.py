@@ -1,7 +1,7 @@
-"""
-GUST Bot Enhanced - Economy System Routes
-========================================
-Routes for economy management and transactions
+﻿"""
+GUST Bot Enhanced - Economy Routes (REFACTORED)
+==============================================
+Server-specific economy system using user database
 """
 
 from flask import Blueprint, request, jsonify
@@ -9,392 +9,316 @@ from datetime import datetime
 import uuid
 
 from routes.auth import require_auth
+from utils.user_helpers import (
+    get_user_profile, get_server_balance, set_server_balance, 
+    adjust_server_balance, get_users_on_server, get_server_leaderboard,
+    transfer_between_users, ensure_user_on_server, get_user_display_name
+)
 import logging
 
 logger = logging.getLogger(__name__)
 
 economy_bp = Blueprint('economy', __name__)
 
-def init_economy_routes(app, db, economy_storage):
-    """
-    Initialize economy routes with dependencies
+def init_economy_routes(app, db, user_storage):
+    '''Initialize economy routes with server-specific functionality'''
     
-    Args:
-        app: Flask app instance
-        db: Database connection (optional)
-        economy_storage: In-memory economy storage
-    """
-    
-    @economy_bp.route('/api/economy/balance/<user_id>')
+    @economy_bp.route('/api/economy/balance/<user_id>/<server_id>')
     @require_auth
-    def get_user_balance(user_id):
-        """Get user's economy balance"""
+    def get_user_balance_server(user_id, server_id):
+        '''Get user's balance for specific server'''
         try:
-            if db:
-                user = db.economy.find_one({'userId': user_id})
-                balance = user.get('balance', 0) if user else 0
-            else:
-                balance = economy_storage.get(user_id, 0)
+            # Ensure user exists on server
+            ensure_user_on_server(user_id, server_id, db, user_storage)
             
-            logger.info(f"💰 Balance check for {user_id}: {balance}")
-            return jsonify({'balance': balance, 'userId': user_id})
+            balance = get_server_balance(user_id, server_id, db, user_storage)
+            display_name = get_user_display_name(user_id, db, user_storage)
+            
+            logger.info(f'💰 Balance check: {user_id} on {server_id}: {balance}')
+            return jsonify({
+                'success': True,
+                'balance': balance,
+                'userId': user_id,
+                'serverId': server_id,
+                'displayName': display_name
+            })
             
         except Exception as e:
-            logger.error(f"❌ Error getting balance for {user_id}: {e}")
-            return jsonify({'error': 'Failed to get balance'}), 500
+            logger.error(f'❌ Balance check error: {str(e)}')
+            return jsonify({'success': False, 'error': 'Balance check failed'})
     
-    @economy_bp.route('/api/economy/transfer', methods=['POST'])
+    @economy_bp.route('/api/economy/set-balance/<user_id>/<server_id>', methods=['POST'])
     @require_auth
-    def transfer_coins():
-        """Transfer coins between users"""
+    def set_user_balance_server(user_id, server_id):
+        '''Set user's balance for specific server (admin only)'''
         try:
             data = request.json
-            from_user = data.get('fromUserId', '').strip()
-            to_user = data.get('toUserId', '').strip()
+            new_balance = data.get('balance', 0)
+            
+            if new_balance < 0:
+                return jsonify({'success': False, 'error': 'Balance cannot be negative'})
+            
+            # Ensure user exists on server
+            ensure_user_on_server(user_id, server_id, db, user_storage)
+            
+            # Set balance
+            if set_server_balance(user_id, server_id, new_balance, db, user_storage):
+                logger.info(f'💰 Balance set: {user_id} on {server_id}: {new_balance}')
+                return jsonify({
+                    'success': True,
+                    'message': 'Balance updated successfully',
+                    'newBalance': new_balance
+                })
+            else:
+                return jsonify({'success': False, 'error': 'Failed to update balance'})
+            
+        except Exception as e:
+            logger.error(f'❌ Set balance error: {str(e)}')
+            return jsonify({'success': False, 'error': 'Balance update failed'})
+    
+    @economy_bp.route('/api/economy/adjust-balance/<user_id>/<server_id>', methods=['POST'])
+    @require_auth
+    def adjust_user_balance_server(user_id, server_id):
+        '''Adjust user's balance for specific server (add/subtract)'''
+        try:
+            data = request.json
+            amount = data.get('amount', 0)
+            reason = data.get('reason', 'Manual adjustment')
+            
+            if amount == 0:
+                return jsonify({'success': False, 'error': 'Amount cannot be zero'})
+            
+            # Ensure user exists on server
+            ensure_user_on_server(user_id, server_id, db, user_storage)
+            
+            # Get current balance
+            current_balance = get_server_balance(user_id, server_id, db, user_storage)
+            
+            # Adjust balance
+            if adjust_server_balance(user_id, server_id, amount, db, user_storage):
+                new_balance = get_server_balance(user_id, server_id, db, user_storage)
+                
+                # Log transaction
+                log_transaction(user_id, server_id, amount, reason, current_balance, new_balance, db, user_storage)
+                
+                logger.info(f'💰 Balance adjusted: {user_id} on {server_id}: {current_balance} → {new_balance} ({amount:+})')
+                return jsonify({
+                    'success': True,
+                    'message': 'Balance adjusted successfully',
+                    'previousBalance': current_balance,
+                    'newBalance': new_balance,
+                    'adjustment': amount
+                })
+            else:
+                return jsonify({'success': False, 'error': 'Failed to adjust balance'})
+            
+        except Exception as e:
+            logger.error(f'❌ Adjust balance error: {str(e)}')
+            return jsonify({'success': False, 'error': 'Balance adjustment failed'})
+    
+    @economy_bp.route('/api/economy/transfer/<server_id>', methods=['POST'])
+    @require_auth
+    def transfer_coins_server(server_id):
+        '''Transfer coins between users on same server'''
+        try:
+            data = request.json
+            from_user_id = data.get('fromUserId', '').strip()
+            to_user_id = data.get('toUserId', '').strip()
             amount = data.get('amount', 0)
             
-            if not from_user or not to_user:
-                return jsonify({'success': False, 'error': 'Both user IDs are required'})
+            if not from_user_id or not to_user_id:
+                return jsonify({'success': False, 'error': 'Both user IDs required'})
             
             if amount <= 0:
-                return jsonify({'success': False, 'error': 'Amount must be greater than 0'})
+                return jsonify({'success': False, 'error': 'Amount must be positive'})
             
-            if from_user == to_user:
+            if from_user_id == to_user_id:
                 return jsonify({'success': False, 'error': 'Cannot transfer to yourself'})
             
+            # Ensure both users exist on server
+            ensure_user_on_server(from_user_id, server_id, db, user_storage)
+            ensure_user_on_server(to_user_id, server_id, db, user_storage)
+            
             # Perform transfer
-            result = transfer_coins_internal(from_user, to_user, amount, db, economy_storage)
+            success, message = transfer_between_users(from_user_id, to_user_id, amount, server_id, db, user_storage)
             
-            if result['success']:
-                logger.info(f"💸 Transfer successful: {from_user} -> {to_user}, amount: {amount}")
+            if success:
+                # Log transfer transactions
+                log_transaction(from_user_id, server_id, -amount, f'Transfer to {to_user_id}', 
+                              get_server_balance(from_user_id, server_id, db, user_storage) + amount,
+                              get_server_balance(from_user_id, server_id, db, user_storage), db, user_storage)
+                              
+                log_transaction(to_user_id, server_id, amount, f'Transfer from {from_user_id}',
+                              get_server_balance(to_user_id, server_id, db, user_storage) - amount,
+                              get_server_balance(to_user_id, server_id, db, user_storage), db, user_storage)
                 
-                # Log the transaction
-                transaction = {
-                    'transactionId': str(uuid.uuid4()),
-                    'type': 'transfer',
-                    'fromUserId': from_user,
-                    'toUserId': to_user,
+                return jsonify({
+                    'success': True,
+                    'message': message,
+                    'fromUser': from_user_id,
+                    'toUser': to_user_id,
                     'amount': amount,
-                    'timestamp': datetime.now().isoformat(),
-                    'status': 'completed'
-                }
-                
-                if db:
-                    db.transactions.insert_one(transaction)
-                
-            return jsonify(result)
+                    'serverId': server_id
+                })
+            else:
+                return jsonify({'success': False, 'error': message})
             
         except Exception as e:
-            logger.error(f"❌ Error in coin transfer: {e}")
-            return jsonify({'success': False, 'error': 'Transfer failed'}), 500
+            logger.error(f'❌ Transfer error: {str(e)}')
+            return jsonify({'success': False, 'error': 'Transfer failed'})
     
-    @economy_bp.route('/api/economy/add-coins', methods=['POST'])
+    @economy_bp.route('/api/economy/leaderboard/<server_id>')
     @require_auth
-    def add_coins():
-        """Add coins to user account (admin function)"""
+    def get_economy_leaderboard_server(server_id):
+        '''Get economy leaderboard for specific server'''
         try:
-            data = request.json
-            user_id = data.get('userId', '').strip()
-            amount = data.get('amount', 0)
-            reason = data.get('reason', 'Admin addition')
+            limit = request.args.get('limit', 10, type=int)
+            limit = min(max(limit, 1), 50)  # Between 1 and 50
             
-            if not user_id:
-                return jsonify({'success': False, 'error': 'User ID is required'})
+            leaderboard = get_server_leaderboard(server_id, db, user_storage, limit)
             
-            if amount <= 0:
-                return jsonify({'success': False, 'error': 'Amount must be greater than 0'})
-            
-            # Add coins
-            if db:
-                db.economy.update_one(
-                    {'userId': user_id},
-                    {'$inc': {'balance': amount}},
-                    upsert=True
-                )
-                # Get new balance
-                user = db.economy.find_one({'userId': user_id})
-                new_balance = user.get('balance', 0) if user else 0
-            else:
-                economy_storage[user_id] = economy_storage.get(user_id, 0) + amount
-                new_balance = economy_storage[user_id]
-            
-            logger.info(f"💰 Added {amount} coins to {user_id}, new balance: {new_balance}")
-            
-            # Log the transaction
-            transaction = {
-                'transactionId': str(uuid.uuid4()),
-                'type': 'admin_add',
-                'userId': user_id,
-                'amount': amount,
-                'reason': reason,
-                'timestamp': datetime.now().isoformat(),
-                'status': 'completed'
-            }
-            
-            if db:
-                db.transactions.insert_one(transaction)
+            # Format leaderboard
+            formatted_leaderboard = []
+            for i, user in enumerate(leaderboard, 1):
+                formatted_leaderboard.append({
+                    'rank': i,
+                    'userId': user['userId'],
+                    'nickname': user['nickname'],
+                    'balance': user['balance'],
+                    'clanTag': user['clanTag']
+                })
             
             return jsonify({
                 'success': True,
-                'newBalance': new_balance,
-                'amountAdded': amount
+                'leaderboard': formatted_leaderboard,
+                'serverId': server_id,
+                'totalUsers': len(formatted_leaderboard)
             })
             
         except Exception as e:
-            logger.error(f"❌ Error adding coins: {e}")
-            return jsonify({'success': False, 'error': 'Failed to add coins'}), 500
+            logger.error(f'❌ Leaderboard error: {str(e)}')
+            return jsonify({'success': False, 'error': 'Leaderboard retrieval failed'})
     
-    @economy_bp.route('/api/economy/remove-coins', methods=['POST'])
+    @economy_bp.route('/api/economy/transactions/<user_id>/<server_id>')
     @require_auth
-    def remove_coins():
-        """Remove coins from user account (admin function)"""
+    def get_user_transactions_server(user_id, server_id):
+        '''Get user's transaction history for specific server'''
         try:
-            data = request.json
-            user_id = data.get('userId', '').strip()
-            amount = data.get('amount', 0)
-            reason = data.get('reason', 'Admin removal')
+            limit = request.args.get('limit', 20, type=int)
+            limit = min(max(limit, 1), 100)  # Between 1 and 100
             
-            if not user_id:
-                return jsonify({'success': False, 'error': 'User ID is required'})
-            
-            if amount <= 0:
-                return jsonify({'success': False, 'error': 'Amount must be greater than 0'})
-            
-            # Check current balance
-            if db:
-                user = db.economy.find_one({'userId': user_id})
-                current_balance = user.get('balance', 0) if user else 0
-            else:
-                current_balance = economy_storage.get(user_id, 0)
-            
-            if current_balance < amount:
-                return jsonify({'success': False, 'error': 'Insufficient balance'})
-            
-            # Remove coins
-            if db:
-                db.economy.update_one(
-                    {'userId': user_id},
-                    {'$inc': {'balance': -amount}}
-                )
-                # Get new balance
-                user = db.economy.find_one({'userId': user_id})
-                new_balance = user.get('balance', 0) if user else 0
-            else:
-                economy_storage[user_id] = economy_storage.get(user_id, 0) - amount
-                new_balance = economy_storage[user_id]
-            
-            logger.info(f"💸 Removed {amount} coins from {user_id}, new balance: {new_balance}")
-            
-            # Log the transaction
-            transaction = {
-                'transactionId': str(uuid.uuid4()),
-                'type': 'admin_remove',
-                'userId': user_id,
-                'amount': amount,
-                'reason': reason,
-                'timestamp': datetime.now().isoformat(),
-                'status': 'completed'
-            }
-            
-            if db:
-                db.transactions.insert_one(transaction)
+            transactions = get_user_transactions(user_id, server_id, db, user_storage, limit)
             
             return jsonify({
                 'success': True,
-                'newBalance': new_balance,
-                'amountRemoved': amount
+                'transactions': transactions,
+                'userId': user_id,
+                'serverId': server_id,
+                'totalTransactions': len(transactions)
             })
             
         except Exception as e:
-            logger.error(f"❌ Error removing coins: {e}")
-            return jsonify({'success': False, 'error': 'Failed to remove coins'}), 500
+            logger.error(f'❌ Transaction history error: {str(e)}')
+            return jsonify({'success': False, 'error': 'Transaction history retrieval failed'})
     
-    @economy_bp.route('/api/economy/transactions/<user_id>')
+    @economy_bp.route('/api/economy/server-stats/<server_id>')
     @require_auth
-    def get_user_transactions(user_id):
-        """Get transaction history for a user"""
+    def get_server_economy_stats(server_id):
+        '''Get economy statistics for specific server'''
         try:
-            limit = int(request.args.get('limit', 50))
+            users_on_server = get_users_on_server(server_id, db, user_storage)
             
-            transactions = []
-            if db:
-                # Get transactions where user is involved
-                cursor = db.transactions.find({
-                    '$or': [
-                        {'userId': user_id},
-                        {'fromUserId': user_id},
-                        {'toUserId': user_id}
-                    ]
-                }).sort('timestamp', -1).limit(limit)
-                
-                transactions = list(cursor)
-                # Remove MongoDB _id field
-                for tx in transactions:
-                    tx.pop('_id', None)
+            total_users = len(users_on_server)
+            total_balance = sum(user['balance'] for user in users_on_server)
+            average_balance = total_balance / total_users if total_users > 0 else 0
             
-            logger.info(f"📊 Retrieved {len(transactions)} transactions for {user_id}")
-            return jsonify(transactions)
-            
-        except Exception as e:
-            logger.error(f"❌ Error getting transactions for {user_id}: {e}")
-            return jsonify({'error': 'Failed to get transactions'}), 500
-    
-    @economy_bp.route('/api/economy/leaderboard')
-    @require_auth
-    def get_leaderboard():
-        """Get economy leaderboard"""
-        try:
-            limit = int(request.args.get('limit', 10))
-            
-            leaderboard = []
-            if db:
-                cursor = db.economy.find({}).sort('balance', -1).limit(limit)
-                leaderboard = list(cursor)
-                # Remove MongoDB _id field
-                for user in leaderboard:
-                    user.pop('_id', None)
+            # Get highest and lowest balances
+            if users_on_server:
+                highest_balance = max(user['balance'] for user in users_on_server)
+                lowest_balance = min(user['balance'] for user in users_on_server)
+                richest_user = next(user for user in users_on_server if user['balance'] == highest_balance)
             else:
-                # Sort in-memory storage
-                sorted_users = sorted(economy_storage.items(), key=lambda x: x[1], reverse=True)
-                leaderboard = [{'userId': user_id, 'balance': balance} 
-                             for user_id, balance in sorted_users[:limit]]
+                highest_balance = lowest_balance = 0
+                richest_user = None
             
-            logger.info(f"🏆 Retrieved leaderboard with {len(leaderboard)} users")
-            return jsonify(leaderboard)
-            
-        except Exception as e:
-            logger.error(f"❌ Error getting leaderboard: {e}")
-            return jsonify({'error': 'Failed to get leaderboard'}), 500
-    
-    @economy_bp.route('/api/economy/stats')
-    @require_auth
-    def get_economy_stats():
-        """Get economy system statistics"""
-        try:
             stats = {
-                'total_users': 0,
-                'total_coins': 0,
-                'average_balance': 0,
-                'richest_user': None,
-                'total_transactions': 0
+                'serverId': server_id,
+                'totalUsers': total_users,
+                'totalBalance': total_balance,
+                'averageBalance': round(average_balance, 2),
+                'highestBalance': highest_balance,
+                'lowestBalance': lowest_balance,
+                'richestUser': richest_user['nickname'] if richest_user else None
             }
             
-            if db:
-                # Get user statistics
-                pipeline = [
-                    {
-                        '$group': {
-                            '_id': None,
-                            'total_users': {'$sum': 1},
-                            'total_coins': {'$sum': '$balance'},
-                            'average_balance': {'$avg': '$balance'},
-                            'max_balance': {'$max': '$balance'}
-                        }
-                    }
-                ]
-                
-                result = list(db.economy.aggregate(pipeline))
-                if result:
-                    data = result[0]
-                    stats['total_users'] = data.get('total_users', 0)
-                    stats['total_coins'] = data.get('total_coins', 0)
-                    stats['average_balance'] = round(data.get('average_balance', 0), 2)
-                    
-                    # Find richest user
-                    richest = db.economy.find_one({}, sort=[('balance', -1)])
-                    if richest:
-                        stats['richest_user'] = {
-                            'userId': richest['userId'],
-                            'balance': richest['balance']
-                        }
-                
-                # Get transaction count
-                stats['total_transactions'] = db.transactions.count_documents({})
-                
-            else:
-                # Calculate from in-memory storage
-                if economy_storage:
-                    balances = list(economy_storage.values())
-                    stats['total_users'] = len(economy_storage)
-                    stats['total_coins'] = sum(balances)
-                    stats['average_balance'] = round(stats['total_coins'] / stats['total_users'], 2)
-                    
-                    # Find richest user
-                    richest_user_id = max(economy_storage, key=economy_storage.get)
-                    stats['richest_user'] = {
-                        'userId': richest_user_id,
-                        'balance': economy_storage[richest_user_id]
-                    }
-            
-            return jsonify(stats)
+            return jsonify({
+                'success': True,
+                'stats': stats
+            })
             
         except Exception as e:
-            logger.error(f"❌ Error getting economy stats: {e}")
-            return jsonify({'error': 'Failed to get economy statistics'}), 500
-    
+            logger.error(f'❌ Server stats error: {str(e)}')
+            return jsonify({'success': False, 'error': 'Server stats retrieval failed'})
+
+# Helper functions
     return economy_bp
 
-def transfer_coins_internal(from_user, to_user, amount, db, economy_storage):
-    """
-    Internal function to transfer coins between users
-    
-    Args:
-        from_user (str): Source user ID
-        to_user (str): Destination user ID
-        amount (int): Amount to transfer
-        db: Database connection
-        economy_storage: In-memory storage
+def log_transaction(user_id, server_id, amount, reason, old_balance, new_balance, db, user_storage):
+    '''Log a transaction for audit trail'''
+    try:
+        transaction = {
+            'transactionId': str(uuid.uuid4()),
+            'userId': user_id,
+            'serverId': server_id,
+            'amount': amount,
+            'reason': reason,
+            'oldBalance': old_balance,
+            'newBalance': new_balance,
+            'timestamp': datetime.now().isoformat()
+        }
         
-    Returns:
-        dict: Transfer result
-    """
+        if db:
+            db.transactions.insert_one(transaction)
+        else:
+            # For in-memory storage, append to user data
+            user = user_storage.get(user_id)
+            if user:
+                if 'transactionHistory' not in user:
+                    user['transactionHistory'] = []
+                user['transactionHistory'].append(transaction)
+                # Keep only last 100 transactions
+                user['transactionHistory'] = user['transactionHistory'][-100:]
+        
+        logger.info(f'📝 Transaction logged: {user_id} on {server_id}: {amount} ({reason})')
+        
+    except Exception as e:
+        logger.error(f'❌ Transaction logging error: {str(e)}')
+
+def get_user_transactions(user_id, server_id, db, user_storage, limit=20):
+    '''Get user's transaction history'''
     try:
         if db:
-            # Check sender balance
-            sender = db.economy.find_one({'userId': from_user})
-            sender_balance = sender.get('balance', 0) if sender else 0
+            transactions = list(db.transactions.find(
+                {'userId': user_id, 'serverId': server_id}
+            ).sort('timestamp', -1).limit(limit))
             
-            if sender_balance < amount:
-                return {'success': False, 'error': 'Insufficient balance'}
-            
-            # Perform transfer
-            db.economy.update_one(
-                {'userId': from_user},
-                {'$inc': {'balance': -amount}},
-                upsert=True
-            )
-            
-            db.economy.update_one(
-                {'userId': to_user},
-                {'$inc': {'balance': amount}},
-                upsert=True
-            )
-            
-            # Get new balances
-            sender = db.economy.find_one({'userId': from_user})
-            receiver = db.economy.find_one({'userId': to_user})
-            
-            return {
-                'success': True,
-                'senderNewBalance': sender.get('balance', 0) if sender else 0,
-                'receiverNewBalance': receiver.get('balance', 0) if receiver else 0
-            }
-            
+            # Remove MongoDB ObjectId for JSON serialization
+            for transaction in transactions:
+                if '_id' in transaction:
+                    del transaction['_id']
         else:
-            # In-memory demo mode
-            sender_balance = economy_storage.get(from_user, 0)
-            if sender_balance < amount:
-                return {'success': False, 'error': 'Insufficient balance'}
-            
-            economy_storage[from_user] = sender_balance - amount
-            economy_storage[to_user] = economy_storage.get(to_user, 0) + amount
-            
-            return {
-                'success': True,
-                'senderNewBalance': economy_storage[from_user],
-                'receiverNewBalance': economy_storage[to_user]
-            }
-            
+            user = user_storage.get(user_id, {})
+            all_transactions = user.get('transactionHistory', [])
+            server_transactions = [t for t in all_transactions if t.get('serverId') == server_id]
+            server_transactions.sort(key=lambda x: x['timestamp'], reverse=True)
+            transactions = server_transactions[:limit]
+        
+        return transactions
+        
     except Exception as e:
-        logger.error(f"❌ Internal transfer error: {e}")
-        return {'success': False, 'error': 'Transfer failed'}
+        logger.error(f'❌ Get transactions error: {str(e)}')
+        return []
+
+
+    print('🔧 DEBUG: About to return economy_bp from init_economy_routes')
+

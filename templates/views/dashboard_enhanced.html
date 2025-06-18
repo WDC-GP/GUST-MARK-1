@@ -1,0 +1,69 @@
+﻿<!-- Enhanced Dashboard View - Server-Specific Features -->
+<!-- This enhances your existing templates/views/dashboard.html -->
+<div id="dashboardContent" class="tab-content active">
+    <div class="space-y-6">
+        <!-- Include Server Selector -->
+        {% include 'components/server_selector.html' %}
+        
+        <!-- Server Status Card (Enhanced) -->
+        <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+            <h3 class="text-xl font-semibold mb-4 flex items-center">
+                🖥️ Server Status
+                <button id="dashboardRefreshBtn" class="ml-auto bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm">
+                    🔄 Refresh
+                </button>
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-gray-700 p-4 rounded">
+                    <div class="text-2xl font-bold" id="serverPlayerCount">--</div>
+                    <div class="text-gray-400">Players Online</div>
+                </div>
+                <div class="bg-gray-700 p-4 rounded">
+                    <div class="text-2xl font-bold" id="serverEconomyHealth">--</div>
+                    <div class="text-gray-400">Economy Health</div>
+                </div>
+                <div class="bg-gray-700 p-4 rounded">
+                    <div class="text-2xl font-bold" id="serverUptime">99.9%</div>
+                    <div class="text-gray-400">Server Uptime</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Quick Stats (New) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <h4 class="font-semibold mb-2 text-green-400">💰 Your Balance</h4>
+                <div class="text-2xl font-bold" id="userBalance">--</div>
+                <div class="text-sm text-gray-400 mt-2" id="balanceRank">Select server & login</div>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <h4 class="font-semibold mb-2 text-purple-400">⚔️ Your Clan</h4>
+                <div class="text-lg font-bold" id="userClan">None</div>
+                <div class="text-sm text-gray-400 mt-2" id="clanRole">Not in clan</div>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <h4 class="font-semibold mb-2 text-yellow-400">🎰 Win Rate</h4>
+                <div class="text-lg font-bold" id="gamblingWinRate">--%</div>
+                <div class="text-sm text-gray-400 mt-2" id="gamesPlayed">-- games</div>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <h4 class="font-semibold mb-2 text-blue-400">📊 Activity</h4>
+                <div class="text-lg font-bold" id="lastSeen">--</div>
+                <div class="text-sm text-gray-400 mt-2" id="totalServers">-- servers</div>
+            </div>
+        </div>
+
+        <!-- Keep your existing dashboard components here -->
+        <!-- This preserves all your current dashboard functionality -->
+        
+        <!-- Enhanced Recent Activity -->
+        <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+            <h3 class="text-xl font-semibold mb-4">📈 Recent Activity</h3>
+            <div id="recentActivity" class="space-y-3">
+                <div class="text-gray-400 text-center py-4">
+                    Select a server and login to view recent activity
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -39,69 +39,6 @@ if WEBSOCKETS_AVAILABLE:
 
 logger = logging.getLogger(__name__)
 
-from datetime import datetime
-
-class InMemoryUserStorage:
-    '''Emergency in-memory user storage for demo mode'''
-    
-    def __init__(self):
-        self.users = {}
-        print('📝 In-memory user storage initialized')
-    
-    def register_user(self, user_id, nickname):
-        '''Register a new user'''
-        if user_id in self.users:
-            return {'success': False, 'error': 'User already exists'}
-        
-        self.users[user_id] = {
-            'userId': user_id,
-            'nickname': nickname,
-            'internalId': len(self.users) + 1000000,
-            'registeredAt': datetime.now().isoformat(),
-            'servers': {},
-            'preferences': {'displayNickname': True},
-            'totalServers': 0
-        }
-        
-        return {'success': True, 'user': self.users[user_id]}
-    
-    def get_user_profile(self, user_id):
-        return self.users.get(user_id)
-    
-    def get_user_server_data(self, user_id, server_id):
-        user = self.users.get(user_id)
-        if not user:
-            return None
-        return user.get('servers', {}).get(server_id)
-    
-    def join_server(self, user_id, server_id):
-        if user_id not in self.users:
-            return False
-        
-        if server_id not in self.users[user_id]['servers']:
-            self.users[user_id]['servers'][server_id] = {
-                'balance': 1000,
-                'clanTag': None,
-                'joinedAt': datetime.now().isoformat(),
-                'gamblingStats': {'totalWagered': 0, 'totalWon': 0, 'gamesPlayed': 0},
-                'isActive': True
-            }
-            self.users[user_id]['totalServers'] += 1
-        return True
-    
-    def set_balance(self, user_id, server_id, balance):
-        if user_id not in self.users:
-            return False
-        if server_id not in self.users[user_id]['servers']:
-            self.join_server(user_id, server_id)
-        self.users[user_id]['servers'][server_id]['balance'] = balance
-        return True
-    
-    def get_balance(self, user_id, server_id):
-        user_data = self.get_user_server_data(user_id, server_id)
-        return user_data.get('balance', 0) if user_data else 0
-
-
 class GustBotEnhanced:
     """Main GUST Bot Enhanced application class"""
     
@@ -166,37 +103,27 @@ class GustBotEnhanced:
         logger.info("🚀 GUST Bot Enhanced initialized successfully")
     
     def init_database(self):
-        """Initialize MongoDB connection with user storage fallback"""
-        # Initialize database with proper fallback
-        self.db = None
-        self.user_storage = None
-        
+        """Initialize MongoDB connection (optional)"""
+        if not MONGODB_AVAILABLE:
+            self.db = None
+            logger.info("ℹ️ Running without MongoDB - using in-memory storage")
+            return
+            
         try:
             from pymongo import MongoClient
-            client = MongoClient('mongodb://localhost:27017/', serverSelectionTimeoutMS=2000)
-            client.server_info()
-            self.db = client.gust_bot
-            print('✅ MongoDB connected successfully')
-            
-            # Use MongoDB storage
-            try:
-                from utils.user_helpers import UserStorage
-                self.user_storage = UserStorage(self.db)
-            except ImportError:
-                print('⚠️ UserStorage not found, using in-memory storage')
-                self.user_storage = InMemoryUserStorage()
-            
+            self.mongo_client = MongoClient(
+                Config.MONGODB_URI, 
+                serverSelectionTimeoutMS=Config.MONGODB_TIMEOUT
+            )
+            self.db = self.mongo_client[Config.MONGODB_DATABASE]
+            # Test the connection
+            self.mongo_client.admin.command('ping')
+            logger.info("✅ Connected to MongoDB")
         except Exception as e:
-            print(f'⚠️ MongoDB connection failed: {e}')
-            print('🔄 Falling back to in-memory storage (demo mode)')
-            
-            # Use in-memory storage
-            self.user_storage = InMemoryUserStorage()
-        
-        # Ensure user_storage is never None
-        if self.user_storage is None:
-            print('🛠️ Creating emergency in-memory storage')
-            self.user_storage = InMemoryUserStorage()
+            logger.warning(f"⚠️ MongoDB connection failed: {e}")
+            logger.info("   Running in demo mode with in-memory storage")
+            self.db = None
+    
     def setup_routes(self):
         """Setup Flask routes and blueprints"""                # Register authentication blueprint
         self.app.register_blueprint(auth_bp)
@@ -208,16 +135,16 @@ class GustBotEnhanced:
         events_bp = init_events_routes(self.app, self.db, self.events, self.vanilla_koth, self.console_output)
         self.app.register_blueprint(events_bp)
 
-        economy_bp = init_economy_routes(self.app, self.db, self.user_storage)
+        economy_bp = init_economy_routes(self.app, self.db, self.economy)
         self.app.register_blueprint(economy_bp)
 
-        gambling_bp = init_gambling_routes(self.app, self.db, self.user_storage)
+        gambling_bp = init_gambling_routes(self.app, self.db, self.gambling)
         self.app.register_blueprint(gambling_bp)
 
         clans_bp = init_clans_routes(self.app, self.db, self.clans, self.user_storage)
         self.app.register_blueprint(clans_bp)
 
-        users_bp = init_users_routes(self.app, self, self.db, self.console_output)
+        users_bp = init_users_routes(self.app, self.db, self.users, self.console_output)
         self.app.register_blueprint(users_bp)
         # Logs routes
         logs_bp = init_logs_routes(self.app, self.db, self.logs)
@@ -918,8 +845,6 @@ class GustBotEnhanced:
                 self.websocket_manager.stop()
         except Exception as e:
             logger.error(f"\n❌ Error: {e}")
-
-
 
 
 
