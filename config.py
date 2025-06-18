@@ -1,4 +1,4 @@
-﻿"""
+"""
 GUST Bot Enhanced - Configuration Settings
 ==========================================
 All configuration settings and dependency checks

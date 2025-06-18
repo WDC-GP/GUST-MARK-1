@@ -1,4 +1,4 @@
-﻿"""
+"""
 GUST Bot Enhanced - Gambling Routes (REFACTORED)
 ===============================================
 Server-specific gambling system using user database
@@ -274,9 +274,58 @@ def init_gambling_routes(app, db, user_storage):
             logger.error(f'❌ Error getting gambling leaderboard: {e}')
             return jsonify({'success': False, 'error': 'Failed to get gambling leaderboard'})
 
-# Helper functions for gambling system
+    # ============================================
+    # LEGACY ROUTES FOR FRONTEND COMPATIBILITY
+    # ============================================
+    @gambling_bp.route('/api/gambling/slots', methods=['POST'])
+    @require_auth
+    def play_slots_legacy():
+        """Legacy slots route"""
+        try:
+            data = request.json or {}
+            user_id = data.get('userId', 'bradf')  # Default from your frontend
+            server_id = data.get('serverId', 'default_server')
+            bet_amount = data.get('bet', 1)
+            
+            # Call the server-specific function
+            return play_slots_server(user_id, server_id)
+        except Exception as e:
+            logger.error(f'❌ Legacy slots error: {str(e)}')
+            return jsonify({'success': False, 'error': 'Slots game failed'})
+
+    @gambling_bp.route('/api/gambling/coinflip', methods=['POST'])
+    @require_auth
+    def play_coinflip_legacy():
+        """Legacy coinflip route"""
+        try:
+            data = request.json or {}
+            user_id = data.get('userId', 'bradf')  # Default from your frontend
+            server_id = data.get('serverId', 'default_server')
+            
+            # Call the server-specific function
+            return play_coinflip_server(user_id, server_id)
+        except Exception as e:
+            logger.error(f'❌ Legacy coinflip error: {str(e)}')
+            return jsonify({'success': False, 'error': 'Coinflip failed'})
+
+    @gambling_bp.route('/api/gambling/dice', methods=['POST'])
+    @require_auth
+    def play_dice_legacy():
+        """Legacy dice route"""
+        try:
+            data = request.json or {}
+            user_id = data.get('userId', 'bradf')  # Default from your frontend
+            server_id = data.get('serverId', 'default_server')
+            
+            # Call the server-specific function
+            return play_dice_server(user_id, server_id)
+        except Exception as e:
+            logger.error(f'❌ Legacy dice error: {str(e)}')
+            return jsonify({'success': False, 'error': 'Dice game failed'})
+
     return gambling_bp
 
+# Helper functions for gambling system
 def calculate_slot_winnings(result, bet_amount):
     '''Calculate slot machine winnings based on result'''
     # Count matching symbols
@@ -325,8 +374,8 @@ def update_gambling_stats(user_id, server_id, bet_amount, winnings, game_type, d
             
             db.users.update_one(
                 {'userId': user_id},
-                {'': {k: v for k, v in update_data.items() if k != f'servers.{server_id}.gamblingStats.lastPlayed' and k != f'servers.{server_id}.gamblingStats.biggestWin'},
-                 '': {k: v for k, v in update_data.items() if k == f'servers.{server_id}.gamblingStats.lastPlayed' or k == f'servers.{server_id}.gamblingStats.biggestWin'}}
+                {'$inc': {k: v for k, v in update_data.items() if k != f'servers.{server_id}.gamblingStats.lastPlayed' and k != f'servers.{server_id}.gamblingStats.biggestWin'},
+                 '$set': {k: v for k, v in update_data.items() if k == f'servers.{server_id}.gamblingStats.lastPlayed' or k == f'servers.{server_id}.gamblingStats.biggestWin'}}
             )
         else:
             # Update in-memory storage
@@ -473,7 +522,3 @@ def get_server_gambling_leaderboard(server_id, db, user_storage, limit=10, perio
     except Exception as e:
         logger.error(f'❌ Error getting gambling leaderboard: {e}')
         return []
-
-
-    print('🔧 DEBUG: About to return gambling_bp from init_gambling_routes')
-

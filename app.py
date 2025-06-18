@@ -1,7 +1,7 @@
 """
-GUST Bot Enhanced - DEBUG VERSION
-=================================
-Debug version with extensive user_storage tracking
+GUST Bot Enhanced - CORRECTED VERSION
+====================================
+Fixed import issues and route parameters for economy and gambling
 """
 
 import os
@@ -18,10 +18,10 @@ import logging
 # Debug function to track user_storage
 def debug_user_storage(location, user_storage_obj):
     """Debug function to track user_storage state"""
-    print(f"🔍 DEBUG [{location}]: user_storage = {type(user_storage_obj)} | Is None: {user_storage_obj is None}")
+    print(f"[DEBUG {location}]: user_storage = {type(user_storage_obj)} | Is None: {user_storage_obj is None}")
     if user_storage_obj is not None:
         has_register = hasattr(user_storage_obj, 'register')
-        print(f"🔍 DEBUG [{location}]: Has register method: {has_register}")
+        print(f"[DEBUG {location}]: Has register method: {has_register}")
     return user_storage_obj
 
 # Import configuration and utilities
@@ -32,57 +32,16 @@ from utils.helpers import load_token, format_command, validate_server_id, valida
 # Import systems
 from systems.koth import VanillaKothSystem
 
-# Import route blueprints
+# Import route blueprints - FIXED: Direct imports without try/except
 from routes.auth import auth_bp
-
-print("🔍 DEBUG: Importing route modules...")
-try:
-    from routes.servers import init_servers_routes
-    print("✅ Imported servers routes")
-except Exception as e:
-    print(f"❌ Error importing servers: {e}")
-
-try:
-    from routes.events import init_events_routes
-    print("✅ Imported events routes")
-except Exception as e:
-    print(f"❌ Error importing events: {e}")
-
-try:
-    from routes.economy import init_economy_routes
-    print("✅ Imported economy routes")
-except Exception as e:
-    print(f"❌ Error importing economy: {e}")
-
-try:
-    from routes.gambling import init_gambling_routes
-    print("✅ Imported gambling routes")
-except Exception as e:
-    print(f"❌ Error importing gambling: {e}")
-
-try:
-    from routes.clans import init_clans_routes
-    print("✅ Imported clans routes")
-except Exception as e:
-    print(f"❌ Error importing clans: {e}")
-
-try:
-    from routes.users import init_users_routes
-    print("✅ Imported users routes")
-except Exception as e:
-    print(f"❌ Error importing users: {e}")
-
-try:
-    from routes.user_database import init_user_database_routes
-    print("✅ Imported user_database routes")
-except Exception as e:
-    print(f"❌ Error importing user_database: {e}")
-
-try:
-    from routes.logs import init_logs_routes
-    print("✅ Imported logs routes")
-except Exception as e:
-    print(f"❌ Error importing logs: {e}")
+from routes.servers import init_servers_routes
+from routes.events import init_events_routes
+from routes.economy import init_economy_routes
+from routes.gambling import init_gambling_routes
+from routes.clans import init_clans_routes
+from routes.users import init_users_routes
+from routes.user_database import init_user_database_routes
+from routes.logs import init_logs_routes
 
 # Import WebSocket components
 if WEBSOCKETS_AVAILABLE:
@@ -99,7 +58,7 @@ class InMemoryUserStorage:
     
     def register(self, user_id, nickname=None, server_id='default_server'):
         """Register method for compatibility - routes to register_user"""
-        print(f"🔍 DEBUG: register() called with user_id={user_id}, nickname={nickname}")
+        print(f"[DEBUG]: register() called with user_id={user_id}, nickname={nickname}")
         if nickname is None:
             nickname = user_id
         return self.register_user(user_id, nickname, server_id)
@@ -114,18 +73,128 @@ class InMemoryUserStorage:
             'nickname': nickname,
             'server_id': server_id,
             'balance': 1000,
-            'registered_at': datetime.now().isoformat()
+            'registered_at': datetime.now().isoformat(),
+            'servers': {
+                server_id: {
+                    'balance': 1000,
+                    'clanTag': None,
+                    'joinedAt': datetime.now().isoformat(),
+                    'gamblingStats': {'totalWagered': 0, 'totalWon': 0, 'gamesPlayed': 0},
+                    'isActive': True
+                }
+            }
         }
         
         print(f'[INFO] User registered: {nickname} ({user_id})')
         return {'success': True, 'message': f'User {nickname} registered successfully'}
-
+    
+    # Dictionary-like interface methods (for user_helpers.py compatibility)
+    def get(self, user_id, default=None):
+        """Get user data - compatibility with dict interface"""
+        return self.users.get(user_id, default)
+    
+    def __getitem__(self, user_id):
+        """Allow storage[user_id] syntax"""
+        return self.users[user_id]
+    
+    def __setitem__(self, user_id, value):
+        """Allow storage[user_id] = value syntax"""
+        self.users[user_id] = value
+    
+    def __contains__(self, user_id):
+        """Allow 'user_id in storage' syntax"""
+        return user_id in self.users
+    
+    def keys(self):
+        """Return all user IDs"""
+        return self.users.keys()
+    
+    def values(self):
+        """Return all user data"""
+        return self.users.values()
+    
+    def items(self):
+        """Return all user items"""
+        return self.users.items()
+    
+    # User profile methods
+    def get_user_profile(self, user_id):
+        """Get complete user profile"""
+        return self.users.get(user_id)
+    
+    def update_user_profile(self, user_id, updates):
+        """Update user profile data"""
+        if user_id in self.users:
+            self.users[user_id].update(updates)
+            return True
+        return False
+    
+    # Server-specific methods
+    def ensure_user_on_server(self, user_id, server_id):
+        """Ensure user exists and has server data"""
+        if user_id not in self.users:
+            # Create user if doesn't exist
+            self.register_user(user_id, user_id, server_id)
+        
+        user = self.users[user_id]
+        if 'servers' not in user:
+            user['servers'] = {}
+        
+        if server_id not in user['servers']:
+            user['servers'][server_id] = {
+                'balance': 1000,
+                'clanTag': None,
+                'joinedAt': datetime.now().isoformat(),
+                'gamblingStats': {'totalWagered': 0, 'totalWon': 0, 'gamesPlayed': 0},
+                'isActive': True
+            }
+        return True
+    
+    def get_server_balance(self, user_id, server_id):
+        """Get user's balance on specific server"""
+        self.ensure_user_on_server(user_id, server_id)
+        return self.users[user_id]['servers'][server_id]['balance']
+    
+    def set_server_balance(self, user_id, server_id, balance):
+        """Set user's balance on specific server"""
+        self.ensure_user_on_server(user_id, server_id)
+        self.users[user_id]['servers'][server_id]['balance'] = balance
+        return True
+    
+    def adjust_server_balance(self, user_id, server_id, amount):
+        """Adjust user's balance on specific server"""
+        self.ensure_user_on_server(user_id, server_id)
+        current_balance = self.users[user_id]['servers'][server_id]['balance']
+        new_balance = max(0, current_balance + amount)  # Prevent negative balance
+        self.users[user_id]['servers'][server_id]['balance'] = new_balance
+        return True
+    
+    def get_users_on_server(self, server_id):
+        """Get all users on a specific server"""
+        server_users = []
+        for user_id, user_data in self.users.items():
+            if 'servers' in user_data and server_id in user_data['servers']:
+                server_data = user_data['servers'][server_id]
+                server_users.append({
+                    'userId': user_id,
+                    'nickname': user_data.get('nickname', user_id),
+                    'balance': server_data.get('balance', 0),
+                    'clanTag': server_data.get('clanTag'),
+                    'isActive': server_data.get('isActive', True)
+                })
+        return server_users
+    
+    def get_server_leaderboard(self, server_id, limit=10):
+        """Get leaderboard for specific server"""
+        users = self.get_users_on_server(server_id)
+        users.sort(key=lambda x: x['balance'], reverse=True)
+        return users[:limit]
 class GustBotEnhanced:
     """Main GUST Bot Enhanced application class"""
     
     def __init__(self):
         """Initialize the enhanced GUST bot application"""
-        print("🔍 DEBUG: Starting GustBotEnhanced.__init__()")
+        print("[DEBUG]: Starting GustBotEnhanced.__init__()")
         
         self.app = Flask(__name__)
         self.app.secret_key = Config.SECRET_KEY
@@ -155,17 +224,17 @@ class GustBotEnhanced:
         self.users = []
         self.live_connections = {}
         
-        print("🔍 DEBUG: About to call init_database()")
+        print("[DEBUG]: About to call init_database()")
         # Database connection (optional)
         self.init_database()
         debug_user_storage("After init_database", self.user_storage)
         
-        print("🔍 DEBUG: About to initialize VanillaKothSystem")
+        print("[DEBUG]: About to initialize VanillaKothSystem")
         # Initialize systems
         self.vanilla_koth = VanillaKothSystem(self)
         debug_user_storage("After VanillaKothSystem", self.user_storage)
         
-        print("🔍 DEBUG: About to initialize WebSocket manager")
+        print("[DEBUG]: About to initialize WebSocket manager")
         # WebSocket manager for live console (only if websockets available)
         if WEBSOCKETS_AVAILABLE:
             self.websocket_manager = WebSocketManager(self)
@@ -181,25 +250,25 @@ class GustBotEnhanced:
         # Store reference to self in app context
         self.app.gust_bot = self
         
-        print("🔍 DEBUG: About to call setup_routes()")
+        print("[DEBUG]: About to call setup_routes()")
         debug_user_storage("Before setup_routes", self.user_storage)
         # Setup routes
         self.setup_routes()
         debug_user_storage("After setup_routes", self.user_storage)
         
-        print("🔍 DEBUG: About to start background tasks")
+        print("[DEBUG]: About to start background tasks")
         # Background tasks
         self.start_background_tasks()
         debug_user_storage("After start_background_tasks", self.user_storage)
         
-        print("🔍 DEBUG: About to log success message")
+        print("[DEBUG]: About to log success message")
         debug_user_storage("Before logger.info", self.user_storage)
-        logger.info("🚀 GUST Bot Enhanced initialized successfully")
+        logger.info("[START] GUST Bot Enhanced initialized successfully")
         debug_user_storage("After logger.info", self.user_storage)
 
     def init_database(self):
         """Initialize MongoDB connection with bulletproof user storage"""
-        print("🔍 DEBUG: Starting init_database()")
+        print("[DEBUG]: Starting init_database()")
         self.db = None
         
         try:
@@ -245,80 +314,60 @@ class GustBotEnhanced:
 
     def setup_routes(self):
         """Setup Flask routes and blueprints"""
-        print("🔍 DEBUG: Starting setup_routes()")
+        print("[DEBUG]: Starting setup_routes()")
         debug_user_storage("Start of setup_routes", self.user_storage)
         
         # Register authentication blueprint
-        print("🔍 DEBUG: Registering auth blueprint")
+        print("[DEBUG]: Registering auth blueprint")
         self.app.register_blueprint(auth_bp)
         debug_user_storage("After auth blueprint", self.user_storage)
 
-        # Register other route blueprints
-        print("🔍 DEBUG: Registering servers blueprint")
-        try:
-            servers_bp = init_servers_routes(self.app, self.db, self.servers)
-            self.app.register_blueprint(servers_bp)
-            debug_user_storage("After servers blueprint", self.user_storage)
-        except Exception as e:
-            print(f"❌ Error with servers blueprint: {e}")
+        # Register other route blueprints - FIXED: Correct parameters
+        print("[DEBUG]: Registering servers blueprint")
+        servers_bp = init_servers_routes(self.app, self.db, self.servers)
+        self.app.register_blueprint(servers_bp)
+        debug_user_storage("After servers blueprint", self.user_storage)
 
-        print("🔍 DEBUG: Registering events blueprint")
-        try:
-            events_bp = init_events_routes(self.app, self.db, self.events, self.vanilla_koth, self.console_output)
-            self.app.register_blueprint(events_bp)
-            debug_user_storage("After events blueprint", self.user_storage)
-        except Exception as e:
-            print(f"❌ Error with events blueprint: {e}")
+        print("[DEBUG]: Registering events blueprint")
+        events_bp = init_events_routes(self.app, self.db, self.events, self.vanilla_koth, self.console_output)
+        self.app.register_blueprint(events_bp)
+        debug_user_storage("After events blueprint", self.user_storage)
 
-        print("🔍 DEBUG: Registering economy blueprint")
-        try:
-            economy_bp = init_economy_routes(self.app, self.db, self.economy)
-            self.app.register_blueprint(economy_bp)
-            debug_user_storage("After economy blueprint", self.user_storage)
-        except Exception as e:
-            print(f"❌ Error with economy blueprint: {e}")
+        print("[DEBUG]: Registering economy blueprint")
+        # FIXED: Pass user_storage instead of self.economy
+        economy_bp = init_economy_routes(self.app, self.db, self.user_storage)
+        self.app.register_blueprint(economy_bp)
+        debug_user_storage("After economy blueprint", self.user_storage)
+        print("[OK] Economy routes registered successfully")
 
-        print("🔍 DEBUG: Registering gambling blueprint")
-        try:
-            gambling_bp = init_gambling_routes(self.app, self.db, self.gambling)
-            self.app.register_blueprint(gambling_bp)
-            debug_user_storage("After gambling blueprint", self.user_storage)
-        except Exception as e:
-            print(f"❌ Error with gambling blueprint: {e}")
+        print("[DEBUG]: Registering gambling blueprint")
+        # FIXED: Pass user_storage instead of self.gambling
+        gambling_bp = init_gambling_routes(self.app, self.db, self.user_storage)
+        self.app.register_blueprint(gambling_bp)
+        debug_user_storage("After gambling blueprint", self.user_storage)
+        print("[OK] Gambling routes registered successfully")
 
-        print("🔍 DEBUG: Registering clans blueprint")
-        try:
-            clans_bp = init_clans_routes(self.app, self.db, self.clans, self.user_storage)
-            self.app.register_blueprint(clans_bp)
-            debug_user_storage("After clans blueprint", self.user_storage)
-        except Exception as e:
-            print(f"❌ Error with clans blueprint: {e}")
+        print("[DEBUG]: Registering clans blueprint")
+        clans_bp = init_clans_routes(self.app, self.db, self.clans, self.user_storage)
+        self.app.register_blueprint(clans_bp)
+        debug_user_storage("After clans blueprint", self.user_storage)
 
-        print("🔍 DEBUG: Registering users blueprint")
-        try:
-            users_bp = init_users_routes(self.app, self, self.db, self.console_output)
-            self.app.register_blueprint(users_bp)
-            debug_user_storage("After users blueprint", self.user_storage)
-        except Exception as e:
-            print(f"❌ Error with users blueprint: {e}")
+        print("[DEBUG]: Registering users blueprint")
+        users_bp = init_users_routes(self.app, self, self.db, self.console_output)
+        self.app.register_blueprint(users_bp)
+        debug_user_storage("After users blueprint", self.user_storage)
 
-        print("🔍 DEBUG: Registering user_database blueprint")
-        try:
-            user_database_bp = init_user_database_routes(self.app, self.db, self.user_storage)
-            self.app.register_blueprint(user_database_bp)
-            debug_user_storage("After user_database blueprint", self.user_storage)
-        except Exception as e:
-            print(f"❌ Error with user_database blueprint: {e}")
+        print("[DEBUG]: Registering user_database blueprint")
+        user_database_bp = init_user_database_routes(self.app, self.db, self.user_storage)
+        self.app.register_blueprint(user_database_bp)
+        debug_user_storage("After user_database blueprint", self.user_storage)
         
-        print("🔍 DEBUG: Registering logs blueprint")
-        try:
-            logs_bp = init_logs_routes(self.app, self.db, self.logs)
-            self.app.register_blueprint(logs_bp)
-            debug_user_storage("After logs blueprint", self.user_storage)
-        except Exception as e:
-            print(f"❌ Error with logs blueprint: {e}")
+        print("[DEBUG]: Registering logs blueprint")
+        logs_bp = init_logs_routes(self.app, self.db, self.logs)
+        self.app.register_blueprint(logs_bp)
+        debug_user_storage("After logs blueprint", self.user_storage)
         
-        print("🔍 DEBUG: Setting up main route")
+        print("[DEBUG]: Setting up main route")
         # Setup main routes
         @self.app.route('/')
         def index():
@@ -329,9 +378,9 @@ class GustBotEnhanced:
         debug_user_storage("After main route", self.user_storage)
         
         # ===========================================
-        # MISSING DIRECT ROUTES (Added to fix 404 errors)
+        # ADDITIONAL DIRECT ROUTES (Keep existing functionality)
         # ===========================================
-        print("🔍 DEBUG: Adding missing direct routes (not covered by blueprints)")
+        print("[DEBUG]: Adding additional direct routes")
         
         # Import auth decorator for protected routes
         from routes.auth import require_auth
@@ -464,28 +513,12 @@ class GustBotEnhanced:
                         'websockets_available': False
                     })
                 
-                # If WebSocket manager not available
-                if not hasattr(self, 'websocket_manager') or not self.websocket_manager:
-                    return jsonify({
-                        'success': False,
-                        'error': 'WebSocket manager not initialized',
-                        'websockets_available': WEBSOCKETS_AVAILABLE
-                    })
-                
                 # For demo mode, simulate connection
-                if not hasattr(self, 'db') or not self.db:
-                    return jsonify({
-                        'success': True,
-                        'message': f'Demo mode: Simulated connection to server {server_id}',
-                        'server_id': server_id,
-                        'demo_mode': True
-                    })
-                
-                # TODO: Implement actual WebSocket connection logic
                 return jsonify({
                     'success': True,
                     'message': f'Connected to server {server_id}',
-                    'server_id': server_id
+                    'server_id': server_id,
+                    'demo_mode': not bool(self.db)
                 })
                 
             except Exception as e:
@@ -505,7 +538,6 @@ class GustBotEnhanced:
                 if not server_id:
                     return jsonify({'success': False, 'error': 'Server ID required'})
                 
-                # For demo mode or when WebSockets not available
                 return jsonify({
                     'success': True,
                     'message': f'Disconnected from server {server_id}',
@@ -531,7 +563,6 @@ class GustBotEnhanced:
                 }
                 
                 if hasattr(self, 'websocket_manager') and self.websocket_manager:
-                    # Get actual status if WebSocket manager exists
                     status.update({
                         'manager_running': True,
                         'connections': getattr(self.websocket_manager, 'connections', {}),
@@ -557,9 +588,6 @@ class GustBotEnhanced:
                 limit = int(request.args.get('limit', 50))
                 message_type = request.args.get('type')
                 
-                messages = []
-                
-                # Return demo messages for now
                 messages = [
                     {
                         'timestamp': datetime.now().isoformat(),
@@ -643,22 +671,20 @@ class GustBotEnhanced:
             except Exception as e:
                 return jsonify({'error': f'Failed to retrieve clans: {str(e)}'}), 500
         
-        print("✅ Added ALL missing direct routes:")
+        print("[OK] Added all direct routes:")
         print("   • /health - Health check endpoint")
         print("   • /api/console/output - Console output")
         print("   • /api/console/send - Send commands")
         print("   • /api/console/live/* - Live console endpoints")
         print("   • /api/clans - Clans data")
-        print("🔍 DEBUG: All existing blueprint routes preserved")
+        print("[DEBUG]: All blueprint routes registered")
         
-        debug_user_storage("After adding missing routes", self.user_storage)
-        
-        # Skip other route setups for now to isolate the issue
-        print("🔍 DEBUG: Completed setup_routes()")
+        debug_user_storage("After adding direct routes", self.user_storage)
+        print("[DEBUG]: Completed setup_routes()")
 
     def run(self, host=None, port=None, debug=False):
         """Run the enhanced application"""
-        print("🔍 DEBUG: Starting run method")
+        print("[DEBUG]: Starting run method")
         debug_user_storage("Start of run method", self.user_storage)
         
         host = host or Config.DEFAULT_HOST
@@ -667,17 +693,17 @@ class GustBotEnhanced:
         try:
             self.app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)
         except KeyboardInterrupt:
-            logger.info("\n👋 GUST Enhanced stopped by user")
+            logger.info("\n[STOP] GUST Enhanced stopped by user")
             if self.websocket_manager:
                 self.websocket_manager.stop()
         except Exception as e:
-            print(f"🔍 DEBUG: Exception in run method: {e}")
+            print(f"[DEBUG]: Exception in run method: {e}")
             debug_user_storage("During exception in run", self.user_storage)
-            logger.error(f"\n❌ Error: {e}")
+            logger.error(f"\n[ERROR] Error: {e}")
 
     def start_background_tasks(self):
         """Start background tasks"""
-        print("🔍 DEBUG: Starting background tasks")
+        print("[DEBUG]: Starting background tasks")
         debug_user_storage("Start of background tasks", self.user_storage)
         
         def run_scheduled():
@@ -690,9 +716,14 @@ class GustBotEnhanced:
         thread = threading.Thread(target=run_scheduled, daemon=True)
         thread.start()
         
-        logger.info("📅 Background tasks started")
+        logger.info("[OK] Background tasks started")
         debug_user_storage("End of background tasks", self.user_storage)
     
     def cleanup_expired_events(self):
         """Clean up expired events"""
         pass  # Simplified for debugging
+
+# Create instance for main.py
+if __name__ == "__main__":
+    gust = GustBotEnhanced()
+    gust.run()

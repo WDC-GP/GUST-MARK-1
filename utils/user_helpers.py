@@ -1,4 +1,4 @@
-﻿"""
+"""
 User Database Helper Functions
 =============================
 Helper functions for user management and server-specific operations

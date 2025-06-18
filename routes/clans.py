@@ -1,4 +1,4 @@
-﻿"""
+"""
 GUST Bot Enhanced - Clan Management Routes (ENHANCED)
 ===================================================
 Integrated clan system with user database for server-specific clans

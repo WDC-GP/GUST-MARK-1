@@ -1,5 +1,0 @@
-<!-- User Management View Content --> 
-<div id="bans-view" class="view hidden"> 
-    <h2 class="text-3xl font-bold mb-6">🚫 User Management</h2> 
-    <!-- User management content will be moved here --> 
-</div> 

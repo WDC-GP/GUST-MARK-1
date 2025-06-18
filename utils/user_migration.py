@@ -1,4 +1,4 @@
-﻿"""
+"""
 User Database Migration Utilities
 ================================
 Tools for migrating existing data to new user database structure

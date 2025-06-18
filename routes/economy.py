@@ -1,4 +1,4 @@
-﻿"""
+"""
 GUST Bot Enhanced - Economy Routes (REFACTORED)
 ==============================================
 Server-specific economy system using user database
@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 economy_bp = Blueprint('economy', __name__)
 
 def init_economy_routes(app, db, user_storage):
-    '''Initialize economy routes with server-specific functionality'''
+    """Initialize economy routes with server-specific functionality"""
     
     @economy_bp.route('/api/economy/balance/<user_id>/<server_id>')
     @require_auth
     def get_user_balance_server(user_id, server_id):
-        '''Get user's balance for specific server'''
+        """Get user's balance for specific server"""
         try:
             # Ensure user exists on server
             ensure_user_on_server(user_id, server_id, db, user_storage)
@@ -34,7 +34,7 @@ def init_economy_routes(app, db, user_storage):
             balance = get_server_balance(user_id, server_id, db, user_storage)
             display_name = get_user_display_name(user_id, db, user_storage)
             
-            logger.info(f'💰 Balance check: {user_id} on {server_id}: {balance}')
+            logger.info(f'[INFO] Balance check: {user_id} on {server_id}: {balance}')
             return jsonify({
                 'success': True,
                 'balance': balance,
@@ -44,13 +44,13 @@ def init_economy_routes(app, db, user_storage):
             })
             
         except Exception as e:
-            logger.error(f'❌ Balance check error: {str(e)}')
+            logger.error(f'[ERROR] Balance check error: {str(e)}')
             return jsonify({'success': False, 'error': 'Balance check failed'})
     
     @economy_bp.route('/api/economy/set-balance/<user_id>/<server_id>', methods=['POST'])
     @require_auth
     def set_user_balance_server(user_id, server_id):
-        '''Set user's balance for specific server (admin only)'''
+        """Set user's balance for specific server (admin only)"""
         try:
             data = request.json
             new_balance = data.get('balance', 0)
@@ -63,7 +63,7 @@ def init_economy_routes(app, db, user_storage):
             
             # Set balance
             if set_server_balance(user_id, server_id, new_balance, db, user_storage):
-                logger.info(f'💰 Balance set: {user_id} on {server_id}: {new_balance}')
+                logger.info(f'[INFO] Balance set: {user_id} on {server_id}: {new_balance}')
                 return jsonify({
                     'success': True,
                     'message': 'Balance updated successfully',
@@ -73,13 +73,13 @@ def init_economy_routes(app, db, user_storage):
                 return jsonify({'success': False, 'error': 'Failed to update balance'})
             
         except Exception as e:
-            logger.error(f'❌ Set balance error: {str(e)}')
+            logger.error(f'[ERROR] Set balance error: {str(e)}')
             return jsonify({'success': False, 'error': 'Balance update failed'})
     
     @economy_bp.route('/api/economy/adjust-balance/<user_id>/<server_id>', methods=['POST'])
     @require_auth
     def adjust_user_balance_server(user_id, server_id):
-        '''Adjust user's balance for specific server (add/subtract)'''
+        """Adjust user's balance for specific server (add/subtract)"""
         try:
             data = request.json
             amount = data.get('amount', 0)
@@ -101,7 +101,7 @@ def init_economy_routes(app, db, user_storage):
                 # Log transaction
                 log_transaction(user_id, server_id, amount, reason, current_balance, new_balance, db, user_storage)
                 
-                logger.info(f'💰 Balance adjusted: {user_id} on {server_id}: {current_balance} → {new_balance} ({amount:+})')
+                logger.info(f'[INFO] Balance adjusted: {user_id} on {server_id}: {current_balance} -> {new_balance} ({amount:+})')
                 return jsonify({
                     'success': True,
                     'message': 'Balance adjusted successfully',
@@ -113,13 +113,13 @@ def init_economy_routes(app, db, user_storage):
                 return jsonify({'success': False, 'error': 'Failed to adjust balance'})
             
         except Exception as e:
-            logger.error(f'❌ Adjust balance error: {str(e)}')
+            logger.error(f'[ERROR] Adjust balance error: {str(e)}')
             return jsonify({'success': False, 'error': 'Balance adjustment failed'})
     
     @economy_bp.route('/api/economy/transfer/<server_id>', methods=['POST'])
     @require_auth
     def transfer_coins_server(server_id):
-        '''Transfer coins between users on same server'''
+        """Transfer coins between users on same server"""
         try:
             data = request.json
             from_user_id = data.get('fromUserId', '').strip()
@@ -164,13 +164,13 @@ def init_economy_routes(app, db, user_storage):
                 return jsonify({'success': False, 'error': message})
             
         except Exception as e:
-            logger.error(f'❌ Transfer error: {str(e)}')
+            logger.error(f'[ERROR] Transfer error: {str(e)}')
             return jsonify({'success': False, 'error': 'Transfer failed'})
     
     @economy_bp.route('/api/economy/leaderboard/<server_id>')
     @require_auth
     def get_economy_leaderboard_server(server_id):
-        '''Get economy leaderboard for specific server'''
+        """Get economy leaderboard for specific server"""
         try:
             limit = request.args.get('limit', 10, type=int)
             limit = min(max(limit, 1), 50)  # Between 1 and 50
@@ -196,13 +196,13 @@ def init_economy_routes(app, db, user_storage):
             })
             
         except Exception as e:
-            logger.error(f'❌ Leaderboard error: {str(e)}')
+            logger.error(f'[ERROR] Leaderboard error: {str(e)}')
             return jsonify({'success': False, 'error': 'Leaderboard retrieval failed'})
     
     @economy_bp.route('/api/economy/transactions/<user_id>/<server_id>')
     @require_auth
     def get_user_transactions_server(user_id, server_id):
-        '''Get user's transaction history for specific server'''
+        """Get user's transaction history for specific server"""
         try:
             limit = request.args.get('limit', 20, type=int)
             limit = min(max(limit, 1), 100)  # Between 1 and 100
@@ -218,13 +218,13 @@ def init_economy_routes(app, db, user_storage):
             })
             
         except Exception as e:
-            logger.error(f'❌ Transaction history error: {str(e)}')
+            logger.error(f'[ERROR] Transaction history error: {str(e)}')
             return jsonify({'success': False, 'error': 'Transaction history retrieval failed'})
     
     @economy_bp.route('/api/economy/server-stats/<server_id>')
     @require_auth
     def get_server_economy_stats(server_id):
-        '''Get economy statistics for specific server'''
+        """Get economy statistics for specific server"""
         try:
             users_on_server = get_users_on_server(server_id, db, user_storage)
             
@@ -257,14 +257,46 @@ def init_economy_routes(app, db, user_storage):
             })
             
         except Exception as e:
-            logger.error(f'❌ Server stats error: {str(e)}')
+            logger.error(f'[ERROR] Server stats error: {str(e)}')
             return jsonify({'success': False, 'error': 'Server stats retrieval failed'})
 
-# Helper functions
+    # ============================================
+    # LEGACY ROUTES FOR FRONTEND COMPATIBILITY
+    # ============================================
+    @economy_bp.route('/api/economy/balance/<user_id>')
+    @require_auth
+    def get_user_balance_legacy(user_id):
+        """Legacy route - uses default server"""
+        try:
+            server_id = request.args.get('serverId', 'default_server')
+            return get_user_balance_server(user_id, server_id)
+        except Exception as e:
+            logger.error(f'[ERROR] Legacy balance error: {str(e)}')
+            return jsonify({'success': False, 'error': 'Balance check failed'})
+
+    @economy_bp.route('/api/economy/transfer', methods=['POST'])
+    @require_auth
+    def transfer_coins_legacy():
+        """Legacy transfer route"""
+        try:
+            data = request.json
+            from_user = data.get('fromUserId', '')
+            to_user = data.get('toUserId', '')
+            amount = data.get('amount', 0)
+            server_id = data.get('serverId', 'default_server')
+            
+            success, message = transfer_between_users(from_user, to_user, amount, server_id, db, user_storage)
+            if success:
+                return jsonify({'success': True})
+            return jsonify({'success': False, 'error': message})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)})
+
     return economy_bp
 
+# Helper functions
 def log_transaction(user_id, server_id, amount, reason, old_balance, new_balance, db, user_storage):
-    '''Log a transaction for audit trail'''
+    """Log a transaction for audit trail"""
     try:
         transaction = {
             'transactionId': str(uuid.uuid4()),
@@ -289,13 +321,13 @@ def log_transaction(user_id, server_id, amount, reason, old_balance, new_balance
                 # Keep only last 100 transactions
                 user['transactionHistory'] = user['transactionHistory'][-100:]
         
-        logger.info(f'📝 Transaction logged: {user_id} on {server_id}: {amount} ({reason})')
+        logger.info(f'[INFO] Transaction logged: {user_id} on {server_id}: {amount} ({reason})')
         
     except Exception as e:
-        logger.error(f'❌ Transaction logging error: {str(e)}')
+        logger.error(f'[ERROR] Transaction logging error: {str(e)}')
 
 def get_user_transactions(user_id, server_id, db, user_storage, limit=20):
-    '''Get user's transaction history'''
+    """Get user's transaction history"""
     try:
         if db:
             transactions = list(db.transactions.find(
@@ -316,9 +348,5 @@ def get_user_transactions(user_id, server_id, db, user_storage, limit=20):
         return transactions
         
     except Exception as e:
-        logger.error(f'❌ Get transactions error: {str(e)}')
+        logger.error(f'[ERROR] Get transactions error: {str(e)}')
         return []
-
-
-    print('🔧 DEBUG: About to return economy_bp from init_economy_routes')
-

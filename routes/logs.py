@@ -1,4 +1,4 @@
-﻿"""
+"""
 GUST Bot Enhanced - Logs Management Routes (API-Based)
 =====================================================
 Routes for server log downloading using G-Portal API integration

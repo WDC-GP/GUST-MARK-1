@@ -91,7 +91,7 @@ function updateServerSelectors(servers) {
             servers.forEach(server => {
                 const option = document.createElement('option');
                 option.value = server.id;
-                option.textContent = `${server.name} (${server.region || 'Unknown'})`;
+                option.textContent = `${server.serverName} (${server.serverId}) - ${server.serverRegion}`;  // ✅ Fixed
                 select.appendChild(option);
             });
         }
