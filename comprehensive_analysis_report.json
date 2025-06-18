@@ -1,0 +1,4424 @@
+{
+  "timestamp": "2025-06-18T15:23:19.322719",
+  "project_root": "D:\\GUST\\Rebuiltmodular\\Gust_botW",
+  "total_files": 101,
+  "total_lines": 3093612,
+  "total_size": 78999751,
+  "file_analyses": [
+    {
+      "path": "app.py",
+      "size": 30815,
+      "lines": 729,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "63d68a63e217065f53501ba2fda03dcd",
+      "last_modified": "2025-06-18T05:33:59.474194",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "os",
+        "json",
+        "time",
+        "threading",
+        "schedule",
+        "secrets",
+        "datetime.datetime",
+        "datetime.timedelta",
+        "collections.deque",
+        "flask.Flask",
+        "flask.render_template",
+        "flask.session",
+        "flask.redirect",
+        "flask.url_for",
+        "flask.jsonify",
+        "flask.request",
+        "logging",
+        "config.Config",
+        "config.WEBSOCKETS_AVAILABLE",
+        "config.MONGODB_AVAILABLE",
+        "config.ensure_directories",
+        "config.ensure_data_files",
+        "utils.rate_limiter.RateLimiter",
+        "utils.helpers.load_token",
+        "utils.helpers.format_command",
+        "utils.helpers.validate_server_id",
+        "utils.helpers.validate_region",
+        "systems.koth.VanillaKothSystem",
+        "routes.auth.auth_bp",
+        "routes.servers.init_servers_routes",
+        "routes.events.init_events_routes",
+        "routes.economy.init_economy_routes",
+        "routes.gambling.init_gambling_routes",
+        "routes.clans.init_clans_routes",
+        "routes.users.init_users_routes",
+        "routes.user_database.init_user_database_routes",
+        "routes.logs.init_logs_routes",
+        "websocket.manager.WebSocketManager",
+        "routes.auth.require_auth",
+        "pymongo.MongoClient",
+        "utils.user_helpers.UserStorage"
+      ],
+      "functions": [
+        "debug_user_storage",
+        "__init__",
+        "register",
+        "register_user",
+        "get",
+        "__getitem__",
+        "__setitem__",
+        "__contains__",
+        "keys",
+        "values",
+        "items",
+        "get_user_profile",
+        "update_user_profile",
+        "ensure_user_on_server",
+        "get_server_balance",
+        "set_server_balance",
+        "adjust_server_balance",
+        "get_users_on_server",
+        "get_server_leaderboard",
+        "__init__",
+        "init_database",
+        "setup_routes",
+        "run",
+        "start_background_tasks",
+        "cleanup_expired_events",
+        "index",
+        "health_check",
+        "get_console_output",
+        "send_console_command",
+        "connect_live_console",
+        "disconnect_live_console",
+        "get_live_console_status",
+        "get_live_console_messages",
+        "test_live_console",
+        "get_clans",
+        "run_scheduled",
+        "register_compatibility"
+      ],
+      "classes": [
+        "InMemoryUserStorage",
+        "GustBotEnhanced"
+      ],
+      "routes": [
+        "/",
+        "/health",
+        "/api/console/output",
+        "/api/console/send",
+        "/api/console/live/connect",
+        "/api/console/live/disconnect",
+        "/api/console/live/status",
+        "/api/console/live/messages",
+        "/api/console/live/test",
+        "/api/clans"
+      ],
+      "api_endpoints": [
+        "/api/console/output",
+        "/api/console/send",
+        "/api/console/live/connect",
+        "/api/console/live/disconnect",
+        "/api/console/live/status",
+        "/api/console/live/messages",
+        "/api/console/live/test",
+        "/api/clans"
+      ],
+      "dependencies": [],
+      "complexity_score": 131,
+      "issues": [
+        "Long lines (>120 chars): 1 lines"
+      ],
+      "purpose": "Flask route module (10 routes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "architecture_documentation.md",
+      "size": 16776,
+      "lines": 578,
+      "file_type": "documentation",
+      "encoding": "utf-8",
+      "hash_md5": "e0844a37f39b3942befb72cb59a1546e",
+      "last_modified": "2025-06-18T15:06:59.377371",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "comprehensive_analyzer.py",
+      "size": 47173,
+      "lines": 1162,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "2326af5de5464f8af09835494681a7ed",
+      "last_modified": "2025-06-18T15:23:11.091170",
+      "is_executable": true,
+      "has_shebang": true,
+      "imports": [
+        "os",
+        "sys",
+        "json",
+        "ast",
+        "re",
+        "time",
+        "hashlib",
+        "mimetypes",
+        "datetime.datetime",
+        "pathlib.Path",
+        "collections.defaultdict",
+        "collections.Counter",
+        "dataclasses.dataclass",
+        "dataclasses.asdict",
+        "typing.Dict",
+        "typing.List",
+        "typing.Set",
+        "typing.Tuple",
+        "typing.Optional",
+        "typing.Any",
+        "importlib.util",
+        "traceback"
+      ],
+      "functions": [
+        "main",
+        "__init__",
+        "run_comprehensive_analysis",
+        "_discover_and_analyze_files",
+        "_analyze_single_file",
+        "_determine_file_type",
+        "_analyze_python_file",
+        "_analyze_javascript_file",
+        "_analyze_html_file",
+        "_analyze_json_file",
+        "_analyze_config_file",
+        "_calculate_function_complexity",
+        "_determine_python_purpose",
+        "_determine_javascript_purpose",
+        "_determine_html_purpose",
+        "_determine_json_purpose",
+        "_determine_config_purpose",
+        "_check_python_issues",
+        "_check_javascript_issues",
+        "_check_html_issues",
+        "_analyze_dependencies",
+        "_is_internal_import",
+        "_analyze_routes",
+        "_routes_might_conflict",
+        "_detect_redundancy",
+        "_analyze_usage",
+        "_analyze_security",
+        "_analyze_performance",
+        "_assess_architecture",
+        "_calculate_code_quality_score",
+        "_generate_recommendations",
+        "_generate_report",
+        "_generate_markdown_report"
+      ],
+      "classes": [
+        "FileAnalysis",
+        "ProjectAnalysis",
+        "ComprehensiveProjectAnalyzer"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 216,
+      "issues": [
+        "Long lines (>120 chars): 12 lines",
+        "Contains 5 TODO/FIXME comments"
+      ],
+      "purpose": "Class definitions (3 classes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "comprehensive_test.py",
+      "size": 31287,
+      "lines": 727,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "af97ea2d6306cfb549b42ac18737f3e4",
+      "last_modified": "2025-06-18T14:51:55.038398",
+      "is_executable": true,
+      "has_shebang": true,
+      "imports": [
+        "os",
+        "sys",
+        "json",
+        "time",
+        "importlib.util",
+        "requests",
+        "threading",
+        "pathlib.Path",
+        "datetime.datetime",
+        "typing.Dict",
+        "typing.List",
+        "typing.Any",
+        "typing.Optional",
+        "subprocess",
+        "argparse"
+      ],
+      "functions": [
+        "main",
+        "__init__",
+        "log",
+        "test_file_structure",
+        "test_python_imports",
+        "start_test_server",
+        "test_routes",
+        "analyze_architecture",
+        "test_frontend_components",
+        "stop_test_server",
+        "generate_summary",
+        "run_comprehensive_test",
+        "print_results",
+        "check_directory"
+      ],
+      "classes": [
+        "GustProjectValidator"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 118,
+      "issues": [
+        "Long lines (>120 chars): 4 lines"
+      ],
+      "purpose": "Test file",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "config.py",
+      "size": 7966,
+      "lines": 207,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "8119478abc9c19e46f604a71ba6412b2",
+      "last_modified": "2025-06-18T05:23:59.200315",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "os",
+        "json",
+        "secrets",
+        "websockets",
+        "pymongo.MongoClient",
+        "time"
+      ],
+      "functions": [
+        "check_dependencies",
+        "ensure_directories",
+        "ensure_data_files",
+        "print_startup_info"
+      ],
+      "classes": [
+        "Config"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 17,
+      "issues": [
+        "Long lines (>120 chars): 1 lines"
+      ],
+      "purpose": "Configuration module",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "dependency_map.json",
+      "size": 57607,
+      "lines": 1953,
+      "file_type": "json",
+      "encoding": "utf-8",
+      "hash_md5": "5865261b2dd958feb3acd89af3421852",
+      "last_modified": "2025-06-18T15:02:36.060915",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [
+        "Invalid JSON: Expecting value: line 1953 column 17 (char 55655)"
+      ],
+      "purpose": "Invalid JSON file",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "dependency_mapper.py",
+      "size": 18436,
+      "lines": 420,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "f464e7d2458aaaaef1c5a116c42d019c",
+      "last_modified": "2025-06-18T15:06:55.253404",
+      "is_executable": true,
+      "has_shebang": true,
+      "imports": [
+        "os",
+        "re",
+        "pathlib.Path",
+        "datetime.datetime",
+        "typing.Dict",
+        "typing.List",
+        "typing.Any"
+      ],
+      "functions": [
+        "main",
+        "__init__",
+        "log",
+        "analyze_python_files",
+        "analyze_templates",
+        "analyze_javascript",
+        "generate_markdown_report",
+        "run_analysis"
+      ],
+      "classes": [
+        "SimpleDependencyMapper"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 73,
+      "issues": [
+        "Long lines (>120 chars): 1 lines"
+      ],
+      "purpose": "Class definitions (1 classes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "gp-session.json",
+      "size": 3085,
+      "lines": 8,
+      "file_type": "json",
+      "encoding": "utf-8",
+      "hash_md5": "4660525e29b0d999cdf56c64b2c56d4d",
+      "last_modified": "2025-06-18T14:58:41.485398",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Timestamped data",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "main.py",
+      "size": 1640,
+      "lines": 53,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "2aa971176bb51ad5d8f70562cc0c3e3d",
+      "last_modified": "2025-06-17T10:34:13.696210",
+      "is_executable": true,
+      "has_shebang": true,
+      "imports": [
+        "os",
+        "sys",
+        "app.GustBotEnhanced",
+        "config.check_dependencies",
+        "config.print_startup_info"
+      ],
+      "functions": [
+        "main"
+      ],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 6,
+      "issues": [],
+      "purpose": "Application entry point",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "quick_test.py",
+      "size": 19032,
+      "lines": 455,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "ca88bdcb92bb9a476a6e56baee8133be",
+      "last_modified": "2025-06-18T14:55:38.229131",
+      "is_executable": true,
+      "has_shebang": true,
+      "imports": [
+        "os",
+        "json",
+        "time",
+        "pathlib.Path",
+        "datetime.datetime",
+        "typing.Dict",
+        "typing.List",
+        "typing.Any"
+      ],
+      "functions": [
+        "main",
+        "__init__",
+        "log",
+        "test_file_structure",
+        "analyze_project_architecture",
+        "check_dependencies",
+        "generate_summary",
+        "run_quick_validation",
+        "print_results"
+      ],
+      "classes": [
+        "QuickProjectValidator"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 69,
+      "issues": [
+        "Long lines (>120 chars): 1 lines"
+      ],
+      "purpose": "Test file",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "quick_validation_results.json",
+      "size": 13895,
+      "lines": 458,
+      "file_type": "json",
+      "encoding": "utf-8",
+      "hash_md5": "3ccd14cf8d78de5efbe9b61944426c4a",
+      "last_modified": "2025-06-18T14:55:52.389679",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Timestamped data",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "requirements.txt",
+      "size": 977,
+      "lines": 54,
+      "file_type": "text",
+      "encoding": "utf-8",
+      "hash_md5": "b46c290867182fa74f4979a6110d41cf",
+      "last_modified": "2025-06-17T10:34:13.208632",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "STEPS_1-3_COMPLETE_DOCUMENTATION.md",
+      "size": 11868,
+      "lines": 275,
+      "file_type": "documentation",
+      "encoding": "utf-8",
+      "hash_md5": "c97699c4ca340bf140d8ee2a066a0cb9",
+      "last_modified": "2025-06-17T20:53:52.813426",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "STEP_7_FINAL_COMPLETE.md",
+      "size": 10264,
+      "lines": 248,
+      "file_type": "documentation",
+      "encoding": "utf-8",
+      "hash_md5": "1e0070b2243935d4a1af06989f917ef8",
+      "last_modified": "2025-06-17T21:44:07.722980",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "data\\banned_users.json",
+      "size": 2,
+      "lines": 1,
+      "file_type": "json",
+      "encoding": "utf-8",
+      "hash_md5": "d751713988987e9331980363e24189ce",
+      "last_modified": "2025-06-17T10:34:52.188553",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Data array (0 items)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "data\\customBots.json",
+      "size": 2,
+      "lines": 1,
+      "file_type": "json",
+      "encoding": "utf-8",
+      "hash_md5": "d751713988987e9331980363e24189ce",
+      "last_modified": "2025-06-17T10:34:13.300969",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Data array (0 items)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "data\\eventPoints.json",
+      "size": 2,
+      "lines": 1,
+      "file_type": "json",
+      "encoding": "utf-8",
+      "hash_md5": "d751713988987e9331980363e24189ce",
+      "last_modified": "2025-06-17T10:34:13.306261",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Data array (0 items)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "data\\numberofkoth.json",
+      "size": 2,
+      "lines": 1,
+      "file_type": "json",
+      "encoding": "utf-8",
+      "hash_md5": "d751713988987e9331980363e24189ce",
+      "last_modified": "2025-06-17T10:34:13.309894",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Data array (0 items)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "data\\tempBans.json",
+      "size": 2,
+      "lines": 1,
+      "file_type": "json",
+      "encoding": "utf-8",
+      "hash_md5": "d751713988987e9331980363e24189ce",
+      "last_modified": "2025-06-17T10:34:52.188036",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Data array (0 items)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "logs\\parsed_logs_1736296_1750234611.json",
+      "size": 38814681,
+      "lines": 1527884,
+      "file_type": "json",
+      "encoding": "utf-8",
+      "hash_md5": "487eeebc77fb886ad6c13a28a4a53dcc",
+      "last_modified": "2025-06-18T03:16:53.881564",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Data array (254647 items)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "logs\\parsed_logs_1736296_1750244225.json",
+      "size": 38865714,
+      "lines": 1529906,
+      "file_type": "json",
+      "encoding": "utf-8",
+      "hash_md5": "39d7594a288090e0b7c09a7785b0078e",
+      "last_modified": "2025-06-18T05:57:07.681720",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Data array (254984 items)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\auth.py",
+      "size": 8492,
+      "lines": 256,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "36abb10108016b9e86bdd58fe3571e7e",
+      "last_modified": "2025-06-17T10:34:13.325057",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "requests",
+        "flask.Blueprint",
+        "flask.request",
+        "flask.jsonify",
+        "flask.session",
+        "flask.redirect",
+        "flask.url_for",
+        "flask.render_template",
+        "datetime.datetime",
+        "config.Config",
+        "utils.helpers.save_token",
+        "logging",
+        "os",
+        "json",
+        "time",
+        "utils.helpers.refresh_token",
+        "functools.wraps",
+        "functools.wraps"
+      ],
+      "functions": [
+        "login",
+        "logout",
+        "token_status",
+        "refresh_token_endpoint",
+        "authenticate_gportal",
+        "require_auth",
+        "require_live_mode",
+        "get_user_info",
+        "decorated_function",
+        "decorated_function"
+      ],
+      "classes": [],
+      "routes": [
+        "/login",
+        "/logout",
+        "/api/token/status",
+        "/api/token/refresh",
+        "/login",
+        "/logout",
+        "/api/token/status",
+        "/api/token/refresh"
+      ],
+      "api_endpoints": [
+        "/api/token/status",
+        "/api/token/refresh",
+        "/api/token/status",
+        "/api/token/refresh"
+      ],
+      "dependencies": [],
+      "complexity_score": 35,
+      "issues": [],
+      "purpose": "Flask route module (8 routes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\clans.py",
+      "size": 20924,
+      "lines": 488,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "48a936663cbfcc6db2502faffdd751f5",
+      "last_modified": "2025-06-18T05:23:59.205550",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "flask.Blueprint",
+        "flask.request",
+        "flask.jsonify",
+        "datetime.datetime",
+        "uuid",
+        "logging",
+        "routes.auth.require_auth",
+        "utils.user_helpers.get_user_profile",
+        "utils.user_helpers.get_users_on_server",
+        "utils.user_helpers.adjust_server_balance",
+        "utils.user_helpers.get_server_balance",
+        "secrets"
+      ],
+      "functions": [
+        "init_clans_routes",
+        "ensure_user_on_server",
+        "set_user_clan_tag",
+        "get_user_info",
+        "update_clan_stats",
+        "generate_internal_id",
+        "get_server_clans",
+        "create_clan",
+        "join_clan",
+        "leave_clan",
+        "get_clan_stats",
+        "get_user_clan_info"
+      ],
+      "classes": [],
+      "routes": [
+        "/api/clans/<server_id>",
+        "/api/clans/create",
+        "/api/clans/join",
+        "/api/clans/leave",
+        "/api/clans/stats/<server_id>",
+        "/api/clans/user/<user_id>/<server_id>",
+        "/api/clans/<server_id>",
+        "/api/clans/create",
+        "/api/clans/join",
+        "/api/clans/leave",
+        "/api/clans/stats/<server_id>",
+        "/api/clans/user/<user_id>/<server_id>"
+      ],
+      "api_endpoints": [
+        "/api/clans/<server_id>",
+        "/api/clans/create",
+        "/api/clans/join",
+        "/api/clans/leave",
+        "/api/clans/stats/<server_id>",
+        "/api/clans/user/<user_id>/<server_id>",
+        "/api/clans/<server_id>",
+        "/api/clans/create",
+        "/api/clans/join",
+        "/api/clans/leave",
+        "/api/clans/stats/<server_id>",
+        "/api/clans/user/<user_id>/<server_id>"
+      ],
+      "dependencies": [],
+      "complexity_score": 102,
+      "issues": [],
+      "purpose": "Flask route module (12 routes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\client.py",
+      "size": 14262,
+      "lines": 345,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "666745efa156141cbb14b01a4ae5e3af",
+      "last_modified": "2025-06-17T10:34:13.332387",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "json",
+        "time",
+        "asyncio",
+        "logging",
+        "datetime.datetime",
+        "collections.deque",
+        "config.Config",
+        "config.WEBSOCKETS_AVAILABLE",
+        "utils.helpers.classify_message",
+        "websockets",
+        "websockets"
+      ],
+      "functions": [
+        "__init__",
+        "_is_connection_open",
+        "get_recent_messages",
+        "get_connection_info"
+      ],
+      "classes": [
+        "GPortalWebSocketClient"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 17,
+      "issues": [],
+      "purpose": "Class definitions (1 classes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\economy.py",
+      "size": 15109,
+      "lines": 352,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "04ff3f245915ff37dbba6af7375c8b77",
+      "last_modified": "2025-06-18T05:28:01.536457",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "flask.Blueprint",
+        "flask.request",
+        "flask.jsonify",
+        "datetime.datetime",
+        "uuid",
+        "routes.auth.require_auth",
+        "utils.user_helpers.get_user_profile",
+        "utils.user_helpers.get_server_balance",
+        "utils.user_helpers.set_server_balance",
+        "utils.user_helpers.adjust_server_balance",
+        "utils.user_helpers.get_users_on_server",
+        "utils.user_helpers.get_server_leaderboard",
+        "utils.user_helpers.transfer_between_users",
+        "utils.user_helpers.ensure_user_on_server",
+        "utils.user_helpers.get_user_display_name",
+        "logging"
+      ],
+      "functions": [
+        "init_economy_routes",
+        "log_transaction",
+        "get_user_transactions",
+        "get_user_balance_server",
+        "set_user_balance_server",
+        "adjust_user_balance_server",
+        "transfer_coins_server",
+        "get_economy_leaderboard_server",
+        "get_user_transactions_server",
+        "get_server_economy_stats",
+        "get_user_balance_legacy",
+        "transfer_coins_legacy"
+      ],
+      "classes": [],
+      "routes": [
+        "/api/economy/balance/<user_id>/<server_id>",
+        "/api/economy/set-balance/<user_id>/<server_id>",
+        "/api/economy/adjust-balance/<user_id>/<server_id>",
+        "/api/economy/transfer/<server_id>",
+        "/api/economy/leaderboard/<server_id>",
+        "/api/economy/transactions/<user_id>/<server_id>",
+        "/api/economy/server-stats/<server_id>",
+        "/api/economy/balance/<user_id>",
+        "/api/economy/transfer",
+        "/api/economy/balance/<user_id>/<server_id>",
+        "/api/economy/set-balance/<user_id>/<server_id>",
+        "/api/economy/adjust-balance/<user_id>/<server_id>",
+        "/api/economy/transfer/<server_id>",
+        "/api/economy/leaderboard/<server_id>",
+        "/api/economy/transactions/<user_id>/<server_id>",
+        "/api/economy/server-stats/<server_id>",
+        "/api/economy/balance/<user_id>",
+        "/api/economy/transfer"
+      ],
+      "api_endpoints": [
+        "/api/economy/balance/<user_id>/<server_id>",
+        "/api/economy/set-balance/<user_id>/<server_id>",
+        "/api/economy/adjust-balance/<user_id>/<server_id>",
+        "/api/economy/transfer/<server_id>",
+        "/api/economy/leaderboard/<server_id>",
+        "/api/economy/transactions/<user_id>/<server_id>",
+        "/api/economy/server-stats/<server_id>",
+        "/api/economy/balance/<user_id>",
+        "/api/economy/transfer",
+        "/api/economy/balance/<user_id>/<server_id>",
+        "/api/economy/set-balance/<user_id>/<server_id>",
+        "/api/economy/adjust-balance/<user_id>/<server_id>",
+        "/api/economy/transfer/<server_id>",
+        "/api/economy/leaderboard/<server_id>",
+        "/api/economy/transactions/<user_id>/<server_id>",
+        "/api/economy/server-stats/<server_id>",
+        "/api/economy/balance/<user_id>",
+        "/api/economy/transfer"
+      ],
+      "dependencies": [],
+      "complexity_score": 62,
+      "issues": [
+        "Long lines (>120 chars): 1 lines"
+      ],
+      "purpose": "Flask route module (18 routes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\events.py",
+      "size": 11870,
+      "lines": 300,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "7d01aef90e014cf0b68f65cc86303aa6",
+      "last_modified": "2025-06-17T10:34:13.340686",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "flask.Blueprint",
+        "flask.request",
+        "flask.jsonify",
+        "flask.session",
+        "datetime.datetime",
+        "routes.auth.require_auth",
+        "logging",
+        "config.Config"
+      ],
+      "functions": [
+        "init_events_routes",
+        "start_koth_event",
+        "stop_koth_event",
+        "get_events",
+        "get_event",
+        "get_events_for_server",
+        "get_event_stats",
+        "get_arena_locations",
+        "get_event_templates"
+      ],
+      "classes": [],
+      "routes": [
+        "/api/events/koth/start",
+        "/api/events/koth/stop",
+        "/api/events",
+        "/api/events/<event_id>",
+        "/api/events/server/<server_id>",
+        "/api/events/stats",
+        "/api/events/arena-locations",
+        "/api/events/templates",
+        "/api/events/koth/start",
+        "/api/events/koth/stop",
+        "/api/events",
+        "/api/events/<event_id>",
+        "/api/events/server/<server_id>",
+        "/api/events/stats",
+        "/api/events/arena-locations",
+        "/api/events/templates"
+      ],
+      "api_endpoints": [
+        "/api/events/koth/start",
+        "/api/events/koth/stop",
+        "/api/events",
+        "/api/events/<event_id>",
+        "/api/events/server/<server_id>",
+        "/api/events/stats",
+        "/api/events/arena-locations",
+        "/api/events/templates",
+        "/api/events/koth/start",
+        "/api/events/koth/stop",
+        "/api/events",
+        "/api/events/<event_id>",
+        "/api/events/server/<server_id>",
+        "/api/events/stats",
+        "/api/events/arena-locations",
+        "/api/events/templates"
+      ],
+      "dependencies": [],
+      "complexity_score": 53,
+      "issues": [
+        "Long lines (>120 chars): 2 lines"
+      ],
+      "purpose": "Flask route module (16 routes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\gambling.py",
+      "size": 22073,
+      "lines": 524,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "1e97f38b1867f6a4f98e30a1aecfbe6f",
+      "last_modified": "2025-06-18T05:23:16.198718",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "flask.Blueprint",
+        "flask.request",
+        "flask.jsonify",
+        "datetime.datetime",
+        "uuid",
+        "secrets",
+        "random",
+        "routes.auth.require_auth",
+        "utils.user_helpers.get_user_profile",
+        "utils.user_helpers.get_server_balance",
+        "utils.user_helpers.set_server_balance",
+        "utils.user_helpers.adjust_server_balance",
+        "utils.user_helpers.ensure_user_on_server",
+        "utils.user_helpers.get_user_display_name",
+        "utils.user_helpers.get_users_on_server",
+        "logging"
+      ],
+      "functions": [
+        "init_gambling_routes",
+        "calculate_slot_winnings",
+        "update_gambling_stats",
+        "log_gambling_game",
+        "get_user_gambling_history",
+        "get_user_gambling_stats",
+        "get_server_gambling_leaderboard",
+        "play_slots_server",
+        "play_coinflip_server",
+        "play_dice_server",
+        "get_gambling_history_server",
+        "get_gambling_stats_server",
+        "get_gambling_leaderboard_server",
+        "play_slots_legacy",
+        "play_coinflip_legacy",
+        "play_dice_legacy"
+      ],
+      "classes": [],
+      "routes": [
+        "/api/gambling/slots/<user_id>/<server_id>",
+        "/api/gambling/coinflip/<user_id>/<server_id>",
+        "/api/gambling/dice/<user_id>/<server_id>",
+        "/api/gambling/history/<user_id>/<server_id>",
+        "/api/gambling/stats/<user_id>/<server_id>",
+        "/api/gambling/leaderboard/<server_id>",
+        "/api/gambling/slots",
+        "/api/gambling/coinflip",
+        "/api/gambling/dice",
+        "/api/gambling/slots/<user_id>/<server_id>",
+        "/api/gambling/coinflip/<user_id>/<server_id>",
+        "/api/gambling/dice/<user_id>/<server_id>",
+        "/api/gambling/history/<user_id>/<server_id>",
+        "/api/gambling/stats/<user_id>/<server_id>",
+        "/api/gambling/leaderboard/<server_id>",
+        "/api/gambling/slots",
+        "/api/gambling/coinflip",
+        "/api/gambling/dice"
+      ],
+      "api_endpoints": [
+        "/api/gambling/slots/<user_id>/<server_id>",
+        "/api/gambling/coinflip/<user_id>/<server_id>",
+        "/api/gambling/dice/<user_id>/<server_id>",
+        "/api/gambling/history/<user_id>/<server_id>",
+        "/api/gambling/stats/<user_id>/<server_id>",
+        "/api/gambling/leaderboard/<server_id>",
+        "/api/gambling/slots",
+        "/api/gambling/coinflip",
+        "/api/gambling/dice",
+        "/api/gambling/slots/<user_id>/<server_id>",
+        "/api/gambling/coinflip/<user_id>/<server_id>",
+        "/api/gambling/dice/<user_id>/<server_id>",
+        "/api/gambling/history/<user_id>/<server_id>",
+        "/api/gambling/stats/<user_id>/<server_id>",
+        "/api/gambling/leaderboard/<server_id>",
+        "/api/gambling/slots",
+        "/api/gambling/coinflip",
+        "/api/gambling/dice"
+      ],
+      "dependencies": [],
+      "complexity_score": 102,
+      "issues": [
+        "Long lines (>120 chars): 5 lines"
+      ],
+      "purpose": "Flask route module (18 routes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\koth.py",
+      "size": 12841,
+      "lines": 379,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "ad9614060d8a4f25ab83b17b398807ac",
+      "last_modified": "2025-06-17T10:34:13.351647",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "time",
+        "threading",
+        "uuid",
+        "datetime.datetime",
+        "config.Config",
+        "utils.helpers.get_countdown_announcements",
+        "logging"
+      ],
+      "functions": [
+        "__init__",
+        "start_koth_event_fixed",
+        "_run_koth_event_sequence",
+        "_announcement_phase",
+        "_active_phase",
+        "_end_phase",
+        "_emergency_end_event",
+        "_cleanup_event",
+        "_send_command",
+        "get_active_events",
+        "stop_event",
+        "get_event_status",
+        "get_events_for_server",
+        "get_statistics"
+      ],
+      "classes": [
+        "VanillaKothSystem"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 37,
+      "issues": [],
+      "purpose": "Class definitions (1 classes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\logs.py",
+      "size": 12958,
+      "lines": 328,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "0f7380d4a45826cd44415468a477bf39",
+      "last_modified": "2025-06-18T05:23:59.211833",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "requests",
+        "json",
+        "time",
+        "datetime.datetime",
+        "flask.Blueprint",
+        "flask.request",
+        "flask.jsonify",
+        "flask.send_file",
+        "routes.auth.require_auth",
+        "logging",
+        "os",
+        "utils.helpers.load_token",
+        "utils.helpers.refresh_token"
+      ],
+      "functions": [
+        "init_logs_routes",
+        "__init__",
+        "get_server_logs",
+        "format_log_entries",
+        "get_servers",
+        "get_logs",
+        "download_logs",
+        "download_log_file",
+        "refresh_logs",
+        "load_token",
+        "refresh_token"
+      ],
+      "classes": [
+        "GPortalLogAPI"
+      ],
+      "routes": [
+        "/api/logs/servers",
+        "/api/logs",
+        "/api/logs/download",
+        "/api/logs/<log_id>/download",
+        "/api/logs/refresh",
+        "/api/logs/servers",
+        "/api/logs",
+        "/api/logs/download",
+        "/api/logs/<log_id>/download",
+        "/api/logs/refresh"
+      ],
+      "api_endpoints": [
+        "/api/logs/servers",
+        "/api/logs",
+        "/api/logs/download",
+        "/api/logs/<log_id>/download",
+        "/api/logs/refresh",
+        "/api/logs/servers",
+        "/api/logs",
+        "/api/logs/download",
+        "/api/logs/<log_id>/download",
+        "/api/logs/refresh"
+      ],
+      "dependencies": [],
+      "complexity_score": 89,
+      "issues": [
+        "Long lines (>120 chars): 1 lines"
+      ],
+      "purpose": "Flask route module (10 routes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\manager.py",
+      "size": 10287,
+      "lines": 293,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "db7910432d22ef94d5fce8ec0cf61d26",
+      "last_modified": "2025-06-17T10:34:13.355321",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "asyncio",
+        "threading",
+        "logging",
+        "datetime.datetime",
+        "config.WEBSOCKETS_AVAILABLE",
+        "client.GPortalWebSocketClient"
+      ],
+      "functions": [
+        "__init__",
+        "start",
+        "_run_loop",
+        "add_connection",
+        "remove_connection",
+        "get_connection_status",
+        "get_messages",
+        "get_connection",
+        "is_connected",
+        "get_stats",
+        "disconnect_all",
+        "stop"
+      ],
+      "classes": [
+        "WebSocketManager"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 37,
+      "issues": [],
+      "purpose": "Class definitions (1 classes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\servers.py",
+      "size": 13887,
+      "lines": 338,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "07fa9524b37a81a8b555195648186609",
+      "last_modified": "2025-06-17T10:34:13.362134",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "flask.Blueprint",
+        "flask.request",
+        "flask.jsonify",
+        "datetime.datetime",
+        "routes.auth.require_auth",
+        "utils.helpers.create_server_data",
+        "utils.helpers.validate_server_id",
+        "utils.helpers.validate_region",
+        "logging",
+        "flask.current_app"
+      ],
+      "functions": [
+        "init_servers_routes",
+        "get_servers",
+        "add_server",
+        "update_server",
+        "delete_server",
+        "ping_server",
+        "bulk_server_action",
+        "get_server",
+        "get_server_stats"
+      ],
+      "classes": [],
+      "routes": [
+        "/api/servers",
+        "/api/servers/add",
+        "/api/servers/update/<server_id>",
+        "/api/servers/delete/<server_id>",
+        "/api/servers/ping/<server_id>",
+        "/api/servers/bulk-action",
+        "/api/servers/<server_id>",
+        "/api/servers/stats",
+        "/api/servers",
+        "/api/servers/add",
+        "/api/servers/update/<server_id>",
+        "/api/servers/delete/<server_id>",
+        "/api/servers/ping/<server_id>",
+        "/api/servers/bulk-action",
+        "/api/servers/<server_id>",
+        "/api/servers/stats"
+      ],
+      "api_endpoints": [
+        "/api/servers",
+        "/api/servers/add",
+        "/api/servers/update/<server_id>",
+        "/api/servers/delete/<server_id>",
+        "/api/servers/ping/<server_id>",
+        "/api/servers/bulk-action",
+        "/api/servers/<server_id>",
+        "/api/servers/stats",
+        "/api/servers",
+        "/api/servers/add",
+        "/api/servers/update/<server_id>",
+        "/api/servers/delete/<server_id>",
+        "/api/servers/ping/<server_id>",
+        "/api/servers/bulk-action",
+        "/api/servers/<server_id>",
+        "/api/servers/stats"
+      ],
+      "dependencies": [],
+      "complexity_score": 97,
+      "issues": [],
+      "purpose": "Flask route module (16 routes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\users.py",
+      "size": 19757,
+      "lines": 479,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "32dca40228813e1925de765951455d12",
+      "last_modified": "2025-06-17T10:34:13.365241",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "flask.Blueprint",
+        "flask.request",
+        "flask.jsonify",
+        "flask.session",
+        "datetime.datetime",
+        "datetime.timedelta",
+        "uuid",
+        "routes.auth.require_auth",
+        "logging"
+      ],
+      "functions": [
+        "init_users_routes",
+        "temp_ban_user",
+        "permanent_ban_user",
+        "unban_user",
+        "give_item",
+        "kick_user",
+        "teleport_user",
+        "get_bans",
+        "get_user_history",
+        "search_users",
+        "get_user_stats"
+      ],
+      "classes": [],
+      "routes": [
+        "/api/bans/temp",
+        "/api/bans/permanent",
+        "/api/bans/unban",
+        "/api/items/give",
+        "/api/users/kick",
+        "/api/users/teleport",
+        "/api/bans",
+        "/api/users/<user_id>/history",
+        "/api/users/search",
+        "/api/users/stats",
+        "/api/bans/temp",
+        "/api/bans/permanent",
+        "/api/bans/unban",
+        "/api/items/give",
+        "/api/users/kick",
+        "/api/users/teleport",
+        "/api/bans",
+        "/api/users/<user_id>/history",
+        "/api/users/search",
+        "/api/users/stats"
+      ],
+      "api_endpoints": [
+        "/api/bans/temp",
+        "/api/bans/permanent",
+        "/api/bans/unban",
+        "/api/items/give",
+        "/api/users/kick",
+        "/api/users/teleport",
+        "/api/bans",
+        "/api/users/<user_id>/history",
+        "/api/users/search",
+        "/api/users/stats",
+        "/api/bans/temp",
+        "/api/bans/permanent",
+        "/api/bans/unban",
+        "/api/items/give",
+        "/api/users/kick",
+        "/api/users/teleport",
+        "/api/bans",
+        "/api/users/<user_id>/history",
+        "/api/users/search",
+        "/api/users/stats"
+      ],
+      "dependencies": [],
+      "complexity_score": 101,
+      "issues": [
+        "Long lines (>120 chars): 1 lines"
+      ],
+      "purpose": "Flask route module (20 routes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\user_database.py",
+      "size": 18672,
+      "lines": 449,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "3af9afa0f47a87c9d316344e3b82865e",
+      "last_modified": "2025-06-18T04:00:50.226317",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "flask.Blueprint",
+        "flask.request",
+        "flask.jsonify",
+        "datetime.datetime",
+        "secrets",
+        "random",
+        "routes.auth.require_auth",
+        "logging"
+      ],
+      "functions": [
+        "init_user_database_routes",
+        "get_user_profile",
+        "update_user_last_seen",
+        "get_user_display_name",
+        "get_server_balance",
+        "set_server_balance",
+        "adjust_server_balance",
+        "register_user",
+        "get_user_profile_route",
+        "update_user_profile",
+        "get_user_servers",
+        "join_server",
+        "get_server_leaderboard",
+        "get_server_user_stats",
+        "search_users"
+      ],
+      "classes": [],
+      "routes": [
+        "/api/users/register",
+        "/api/users/profile/<user_id>",
+        "/api/users/profile/<user_id>",
+        "/api/users/servers/<user_id>",
+        "/api/users/join-server/<user_id>/<server_id>",
+        "/api/users/leaderboard/<server_id>",
+        "/api/users/stats/<server_id>",
+        "/api/users/search",
+        "/api/users/register",
+        "/api/users/profile/<user_id>",
+        "/api/users/profile/<user_id>",
+        "/api/users/servers/<user_id>",
+        "/api/users/join-server/<user_id>/<server_id>",
+        "/api/users/leaderboard/<server_id>",
+        "/api/users/stats/<server_id>",
+        "/api/users/search"
+      ],
+      "api_endpoints": [
+        "/api/users/register",
+        "/api/users/profile/<user_id>",
+        "/api/users/profile/<user_id>",
+        "/api/users/servers/<user_id>",
+        "/api/users/join-server/<user_id>/<server_id>",
+        "/api/users/leaderboard/<server_id>",
+        "/api/users/stats/<server_id>",
+        "/api/users/search",
+        "/api/users/register",
+        "/api/users/profile/<user_id>",
+        "/api/users/profile/<user_id>",
+        "/api/users/servers/<user_id>",
+        "/api/users/join-server/<user_id>/<server_id>",
+        "/api/users/leaderboard/<server_id>",
+        "/api/users/stats/<server_id>",
+        "/api/users/search"
+      ],
+      "dependencies": [],
+      "complexity_score": 140,
+      "issues": [
+        "Long lines (>120 chars): 1 lines"
+      ],
+      "purpose": "Flask route module (16 routes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "routes\\__init__.py",
+      "size": 927,
+      "lines": 24,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "744aa9789928805bf5aa1d7f5aba596f",
+      "last_modified": "2025-06-18T05:23:59.215563",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "user_database.init_user_database_routes",
+        "user_database.user_database_bp",
+        "economy.init_economy_routes",
+        "economy.economy_bp",
+        "auth.init_auth_routes",
+        "auth.auth_bp"
+      ],
+      "functions": [
+        "init_all_routes"
+      ],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 1,
+      "issues": [],
+      "purpose": "Function definitions (1 functions)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\css\\animations.css",
+      "size": 10483,
+      "lines": 568,
+      "file_type": "css",
+      "encoding": "utf-8",
+      "hash_md5": "88a8f474a0aef8958979a9fcbfe9a2d0",
+      "last_modified": "2025-06-17T10:34:13.378763",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\css\\base.css",
+      "size": 9731,
+      "lines": 453,
+      "file_type": "css",
+      "encoding": "utf-8",
+      "hash_md5": "848d9633ed787111514f015d3c80308e",
+      "last_modified": "2025-06-17T10:34:13.380801",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\css\\components.css",
+      "size": 14583,
+      "lines": 757,
+      "file_type": "css",
+      "encoding": "utf-8",
+      "hash_md5": "76e366ee49391896de3fca69fa6377ac",
+      "last_modified": "2025-06-17T10:34:13.383386",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\css\\layout.css",
+      "size": 6143,
+      "lines": 399,
+      "file_type": "css",
+      "encoding": "utf-8",
+      "hash_md5": "39eb8c359c3b970321f151ad64d02335",
+      "last_modified": "2025-06-17T10:34:13.385953",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\css\\themes.css",
+      "size": 2342,
+      "lines": 51,
+      "file_type": "css",
+      "encoding": "utf-8",
+      "hash_md5": "944a148a091f2f52ca0564d095a44933",
+      "last_modified": "2025-06-17T12:20:33.300311",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\components\\clans.js",
+      "size": 35224,
+      "lines": 833,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "73203bfe4ffe2220bce427253abe0580",
+      "last_modified": "2025-06-17T10:34:13.403048",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "ClansComponent"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 33,
+      "issues": [],
+      "purpose": "UI component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\components\\console.js",
+      "size": 35538,
+      "lines": 812,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "d3fc2bc29477405a9c55c87ba23595fd",
+      "last_modified": "2025-06-17T10:34:13.406667",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "ConsoleComponent"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 45,
+      "issues": [
+        "Contains 4 console.log statements (potential production issue)"
+      ],
+      "purpose": "UI component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\components\\dashboard.js",
+      "size": 28574,
+      "lines": 645,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "5793f109d788609a2794d7f11b20f866",
+      "last_modified": "2025-06-17T10:34:13.409338",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "ServerManagerComponent"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 33,
+      "issues": [],
+      "purpose": "UI component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\components\\economy.js",
+      "size": 21046,
+      "lines": 498,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "c84acadfb71fddcc5dcad7e2334da56b",
+      "last_modified": "2025-06-17T10:34:13.412997",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "EconomyComponent"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 31,
+      "issues": [],
+      "purpose": "UI component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\components\\events.js",
+      "size": 34283,
+      "lines": 769,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "b5c208e151a2993e1495a6d132a7e526",
+      "last_modified": "2025-06-17T10:34:13.415566",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "EventsComponent"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 35,
+      "issues": [],
+      "purpose": "UI component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\components\\gambling.js",
+      "size": 30069,
+      "lines": 724,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "450b6201973434c61aea6ed79785cba7",
+      "last_modified": "2025-06-17T10:34:13.418666",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "GamblingComponent"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 36,
+      "issues": [],
+      "purpose": "UI component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\components\\server-manager.js",
+      "size": 315,
+      "lines": 9,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "b802da4de744d75f7ab2bd030f69534a",
+      "last_modified": "2025-06-17T10:34:13.421242",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "ServerManager"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 5,
+      "issues": [],
+      "purpose": "UI component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\components\\user-management.js",
+      "size": 31054,
+      "lines": 740,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "ae836aa50e4074a9951dd7d3a5b0030c",
+      "last_modified": "2025-06-17T10:34:13.424912",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [
+        "executedFunction",
+        "later"
+      ],
+      "classes": [
+        "UserManagementComponent"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 43,
+      "issues": [],
+      "purpose": "UI component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\components\\base\\base-component.js",
+      "size": 18188,
+      "lines": 591,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "49c54e974e116fde7565e6118e8b69e8",
+      "last_modified": "2025-06-17T10:34:13.434180",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "for",
+        "BaseComponent",
+        "to"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 62,
+      "issues": [
+        "Contains 1 console.log statements (potential production issue)"
+      ],
+      "purpose": "UI component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\components\\base\\form-component.js",
+      "size": 25128,
+      "lines": 784,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "f1d7e48726ed53e9090cb263425d5169",
+      "last_modified": "2025-06-17T10:34:13.436751",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "for",
+        "FormComponent"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 64,
+      "issues": [],
+      "purpose": "UI component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\components\\base\\list-component.js",
+      "size": 38486,
+      "lines": 1211,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "0ac0f1864612a0fd631bba4689fe8c82",
+      "last_modified": "2025-06-17T10:34:13.439962",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [
+        "calls",
+        "executedFunction",
+        "later"
+      ],
+      "classes": [
+        "for",
+        "ListComponent"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 66,
+      "issues": [],
+      "purpose": "UI component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\services\\notification-service.js",
+      "size": 26087,
+      "lines": 804,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "7f066650db5787a083bbdde207b1d8ab",
+      "last_modified": "2025-06-17T10:34:13.472105",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "NotificationService"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 55,
+      "issues": [],
+      "purpose": "Service module",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\services\\storage-service.js",
+      "size": 24652,
+      "lines": 819,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "a19c0629530f7fe5eaf46e37f6f4d660",
+      "last_modified": "2025-06-17T10:34:13.475219",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [
+        "return"
+      ],
+      "classes": [
+        "StorageService"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 90,
+      "issues": [
+        "Contains 1 console.log statements (potential production issue)"
+      ],
+      "purpose": "Service module",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\services\\validation-service.js",
+      "size": 23355,
+      "lines": 659,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "b01d46bdc7b730ba5f4d13abd9ec7d01",
+      "last_modified": "2025-06-17T10:34:13.477812",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "ValidationService"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 48,
+      "issues": [
+        "Contains 1 console.log statements (potential production issue)"
+      ],
+      "purpose": "Service module",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\services\\websocket-service.js",
+      "size": 22039,
+      "lines": 665,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "aa58c230d501ae523ad1b866ca782324",
+      "last_modified": "2025-06-17T10:34:13.479854",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [
+        "return"
+      ],
+      "classes": [
+        "WebSocketService"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 72,
+      "issues": [
+        "Contains 1 console.log statements (potential production issue)"
+      ],
+      "purpose": "Service module",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\widgets\\console-output.js",
+      "size": 30914,
+      "lines": 842,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "c2caf0e075640636b5211258f613cf35",
+      "last_modified": "2025-06-17T10:34:13.490343",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [
+        "executedFunction",
+        "later"
+      ],
+      "classes": [
+        "ConsoleOutput",
+        "to"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 54,
+      "issues": [],
+      "purpose": "UI widget",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\widgets\\data-table.js",
+      "size": 31998,
+      "lines": 924,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "c8cd7a05752dad7057ff1232f2ab17f2",
+      "last_modified": "2025-06-17T10:34:13.493444",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [
+        "executedFunction",
+        "later"
+      ],
+      "classes": [
+        "DataTable"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 68,
+      "issues": [],
+      "purpose": "UI widget",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\widgets\\form-builder.js",
+      "size": 18461,
+      "lines": 543,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "5411d6a9f846a38bf7eb5eca0bbba60e",
+      "last_modified": "2025-06-17T10:34:13.496548",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "FormBuilder"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 55,
+      "issues": [],
+      "purpose": "UI widget",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\widgets\\modal.js",
+      "size": 23174,
+      "lines": 677,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "b44556ef18043879b3ad21e9f8d0354b",
+      "last_modified": "2025-06-17T10:34:13.498612",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "Modal",
+        "to",
+        "document",
+        "document"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 61,
+      "issues": [],
+      "purpose": "UI widget",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\widgets\\server-card.js",
+      "size": 19463,
+      "lines": 524,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "102c69c27f01ff0944466a1d76f56ff3",
+      "last_modified": "2025-06-17T10:34:13.501774",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [
+        "ServerCard"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 33,
+      "issues": [],
+      "purpose": "UI widget",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "static\\js\\widgets\\status-indicator.js",
+      "size": 19959,
+      "lines": 661,
+      "file_type": "javascript",
+      "encoding": "utf-8",
+      "hash_md5": "e055c4a001c7146c2118ed1de5f81b29",
+      "last_modified": "2025-06-17T10:34:13.504936",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [
+        "animate"
+      ],
+      "classes": [
+        "StatusIndicator",
+        "indicator",
+        "after"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 49,
+      "issues": [],
+      "purpose": "UI widget",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "systems\\koth.py",
+      "size": 12841,
+      "lines": 379,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "ad9614060d8a4f25ab83b17b398807ac",
+      "last_modified": "2025-06-17T10:34:13.518167",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "time",
+        "threading",
+        "uuid",
+        "datetime.datetime",
+        "config.Config",
+        "utils.helpers.get_countdown_announcements",
+        "logging"
+      ],
+      "functions": [
+        "__init__",
+        "start_koth_event_fixed",
+        "_run_koth_event_sequence",
+        "_announcement_phase",
+        "_active_phase",
+        "_end_phase",
+        "_emergency_end_event",
+        "_cleanup_event",
+        "_send_command",
+        "get_active_events",
+        "stop_event",
+        "get_event_status",
+        "get_events_for_server",
+        "get_statistics"
+      ],
+      "classes": [
+        "VanillaKothSystem"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 37,
+      "issues": [],
+      "purpose": "Class definitions (1 classes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "systems\\__init__.py",
+      "size": 7328,
+      "lines": 264,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "ccdfc0f404449fab480a7449b50c3c61",
+      "last_modified": "2025-06-17T10:34:13.514930",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "logging",
+        "koth.VanillaKothSystem"
+      ],
+      "functions": [
+        "get_systems_status",
+        "get_available_systems",
+        "create_systems_manager",
+        "create_koth_system",
+        "get_system_registry",
+        "register_system",
+        "__init__",
+        "_initialize_systems",
+        "get_system",
+        "get_koth_system",
+        "get_all_systems",
+        "get_system_status",
+        "get_all_system_status"
+      ],
+      "classes": [
+        "SystemsManager"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 21,
+      "issues": [],
+      "purpose": "Class definitions (1 classes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\enhanced_dashboard.html",
+      "size": 1724,
+      "lines": 46,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "0a4220c4ab967b37b844383d0094ba21",
+      "last_modified": "2025-06-18T03:05:15.344614",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [
+        "base/sidebar.html",
+        "views/dashboard.html",
+        "views/server_manager.html",
+        "views/console.html",
+        "views/events.html",
+        "views/economy.html",
+        "views/gambling.html",
+        "views/clans.html",
+        "views/user_management.html",
+        "views/logs.html",
+        "scripts/main.js.html",
+        "scripts/dashboard.js.html",
+        "scripts/server_manager.js.html",
+        "scripts/console.js.html",
+        "scripts/events.js.html",
+        "scripts/economy.js.html",
+        "scripts/gambling.js.html",
+        "scripts/clans.js.html",
+        "scripts/user_management.js.html",
+        "scripts/logs.js.html",
+        "main.js.html",
+        "dashboard.js.html",
+        "server_manager.js.html",
+        "console.js.html",
+        "events.js.html",
+        "economy.js.html",
+        "gambling.js.html",
+        "clans.js.html",
+        "user_management.js.html",
+        "logs.js.html"
+      ],
+      "complexity_score": 32,
+      "issues": [],
+      "purpose": "Dashboard template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\login.html",
+      "size": 4438,
+      "lines": 91,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "0ac579724821bf7d4d477f2f81f8730f",
+      "last_modified": "2025-06-17T10:34:13.535862",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 18,
+      "issues": [],
+      "purpose": "Login page",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\MODULAR_README.md",
+      "size": 19005,
+      "lines": 552,
+      "file_type": "documentation",
+      "encoding": "utf-8",
+      "hash_md5": "a7dc678021fbd3e73127fc0d429c2209",
+      "last_modified": "2025-06-17T12:42:36.762414",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\base\\layout.html",
+      "size": 330,
+      "lines": 7,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "7e92bc4ba35f577f79d0b1aa71ee5c09",
+      "last_modified": "2025-06-17T10:34:13.543749",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Base template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\base\\sidebar.html",
+      "size": 4476,
+      "lines": 89,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "0c246110a644139f8ac525da169d0bac",
+      "last_modified": "2025-06-18T03:06:44.858357",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 11,
+      "issues": [],
+      "purpose": "Base template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\components\\console_message.html",
+      "size": 47,
+      "lines": 1,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "c4ec98ee5f185232e16c1f98f62085c5",
+      "last_modified": "2025-06-17T10:34:13.561479",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Reusable component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\components\\server_selector.html",
+      "size": 2766,
+      "lines": 51,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "5f50753e043755b1399686f4999a1a22",
+      "last_modified": "2025-06-17T21:37:34.249774",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 10,
+      "issues": [],
+      "purpose": "Reusable component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\components\\user_registration.html",
+      "size": 2854,
+      "lines": 53,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "f1a4c7283029fe0f2ea408d96daf90ba",
+      "last_modified": "2025-06-17T21:37:35.031519",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 15,
+      "issues": [],
+      "purpose": "Reusable component",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\partials\\notification_toast.html",
+      "size": 85,
+      "lines": 2,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "3241c65cbac7ab5c112ad199226625bf",
+      "last_modified": "2025-06-17T10:34:13.588362",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "HTML template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\scripts\\clans.js.html",
+      "size": 651,
+      "lines": 16,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "70682ae64564f52485380a0be313f334",
+      "last_modified": "2025-06-17T12:20:33.368243",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "JavaScript template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\scripts\\console.js.html",
+      "size": 659,
+      "lines": 16,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "c7fb4fd57aecb77b8cd8995154205d79",
+      "last_modified": "2025-06-17T12:20:33.356651",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "JavaScript template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\scripts\\dashboard.js.html",
+      "size": 667,
+      "lines": 16,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "0bc5e04e5392a6a22e9f76a22778ef60",
+      "last_modified": "2025-06-17T12:20:33.345324",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Dashboard template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\scripts\\economy.js.html",
+      "size": 659,
+      "lines": 16,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "dc4cfdd0e003425bde329cfa5c8a603e",
+      "last_modified": "2025-06-17T12:20:33.361887",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "JavaScript template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\scripts\\enhanced_api.js.html",
+      "size": 7491,
+      "lines": 232,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "456680531843f0f1ffb25a36049fbd38",
+      "last_modified": "2025-06-17T21:37:36.994455",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "JavaScript template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\scripts\\events.js.html",
+      "size": 655,
+      "lines": 16,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "4c317e55de5043e0be9ca62a2d608858",
+      "last_modified": "2025-06-17T12:20:33.358724",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "JavaScript template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\scripts\\gambling.js.html",
+      "size": 663,
+      "lines": 16,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "00d7a125d3775e18fcdc27f132f68648",
+      "last_modified": "2025-06-17T12:20:33.365532",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "JavaScript template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\scripts\\logs.js.html",
+      "size": 13704,
+      "lines": 390,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "e4bfb84e67a60336f042b93ae968cc60",
+      "last_modified": "2025-06-17T17:30:12.610403",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 9,
+      "issues": [],
+      "purpose": "JavaScript template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\scripts\\main.js.html",
+      "size": 67015,
+      "lines": 1468,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "30bb9f6f452416e0ab474be2f041142a",
+      "last_modified": "2025-06-18T05:49:20.154841",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 47,
+      "issues": [],
+      "purpose": "JavaScript template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\scripts\\server_manager.js.html",
+      "size": 687,
+      "lines": 16,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "0369c3e28b229ef9020ffea5c0c452c0",
+      "last_modified": "2025-06-17T12:20:33.347895",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "JavaScript template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\scripts\\user_management.js.html",
+      "size": 23801,
+      "lines": 697,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "fcbe42bd44c7ce904411e30ae5c3b1a4",
+      "last_modified": "2025-06-18T05:54:51.286300",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 11,
+      "issues": [],
+      "purpose": "JavaScript template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\views\\clans.html",
+      "size": 2474,
+      "lines": 36,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "33277a7cc2c5530d219d6caf93105402",
+      "last_modified": "2025-06-17T12:20:33.630181",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 8,
+      "issues": [],
+      "purpose": "View template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\views\\console.html",
+      "size": 9687,
+      "lines": 138,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "9224678b031c9c37a407bb444f842a24",
+      "last_modified": "2025-06-17T12:20:33.773404",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 32,
+      "issues": [],
+      "purpose": "View template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\views\\dashboard.html",
+      "size": 5676,
+      "lines": 87,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "8fe79b86d708541e0e4e69cd6f7d549e",
+      "last_modified": "2025-06-17T12:20:33.557221",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 13,
+      "issues": [],
+      "purpose": "Dashboard template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\views\\dashboard_enhanced.html",
+      "size": 3649,
+      "lines": 69,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "09ccd32e62ae467b96b2c7e353bb735f",
+      "last_modified": "2025-06-17T21:37:35.850794",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [
+        "components/server_selector.html"
+      ],
+      "complexity_score": 30,
+      "issues": [],
+      "purpose": "Dashboard template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\views\\economy.html",
+      "size": 2137,
+      "lines": 31,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "72612052be1875bc8fb4160a2b44007e",
+      "last_modified": "2025-06-17T12:20:33.593896",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 7,
+      "issues": [],
+      "purpose": "View template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\views\\events.html",
+      "size": 4625,
+      "lines": 61,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "fb8ae315e023a4bf20a05e95e997fe45",
+      "last_modified": "2025-06-17T12:20:33.469993",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 10,
+      "issues": [],
+      "purpose": "View template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\views\\gambling.html",
+      "size": 2460,
+      "lines": 36,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "a1c1af97c33662c39e9c77e196a018cb",
+      "last_modified": "2025-06-17T12:20:33.940928",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 8,
+      "issues": [],
+      "purpose": "View template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\views\\logs.html",
+      "size": 2721,
+      "lines": 60,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "2bc08674a4dea9f99faf9dfbd010ea31",
+      "last_modified": "2025-06-17T16:40:59.449963",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 13,
+      "issues": [],
+      "purpose": "View template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\views\\server_manager.html",
+      "size": 5268,
+      "lines": 83,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "2e533baf35833fe8fb0262c9d10edcd9",
+      "last_modified": "2025-06-17T12:20:33.863323",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 17,
+      "issues": [],
+      "purpose": "View template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\views\\users.html",
+      "size": 3443,
+      "lines": 47,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "61cb2a59b292b6ddc3fccac57dd33fa2",
+      "last_modified": "2025-06-17T12:20:33.905750",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 9,
+      "issues": [],
+      "purpose": "View template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "templates\\views\\user_management.html",
+      "size": 9145,
+      "lines": 170,
+      "file_type": "html",
+      "encoding": "utf-8",
+      "hash_md5": "8c59ac6dd31fadc906e2200cc926ea2f",
+      "last_modified": "2025-06-18T03:05:15.346181",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 37,
+      "issues": [],
+      "purpose": "View template",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "utils\\helpers.py",
+      "size": 10956,
+      "lines": 394,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "b83f2a9ad54b5e6877dd6d369f699eca",
+      "last_modified": "2025-06-17T10:34:13.660922",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "json",
+        "time",
+        "os",
+        "logging",
+        "datetime.datetime",
+        "config.Config",
+        "requests"
+      ],
+      "functions": [
+        "load_token",
+        "refresh_token",
+        "save_token",
+        "classify_message",
+        "get_type_icon",
+        "format_console_message",
+        "validate_server_id",
+        "validate_region",
+        "format_command",
+        "create_server_data",
+        "get_countdown_announcements",
+        "escape_html",
+        "safe_int",
+        "safe_float",
+        "get_status_class",
+        "get_status_text"
+      ],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 43,
+      "issues": [],
+      "purpose": "Utility functions",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "utils\\rate_limiter.py",
+      "size": 3707,
+      "lines": 125,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "42176e4104484d7b8896a6cb357544b3",
+      "last_modified": "2025-06-17T10:34:13.662975",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "time",
+        "collections.defaultdict"
+      ],
+      "functions": [
+        "__init__",
+        "is_allowed",
+        "wait_if_needed",
+        "get_remaining_calls",
+        "get_reset_time",
+        "clear_key",
+        "clear_all",
+        "get_status"
+      ],
+      "classes": [
+        "RateLimiter"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 18,
+      "issues": [],
+      "purpose": "Utility functions",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "utils\\user_helpers.py",
+      "size": 9177,
+      "lines": 233,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "eb7f72200fa979d8fd1a46565ec3a31b",
+      "last_modified": "2025-06-18T05:23:59.218632",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "datetime.datetime",
+        "logging",
+        "random"
+      ],
+      "functions": [
+        "generate_internal_id",
+        "get_user_profile",
+        "get_server_balance",
+        "set_server_balance",
+        "adjust_server_balance",
+        "ensure_user_on_server",
+        "get_users_on_server",
+        "get_server_leaderboard",
+        "transfer_between_users",
+        "get_user_display_name",
+        "update_user_last_seen"
+      ],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 44,
+      "issues": [],
+      "purpose": "Utility functions",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "utils\\user_migration.py",
+      "size": 9432,
+      "lines": 223,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "8c50e6d1491567c06869c5e59f36ff38",
+      "last_modified": "2025-06-18T05:23:59.220182",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "datetime.datetime",
+        "logging",
+        "random",
+        "json",
+        "os"
+      ],
+      "functions": [
+        "generate_internal_id",
+        "__init__",
+        "migrate_existing_data",
+        "_find_user_clan_tag",
+        "_calculate_gambling_stats",
+        "validate_migration",
+        "create_migration_backup"
+      ],
+      "classes": [
+        "UserDatabaseMigration"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 33,
+      "issues": [],
+      "purpose": "Utility functions",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "utils\\__init__.py",
+      "size": 974,
+      "lines": 29,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "51c5e69223d12e4c855039b35371fc90",
+      "last_modified": "2025-06-17T10:34:13.658371",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "rate_limiter.RateLimiter",
+        "helpers.load_token",
+        "helpers.refresh_token",
+        "helpers.save_token",
+        "helpers.classify_message",
+        "helpers.get_type_icon",
+        "helpers.format_console_message",
+        "helpers.validate_server_id",
+        "helpers.validate_region",
+        "helpers.format_command",
+        "helpers.create_server_data",
+        "helpers.get_countdown_announcements",
+        "helpers.escape_html",
+        "helpers.safe_int",
+        "helpers.safe_float",
+        "helpers.get_status_class",
+        "helpers.get_status_text"
+      ],
+      "functions": [],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 0,
+      "issues": [],
+      "purpose": "Utility functions",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "websocket\\client.py",
+      "size": 14262,
+      "lines": 345,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "666745efa156141cbb14b01a4ae5e3af",
+      "last_modified": "2025-06-17T10:34:13.672359",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "json",
+        "time",
+        "asyncio",
+        "logging",
+        "datetime.datetime",
+        "collections.deque",
+        "config.Config",
+        "config.WEBSOCKETS_AVAILABLE",
+        "utils.helpers.classify_message",
+        "websockets",
+        "websockets"
+      ],
+      "functions": [
+        "__init__",
+        "_is_connection_open",
+        "get_recent_messages",
+        "get_connection_info"
+      ],
+      "classes": [
+        "GPortalWebSocketClient"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 17,
+      "issues": [],
+      "purpose": "Class definitions (1 classes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "websocket\\manager.py",
+      "size": 10287,
+      "lines": 293,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "db7910432d22ef94d5fce8ec0cf61d26",
+      "last_modified": "2025-06-17T10:34:13.675542",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "asyncio",
+        "threading",
+        "logging",
+        "datetime.datetime",
+        "config.WEBSOCKETS_AVAILABLE",
+        "client.GPortalWebSocketClient"
+      ],
+      "functions": [
+        "__init__",
+        "start",
+        "_run_loop",
+        "add_connection",
+        "remove_connection",
+        "get_connection_status",
+        "get_messages",
+        "get_connection",
+        "is_connected",
+        "get_stats",
+        "disconnect_all",
+        "stop"
+      ],
+      "classes": [
+        "WebSocketManager"
+      ],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 37,
+      "issues": [],
+      "purpose": "Class definitions (1 classes)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    },
+    {
+      "path": "websocket\\__init__.py",
+      "size": 2551,
+      "lines": 79,
+      "file_type": "python",
+      "encoding": "utf-8",
+      "hash_md5": "ac153c127c8104ed67b5e01776a04044",
+      "last_modified": "2025-06-17T10:34:13.669743",
+      "is_executable": true,
+      "has_shebang": false,
+      "imports": [
+        "config.WEBSOCKETS_AVAILABLE",
+        "client.GPortalWebSocketClient",
+        "manager.WebSocketManager"
+      ],
+      "functions": [
+        "get_websocket_status",
+        "check_websocket_support",
+        "GPortalWebSocketClient",
+        "WebSocketManager",
+        "GPortalWebSocketClient",
+        "WebSocketManager"
+      ],
+      "classes": [],
+      "routes": [],
+      "api_endpoints": [],
+      "dependencies": [],
+      "complexity_score": 7,
+      "issues": [],
+      "purpose": "Function definitions (6 functions)",
+      "usage_count": 0,
+      "redundancy_candidates": []
+    }
+  ],
+  "dependency_graph": {
+    "app.py": [
+      "config.WEBSOCKETS_AVAILABLE",
+      "routes.auth.require_auth",
+      "utils.helpers.format_command",
+      "routes.clans.init_clans_routes",
+      "utils.user_helpers.UserStorage",
+      "routes.logs.init_logs_routes",
+      "routes.gambling.init_gambling_routes",
+      "config.Config",
+      "utils.helpers.validate_region",
+      "routes.economy.init_economy_routes",
+      "websocket.manager.WebSocketManager",
+      "config.ensure_directories",
+      "utils.helpers.load_token",
+      "config.MONGODB_AVAILABLE",
+      "routes.users.init_users_routes",
+      "routes.auth.auth_bp",
+      "utils.helpers.validate_server_id",
+      "routes.servers.init_servers_routes",
+      "systems.koth.VanillaKothSystem",
+      "config.ensure_data_files",
+      "routes.user_database.init_user_database_routes",
+      "utils.rate_limiter.RateLimiter",
+      "routes.events.init_events_routes"
+    ],
+    "main.py": [
+      "config.check_dependencies",
+      "config.print_startup_info",
+      "app.GustBotEnhanced"
+    ],
+    "routes\\auth.py": [
+      "utils.helpers.refresh_token",
+      "utils.helpers.save_token",
+      "config.Config"
+    ],
+    "routes\\clans.py": [
+      "utils.user_helpers.get_users_on_server",
+      "routes.auth.require_auth",
+      "utils.user_helpers.get_server_balance",
+      "utils.user_helpers.get_user_profile",
+      "utils.user_helpers.adjust_server_balance"
+    ],
+    "routes\\client.py": [
+      "utils.helpers.classify_message",
+      "config.WEBSOCKETS_AVAILABLE",
+      "config.Config"
+    ],
+    "routes\\economy.py": [
+      "utils.user_helpers.get_users_on_server",
+      "routes.auth.require_auth",
+      "utils.user_helpers.get_server_balance",
+      "utils.user_helpers.get_user_display_name",
+      "utils.user_helpers.ensure_user_on_server",
+      "utils.user_helpers.transfer_between_users",
+      "utils.user_helpers.get_user_profile",
+      "utils.user_helpers.adjust_server_balance",
+      "utils.user_helpers.get_server_leaderboard",
+      "utils.user_helpers.set_server_balance"
+    ],
+    "routes\\events.py": [
+      "routes.auth.require_auth",
+      "config.Config"
+    ],
+    "routes\\gambling.py": [
+      "utils.user_helpers.get_users_on_server",
+      "routes.auth.require_auth",
+      "utils.user_helpers.get_server_balance",
+      "utils.user_helpers.get_user_display_name",
+      "utils.user_helpers.ensure_user_on_server",
+      "utils.user_helpers.get_user_profile",
+      "utils.user_helpers.adjust_server_balance",
+      "utils.user_helpers.set_server_balance"
+    ],
+    "routes\\koth.py": [
+      "utils.helpers.get_countdown_announcements",
+      "config.Config"
+    ],
+    "routes\\logs.py": [
+      "utils.helpers.refresh_token",
+      "routes.auth.require_auth",
+      "utils.helpers.load_token"
+    ],
+    "routes\\manager.py": [
+      "config.WEBSOCKETS_AVAILABLE"
+    ],
+    "routes\\servers.py": [
+      "utils.helpers.create_server_data",
+      "utils.helpers.validate_server_id",
+      "routes.auth.require_auth",
+      "utils.helpers.validate_region"
+    ],
+    "routes\\users.py": [
+      "routes.auth.require_auth"
+    ],
+    "routes\\user_database.py": [
+      "routes.auth.require_auth"
+    ],
+    "systems\\koth.py": [
+      "utils.helpers.get_countdown_announcements",
+      "config.Config"
+    ],
+    "utils\\helpers.py": [
+      "config.Config"
+    ],
+    "websocket\\client.py": [
+      "utils.helpers.classify_message",
+      "config.WEBSOCKETS_AVAILABLE",
+      "config.Config"
+    ],
+    "websocket\\manager.py": [
+      "config.WEBSOCKETS_AVAILABLE"
+    ],
+    "websocket\\__init__.py": [
+      "config.WEBSOCKETS_AVAILABLE"
+    ]
+  },
+  "route_conflicts": [
+    {
+      "route": "/login",
+      "files": [
+        "routes\\auth.py",
+        "routes\\auth.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/logout",
+      "files": [
+        "routes\\auth.py",
+        "routes\\auth.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/token/status",
+      "files": [
+        "routes\\auth.py",
+        "routes\\auth.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/token/refresh",
+      "files": [
+        "routes\\auth.py",
+        "routes\\auth.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/clans/<server_id>",
+      "files": [
+        "routes\\clans.py",
+        "routes\\clans.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/clans/create",
+      "files": [
+        "routes\\clans.py",
+        "routes\\clans.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/clans/join",
+      "files": [
+        "routes\\clans.py",
+        "routes\\clans.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/clans/leave",
+      "files": [
+        "routes\\clans.py",
+        "routes\\clans.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/clans/stats/<server_id>",
+      "files": [
+        "routes\\clans.py",
+        "routes\\clans.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/clans/user/<user_id>/<server_id>",
+      "files": [
+        "routes\\clans.py",
+        "routes\\clans.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/economy/balance/<user_id>/<server_id>",
+      "files": [
+        "routes\\economy.py",
+        "routes\\economy.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/economy/set-balance/<user_id>/<server_id>",
+      "files": [
+        "routes\\economy.py",
+        "routes\\economy.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/economy/adjust-balance/<user_id>/<server_id>",
+      "files": [
+        "routes\\economy.py",
+        "routes\\economy.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/economy/transfer/<server_id>",
+      "files": [
+        "routes\\economy.py",
+        "routes\\economy.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/economy/leaderboard/<server_id>",
+      "files": [
+        "routes\\economy.py",
+        "routes\\economy.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/economy/transactions/<user_id>/<server_id>",
+      "files": [
+        "routes\\economy.py",
+        "routes\\economy.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/economy/server-stats/<server_id>",
+      "files": [
+        "routes\\economy.py",
+        "routes\\economy.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/economy/balance/<user_id>",
+      "files": [
+        "routes\\economy.py",
+        "routes\\economy.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/economy/transfer",
+      "files": [
+        "routes\\economy.py",
+        "routes\\economy.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/events/koth/start",
+      "files": [
+        "routes\\events.py",
+        "routes\\events.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/events/koth/stop",
+      "files": [
+        "routes\\events.py",
+        "routes\\events.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/events",
+      "files": [
+        "routes\\events.py",
+        "routes\\events.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/events/<event_id>",
+      "files": [
+        "routes\\events.py",
+        "routes\\events.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/events/server/<server_id>",
+      "files": [
+        "routes\\events.py",
+        "routes\\events.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/events/stats",
+      "files": [
+        "routes\\events.py",
+        "routes\\events.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/events/arena-locations",
+      "files": [
+        "routes\\events.py",
+        "routes\\events.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/events/templates",
+      "files": [
+        "routes\\events.py",
+        "routes\\events.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/gambling/slots/<user_id>/<server_id>",
+      "files": [
+        "routes\\gambling.py",
+        "routes\\gambling.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/gambling/coinflip/<user_id>/<server_id>",
+      "files": [
+        "routes\\gambling.py",
+        "routes\\gambling.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/gambling/dice/<user_id>/<server_id>",
+      "files": [
+        "routes\\gambling.py",
+        "routes\\gambling.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/gambling/history/<user_id>/<server_id>",
+      "files": [
+        "routes\\gambling.py",
+        "routes\\gambling.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/gambling/stats/<user_id>/<server_id>",
+      "files": [
+        "routes\\gambling.py",
+        "routes\\gambling.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/gambling/leaderboard/<server_id>",
+      "files": [
+        "routes\\gambling.py",
+        "routes\\gambling.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/gambling/slots",
+      "files": [
+        "routes\\gambling.py",
+        "routes\\gambling.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/gambling/coinflip",
+      "files": [
+        "routes\\gambling.py",
+        "routes\\gambling.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/gambling/dice",
+      "files": [
+        "routes\\gambling.py",
+        "routes\\gambling.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/logs/servers",
+      "files": [
+        "routes\\logs.py",
+        "routes\\logs.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/logs",
+      "files": [
+        "routes\\logs.py",
+        "routes\\logs.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/logs/download",
+      "files": [
+        "routes\\logs.py",
+        "routes\\logs.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/logs/<log_id>/download",
+      "files": [
+        "routes\\logs.py",
+        "routes\\logs.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/logs/refresh",
+      "files": [
+        "routes\\logs.py",
+        "routes\\logs.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/servers",
+      "files": [
+        "routes\\servers.py",
+        "routes\\servers.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/servers/add",
+      "files": [
+        "routes\\servers.py",
+        "routes\\servers.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/servers/update/<server_id>",
+      "files": [
+        "routes\\servers.py",
+        "routes\\servers.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/servers/delete/<server_id>",
+      "files": [
+        "routes\\servers.py",
+        "routes\\servers.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/servers/ping/<server_id>",
+      "files": [
+        "routes\\servers.py",
+        "routes\\servers.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/servers/bulk-action",
+      "files": [
+        "routes\\servers.py",
+        "routes\\servers.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/servers/<server_id>",
+      "files": [
+        "routes\\servers.py",
+        "routes\\servers.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/servers/stats",
+      "files": [
+        "routes\\servers.py",
+        "routes\\servers.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/bans/temp",
+      "files": [
+        "routes\\users.py",
+        "routes\\users.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/bans/permanent",
+      "files": [
+        "routes\\users.py",
+        "routes\\users.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/bans/unban",
+      "files": [
+        "routes\\users.py",
+        "routes\\users.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/items/give",
+      "files": [
+        "routes\\users.py",
+        "routes\\users.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/users/kick",
+      "files": [
+        "routes\\users.py",
+        "routes\\users.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/users/teleport",
+      "files": [
+        "routes\\users.py",
+        "routes\\users.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/bans",
+      "files": [
+        "routes\\users.py",
+        "routes\\users.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/users/<user_id>/history",
+      "files": [
+        "routes\\users.py",
+        "routes\\users.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/users/search",
+      "files": [
+        "routes\\users.py",
+        "routes\\users.py",
+        "routes\\user_database.py",
+        "routes\\user_database.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/users/stats",
+      "files": [
+        "routes\\users.py",
+        "routes\\users.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/users/register",
+      "files": [
+        "routes\\user_database.py",
+        "routes\\user_database.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/users/profile/<user_id>",
+      "files": [
+        "routes\\user_database.py",
+        "routes\\user_database.py",
+        "routes\\user_database.py",
+        "routes\\user_database.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/users/servers/<user_id>",
+      "files": [
+        "routes\\user_database.py",
+        "routes\\user_database.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/users/join-server/<user_id>/<server_id>",
+      "files": [
+        "routes\\user_database.py",
+        "routes\\user_database.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/users/leaderboard/<server_id>",
+      "files": [
+        "routes\\user_database.py",
+        "routes\\user_database.py"
+      ],
+      "conflict_type": "duplicate_route"
+    },
+    {
+      "route": "/api/users/stats/<server_id>",
+      "files": [
+        "routes\\user_database.py",
+        "routes\\user_database.py"
+      ],
+      "conflict_type": "duplicate_route"
+    }
+  ],
+  "redundant_files": [
+    {
+      "type": "exact_duplicate",
+      "hash": "d751713988987e9331980363e24189ce",
+      "files": [
+        "data\\banned_users.json",
+        "data\\customBots.json",
+        "data\\eventPoints.json",
+        "data\\numberofkoth.json",
+        "data\\tempBans.json"
+      ],
+      "size": 2,
+      "recommendation": "Keep one, remove others"
+    },
+    {
+      "type": "exact_duplicate",
+      "hash": "666745efa156141cbb14b01a4ae5e3af",
+      "files": [
+        "routes\\client.py",
+        "websocket\\client.py"
+      ],
+      "size": 14262,
+      "recommendation": "Keep one, remove others"
+    },
+    {
+      "type": "exact_duplicate",
+      "hash": "ad9614060d8a4f25ab83b17b398807ac",
+      "files": [
+        "routes\\koth.py",
+        "systems\\koth.py"
+      ],
+      "size": 12841,
+      "recommendation": "Keep one, remove others"
+    },
+    {
+      "type": "exact_duplicate",
+      "hash": "db7910432d22ef94d5fce8ec0cf61d26",
+      "files": [
+        "routes\\manager.py",
+        "websocket\\manager.py"
+      ],
+      "size": 10287,
+      "recommendation": "Keep one, remove others"
+    }
+  ],
+  "unused_files": [
+    "comprehensive_analyzer.py",
+    "config.py",
+    "routes\\auth.py",
+    "routes\\clans.py",
+    "routes\\client.py",
+    "routes\\economy.py",
+    "routes\\events.py",
+    "routes\\gambling.py",
+    "routes\\koth.py",
+    "routes\\logs.py",
+    "routes\\manager.py",
+    "routes\\servers.py",
+    "routes\\users.py",
+    "routes\\user_database.py",
+    "routes\\__init__.py",
+    "static\\js\\components\\clans.js",
+    "static\\js\\components\\console.js",
+    "static\\js\\components\\dashboard.js",
+    "static\\js\\components\\economy.js",
+    "static\\js\\components\\events.js",
+    "static\\js\\components\\gambling.js",
+    "static\\js\\components\\server-manager.js",
+    "static\\js\\components\\user-management.js",
+    "static\\js\\components\\base\\base-component.js",
+    "static\\js\\components\\base\\form-component.js",
+    "static\\js\\components\\base\\list-component.js",
+    "static\\js\\services\\notification-service.js",
+    "static\\js\\services\\storage-service.js",
+    "static\\js\\services\\validation-service.js",
+    "static\\js\\services\\websocket-service.js",
+    "static\\js\\widgets\\console-output.js",
+    "static\\js\\widgets\\data-table.js",
+    "static\\js\\widgets\\form-builder.js",
+    "static\\js\\widgets\\modal.js",
+    "static\\js\\widgets\\server-card.js",
+    "static\\js\\widgets\\status-indicator.js",
+    "systems\\koth.py",
+    "systems\\__init__.py",
+    "templates\\enhanced_dashboard.html",
+    "templates\\login.html",
+    "templates\\base\\layout.html",
+    "templates\\base\\sidebar.html",
+    "templates\\components\\console_message.html",
+    "templates\\components\\server_selector.html",
+    "templates\\components\\user_registration.html",
+    "templates\\partials\\notification_toast.html",
+    "templates\\scripts\\clans.js.html",
+    "templates\\scripts\\console.js.html",
+    "templates\\scripts\\dashboard.js.html",
+    "templates\\scripts\\economy.js.html",
+    "templates\\scripts\\enhanced_api.js.html",
+    "templates\\scripts\\events.js.html",
+    "templates\\scripts\\gambling.js.html",
+    "templates\\scripts\\logs.js.html",
+    "templates\\scripts\\server_manager.js.html",
+    "templates\\scripts\\user_management.js.html",
+    "templates\\views\\clans.html",
+    "templates\\views\\console.html",
+    "templates\\views\\dashboard.html",
+    "templates\\views\\dashboard_enhanced.html",
+    "templates\\views\\economy.html",
+    "templates\\views\\events.html",
+    "templates\\views\\gambling.html",
+    "templates\\views\\logs.html",
+    "templates\\views\\server_manager.html",
+    "templates\\views\\users.html",
+    "templates\\views\\user_management.html",
+    "utils\\helpers.py",
+    "utils\\rate_limiter.py",
+    "utils\\user_helpers.py",
+    "utils\\user_migration.py",
+    "utils\\__init__.py",
+    "websocket\\client.py",
+    "websocket\\manager.py",
+    "websocket\\__init__.py"
+  ],
+  "optimization_opportunities": [],
+  "security_issues": [
+    {
+      "file": "static\\js\\components\\console.js",
+      "issues": [
+        "Potential XSS risk"
+      ],
+      "severity": "high"
+    },
+    {
+      "file": "static\\js\\services\\validation-service.js",
+      "issues": [
+        "Hardcoded password"
+      ],
+      "severity": "medium"
+    },
+    {
+      "file": "templates\\scripts\\main.js.html",
+      "issues": [
+        "Potential XSS risk"
+      ],
+      "severity": "high"
+    }
+  ],
+  "performance_issues": [
+    {
+      "file": "app.py",
+      "issues": [
+        "High complexity score (131)",
+        "Too many functions (37)",
+        "Long lines affecting readability"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "comprehensive_analyzer.py",
+      "issues": [
+        "High complexity score (216)",
+        "Too many functions (33)",
+        "Long lines affecting readability"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "comprehensive_test.py",
+      "issues": [
+        "High complexity score (118)",
+        "Long lines affecting readability"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "config.py",
+      "issues": [
+        "Long lines affecting readability"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "dependency_mapper.py",
+      "issues": [
+        "High complexity score (73)",
+        "Long lines affecting readability"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "quick_test.py",
+      "issues": [
+        "High complexity score (69)",
+        "Long lines affecting readability"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "logs\\parsed_logs_1736296_1750234611.json",
+      "issues": [
+        "Large file (38,814,681 bytes)"
+      ],
+      "priority": "high"
+    },
+    {
+      "file": "logs\\parsed_logs_1736296_1750244225.json",
+      "issues": [
+        "Large file (38,865,714 bytes)"
+      ],
+      "priority": "high"
+    },
+    {
+      "file": "routes\\clans.py",
+      "issues": [
+        "High complexity score (102)"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "routes\\economy.py",
+      "issues": [
+        "High complexity score (62)",
+        "Long lines affecting readability"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "routes\\events.py",
+      "issues": [
+        "High complexity score (53)",
+        "Long lines affecting readability"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "routes\\gambling.py",
+      "issues": [
+        "High complexity score (102)",
+        "Long lines affecting readability"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "routes\\logs.py",
+      "issues": [
+        "High complexity score (89)",
+        "Long lines affecting readability"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "routes\\servers.py",
+      "issues": [
+        "High complexity score (97)"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "routes\\users.py",
+      "issues": [
+        "High complexity score (101)",
+        "Long lines affecting readability"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "routes\\user_database.py",
+      "issues": [
+        "High complexity score (140)",
+        "Long lines affecting readability"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "static\\js\\components\\base\\base-component.js",
+      "issues": [
+        "High complexity score (62)"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "static\\js\\components\\base\\form-component.js",
+      "issues": [
+        "High complexity score (64)"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "static\\js\\components\\base\\list-component.js",
+      "issues": [
+        "High complexity score (66)"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "static\\js\\services\\notification-service.js",
+      "issues": [
+        "High complexity score (55)"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "static\\js\\services\\storage-service.js",
+      "issues": [
+        "High complexity score (90)"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "static\\js\\services\\websocket-service.js",
+      "issues": [
+        "High complexity score (72)"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "static\\js\\widgets\\console-output.js",
+      "issues": [
+        "High complexity score (54)"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "static\\js\\widgets\\data-table.js",
+      "issues": [
+        "High complexity score (68)"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "static\\js\\widgets\\form-builder.js",
+      "issues": [
+        "High complexity score (55)"
+      ],
+      "priority": "medium"
+    },
+    {
+      "file": "static\\js\\widgets\\modal.js",
+      "issues": [
+        "High complexity score (61)"
+      ],
+      "priority": "medium"
+    }
+  ],
+  "architecture_assessment": {
+    "file_type_distribution": {
+      "python": 30,
+      "documentation": 4,
+      "json": 10,
+      "text": 1,
+      "css": 5,
+      "javascript": 21,
+      "html": 30
+    },
+    "total_complexity": 3135,
+    "average_complexity": 31.04,
+    "modularity_score": 33.33333333333333,
+    "test_coverage": 6.67,
+    "blueprint_usage": 9,
+    "dependency_graph_size": 19,
+    "api_endpoint_count": 138,
+    "template_modularity": 2,
+    "code_quality_score": 47.7
+  },
+  "recommendations": [
+    "\ud83d\udd27 Code Quality: Address identified issues to improve overall code quality",
+    "\ud83d\udd12 Security: Review and fix security issues in configuration and code files",
+    "\u26a1 Performance: Optimize large files and reduce complexity in identified modules",
+    "\ud83d\uddd1\ufe0f Cleanup: Remove or consolidate redundant and backup files",
+    "\ud83d\udee3\ufe0f Routes: Resolve route conflicts to prevent runtime issues",
+    "\ud83e\uddea Testing: Increase test coverage (currently 6.7%)",
+    "\ud83d\udce6 Modularity: Consider breaking down large modules for better maintainability",
+    "\ud83d\udccf Large Files: Consider splitting 4 large files for better maintainability"
+  ]
+}
