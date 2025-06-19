@@ -1,32 +1,46 @@
 <!-- ============================================================================
-     GUST Bot Enhanced - Core JavaScript (FIXED)
+     GUST Bot Enhanced - Core JavaScript (PRODUCTION SAFE + MODULAR + LOGS-BASED)
      ============================================================================
-     Fixed version that resolves tab switching and global function issues
+     CORRECTED VERSION: Now uses logs-based player count instead of console parsing
+     MODULAR: Respects modular architecture - delegates to appropriate modules
+     LOGS-INTEGRATED: Uses server logs as source of truth for player data
+     ENHANCED: Preserves old player count values during loading
      
-     FIXES APPLIED:
-     - Cleaned up corrupted global variables section
-     - Fixed immediate global function exposure
-     - Removed await statements from non-async contexts
-     - Ensured showTab is available before DOM loads
+     SAFETY FEATURES:
+     - Dependency checks before execution
+     - Graceful fallbacks for missing elements
+     - Function preservation (no overrides)
+     - Performance optimization
+     - Compatible with existing code
+     - Proper modular separation
+     - Logs-based player count integration
+     - Preserves old values during loading states
      ============================================================================ -->
 
 <script>
     // ============================================================================
-    // GUST Bot Enhanced - Core JavaScript Module (FIXED)
+    // GUST Bot Enhanced - Core JavaScript Module (LOGS-INTEGRATED + MODULAR)
     // ============================================================================
-    // Generated: 2025-06-19 03:56:50 (FIXED)
+    // Generated: 2025-06-19 (LOGS-BASED VERSION + MODULAR + ENHANCED UX)
     // 
     // This file contains EXACT extracted core functionality and global variables
     // All feature-specific functions have been moved to their respective modules
+    // Player count now uses logs-based API instead of console parsing
+    // Enhanced to preserve old values during loading states
     // 
-    // CRITICAL FIXES:
-    // - Fixed global variables corruption
-    // - Fixed immediate function exposure
-    // - Removed async/await issues
+    // SAFETY FEATURES:
+    // - No function overrides
+    // - Dependency validation
+    // - DOM element checking
+    // - Performance optimized
+    // - Graceful degradation
+    // - Proper modular architecture
+    // - Logs-based player count system
+    // - Enhanced UX with preserved values
     // ============================================================================
 
     // ============================================================================
-    // GLOBAL VARIABLES (FIXED - CLEANED UP)
+    // GLOBAL VARIABLES (PRESERVED EXACTLY)
     // ============================================================================
     
     // Essential global variables for application functionality
@@ -43,7 +57,7 @@
     let websocketsAvailable = true;
     
     // ============================================================================
-    // CORE FUNCTIONS (EXACT EXTRACTED CONTENT)
+    // CORE FUNCTIONS (EXACT EXTRACTED CONTENT - PRESERVED)
     // ============================================================================
     
     // FIXED showTab function with proper null checking
@@ -156,10 +170,10 @@
             case 'logs':
                 title = '📋 Server Logs';
                 content = `
-                    <p class="text-gray-400 mb-4">Server logs functionality coming soon...</p>
+                    <p class="text-gray-400 mb-4">Server logs functionality available...</p>
                     <div class="bg-gray-700 p-4 rounded">
                         <h4 class="font-semibold mb-2">📥 Log Management</h4>
-                        <p class="text-sm text-gray-400">Download and view server logs will be available here</p>
+                        <p class="text-sm text-gray-400">Download and view server logs available</p>
                     </div>
                 `;
                 break;
@@ -314,6 +328,7 @@
         return managedServers.find(server => server.serverId === serverId);
     }
 
+    // LOGS-BASED: Safe refreshServerList with logs-based player count integration
     function refreshServerList() {
         const container = document.getElementById('managedServersList');
         if (!container) return;
@@ -330,7 +345,7 @@
         }
         
         container.innerHTML = managedServers.map(server => `
-            <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+            <div class="bg-gray-700 p-4 rounded-lg border border-gray-600" data-server-id="${server.serverId}" data-has-players="false">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-4">
                         <div>
@@ -342,6 +357,29 @@
                             <div class="text-sm text-gray-300">
                                 ID: ${server.serverId} | Region: ${server.serverRegion} | Type: ${server.serverType || 'Standard'}
                             </div>
+                            
+                            <!-- LOGS-BASED: Player Count Display (Safe Integration) -->
+                            <div class="player-count-container mt-2 p-2 bg-gray-800 rounded border border-gray-600" id="player-count-${server.serverId}">
+                                <div class="flex items-center justify-between text-sm">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-cyan-400">👥</span>
+                                        <span class="player-count-text text-gray-300">
+                                            Players: <span class="player-count-value font-medium text-green-400">--</span> / <span class="player-max-value text-purple-400">--</span>
+                                        </span>
+                                    </div>
+                                    <span class="player-count-status text-xs px-2 py-1 rounded bg-gray-700 text-yellow-400" id="player-status-${server.serverId}">
+                                        ⏳ Loading...
+                                    </span>
+                                </div>
+                                <div class="player-count-bar mt-1 bg-gray-600 rounded-full h-1.5">
+                                    <div class="player-count-fill bg-gradient-to-r from-green-400 to-cyan-400 rounded-full h-full transition-all duration-500" 
+                                         style="width: 0%" id="player-bar-${server.serverId}"></div>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    Source: <span id="player-source-${server.serverId}">Server Logs</span>
+                                </div>
+                            </div>
+                            
                             ${server.description ? `<div class="text-xs text-gray-400 mt-1">${server.description}</div>` : ''}
                         </div>
                     </div>
@@ -356,15 +394,19 @@
                         </div>
                         
                         <!-- Quick Actions -->
-                        <button onclick="pingSingleServer('${server.serverId}')" 
+                        <button onclick="safeCall('pingSingleServer', '${server.serverId}')" 
                                 class="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs" title="Ping Server">
                             📡
                         </button>
-                        <button onclick="connectToLiveConsole('${server.serverId}')" 
+                        <button onclick="safeCall('connectToLiveConsole', '${server.serverId}')" 
                                 class="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-xs" title="Connect Live Console">
                             📺
                         </button>
-                        <button onclick="deleteServer('${server.serverId}')" 
+                        <button onclick="refreshPlayerCount('${server.serverId}')" 
+                                class="bg-orange-600 hover:bg-orange-700 px-2 py-1 rounded text-xs" title="Refresh Player Count">
+                            🔄
+                        </button>
+                        <button onclick="safeCall('deleteServer', '${server.serverId}')" 
                                 class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs" title="Delete Server">
                             🗑️
                         </button>
@@ -372,6 +414,11 @@
                 </div>
             </div>
         `).join('');
+        
+        // LOGS-BASED: Initialize player count system if available
+        setTimeout(() => {
+            logsBasedInitializePlayerCount();
+        }, 2000);
     }
 
     function updateConsoleFilters() {
@@ -547,7 +594,370 @@
             default: return '⚪ Unknown';
         }
     }
-    
+
+    // ============================================================================
+    // LOGS-BASED PLAYER COUNT SYSTEM - CORE INFRASTRUCTURE
+    // ============================================================================
+
+    // Core player count system configuration
+    let logsBasedPlayerCountSystem = {
+        enabled: false,
+        polling: false,
+        intervalId: null,
+        config: {
+            interval: 30000, // 30 seconds for logs-based approach
+            maxRetries: 3,
+            batchSize: 2
+        },
+        state: {
+            activeRequests: new Map(),
+            serverData: new Map()
+        }
+    };
+
+    /**
+     * SAFE: Check if function exists before calling
+     */
+    function safeCall(functionName, ...args) {
+        try {
+            if (typeof window[functionName] === 'function') {
+                return window[functionName](...args);
+            } else {
+                console.warn(`Function ${functionName} not available yet`);
+                return null;
+            }
+        } catch (error) {
+            console.error(`Error calling ${functionName}:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * SAFE: Get DOM element with error handling
+     */
+    function safeGetElement(id) {
+        try {
+            const element = document.getElementById(id);
+            if (!element) {
+                console.warn(`Element ${id} not found`);
+                return null;
+            }
+            return element;
+        } catch (error) {
+            console.error(`Error getting element ${id}:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * LOGS-BASED: Initialize player count system using logs API
+     */
+    function logsBasedInitializePlayerCount() {
+        // Check dependencies
+        if (!managedServers || managedServers.length === 0) {
+            console.log('📊 Logs-based player count: No servers to monitor yet');
+            return;
+        }
+
+        if (!safeGetElement('managedServersList')) {
+            console.log('📊 Logs-based player count: Server list container not ready');
+            return;
+        }
+
+        if (logsBasedPlayerCountSystem.enabled) {
+            console.log('📊 Logs-based player count: Already initialized');
+            return;
+        }
+
+        console.log('📊 Initializing logs-based player count system...');
+        logsBasedPlayerCountSystem.enabled = true;
+
+        // Show player count containers
+        managedServers.forEach(server => {
+            const container = safeGetElement(`player-count-${server.serverId}`);
+            if (container) {
+                container.style.display = 'block';
+            }
+        });
+
+        // Check if logs-based functions are available
+        if (typeof window.getPlayerCountFromLogs === 'function') {
+            console.log('✅ Logs module detected - using logs-based API');
+        } else {
+            console.log('⚠️ Logs module not ready - will use direct API calls');
+        }
+
+        // Start polling with delay
+        setTimeout(() => {
+            startLogsBasedPlayerCountPolling();
+        }, 3000);
+    }
+
+    /**
+     * LOGS-BASED: Start player count polling using logs API
+     */
+    function startLogsBasedPlayerCountPolling() {
+        if (logsBasedPlayerCountSystem.polling) {
+            return;
+        }
+
+        console.log('▶️ Starting logs-based player count polling...');
+        logsBasedPlayerCountSystem.polling = true;
+
+        // Initial poll
+        logsBasedPollAllServers();
+
+        // Set up interval - longer for logs-based approach
+        logsBasedPlayerCountSystem.intervalId = setInterval(() => {
+            logsBasedPollAllServers();
+        }, logsBasedPlayerCountSystem.config.interval);
+    }
+
+    /**
+     * LOGS-BASED: Poll all servers using logs API
+     */
+    function logsBasedPollAllServers() {
+        if (!managedServers || managedServers.length === 0) {
+            return;
+        }
+
+        console.log(`🔍 Logs-based polling ${managedServers.length} servers...`);
+
+        // Process servers in small batches
+        const batches = [];
+        for (let i = 0; i < managedServers.length; i += logsBasedPlayerCountSystem.config.batchSize) {
+            batches.push(managedServers.slice(i, i + logsBasedPlayerCountSystem.config.batchSize));
+        }
+
+        let batchIndex = 0;
+        function processBatch() {
+            if (batchIndex >= batches.length) {
+                return;
+            }
+
+            const batch = batches[batchIndex];
+            batch.forEach(server => {
+                logsBasedQueryServerPlayerCount(server.serverId);
+            });
+
+            batchIndex++;
+            if (batchIndex < batches.length) {
+                setTimeout(processBatch, 5000); // 5 second delay between batches for logs
+            }
+        }
+
+        processBatch();
+    }
+
+    /**
+     * LOGS-BASED: Query specific server for player count using logs API
+     */
+    async function logsBasedQueryServerPlayerCount(serverId) {
+        if (logsBasedPlayerCountSystem.state.activeRequests.has(serverId)) {
+            return;
+        }
+
+        const server = managedServers.find(s => s.serverId === serverId);
+        if (!server) {
+            return;
+        }
+
+        logsBasedPlayerCountSystem.state.activeRequests.set(serverId, Date.now());
+        updatePlayerCountDisplay(serverId, null, 'loading');
+
+        try {
+            console.log(`📊 Logs-based query for ${server.serverName} (${serverId})`);
+            
+            // Check if we're in demo mode
+            if (isDemo) {
+                // Demo mode: generate mock data
+                setTimeout(() => {
+                    const mockData = generateMockPlayerData(serverId);
+                    updatePlayerCountDisplay(serverId, mockData, 'success');
+                    logsBasedPlayerCountSystem.state.activeRequests.delete(serverId);
+                }, 1000);
+                return;
+            }
+
+            // REAL MODE: Use logs-based API
+            if (typeof window.getPlayerCountFromLogs === 'function') {
+                // Use logs module function
+                const result = await window.getPlayerCountFromLogs(serverId);
+                if (result.success) {
+                    logsBasedPlayerCountSystem.state.serverData.set(serverId, result.data);
+                }
+            } else {
+                // Direct API call fallback
+                const response = await fetch(`/api/logs/player-count/${serverId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    console.log(`✅ Got real player count from logs API: ${result.data.current}/${result.data.max}`);
+                    updatePlayerCountDisplay(serverId, result.data, 'success');
+                    logsBasedPlayerCountSystem.state.serverData.set(serverId, result.data);
+                } else {
+                    console.warn(`⚠️ Logs API failed: ${result.error}`);
+                    updatePlayerCountDisplay(serverId, null, 'error');
+                }
+            }
+
+        } catch (error) {
+            console.error(`❌ Error querying logs for ${serverId}:`, error);
+            updatePlayerCountDisplay(serverId, null, 'error');
+        } finally {
+            logsBasedPlayerCountSystem.state.activeRequests.delete(serverId);
+        }
+    }
+
+    /**
+     * ENHANCED: Update player count display (preserves old values during loading)
+     */
+    function updatePlayerCountDisplay(serverId, playerData, status = 'success') {
+        const countElement = document.querySelector(`#player-count-${serverId} .player-count-value`);
+        const maxElement = document.querySelector(`#player-count-${serverId} .player-max-value`);
+        const statusElement = safeGetElement(`player-status-${serverId}`);
+        const progressBar = safeGetElement(`player-bar-${serverId}`);
+        const sourceElement = safeGetElement(`player-source-${serverId}`);
+        const serverCard = document.querySelector(`[data-server-id="${serverId}"]`);
+
+        // Update status first (always update this)
+        if (statusElement) {
+            statusElement.className = `player-count-status text-xs px-2 py-1 rounded`;
+            switch (status) {
+                case 'loading':
+                    statusElement.textContent = '⏳ Loading...';
+                    statusElement.className += ' bg-yellow-900 text-yellow-300';
+                    break;
+                case 'success':
+                    statusElement.textContent = `✅ ${new Date().toLocaleTimeString()}`;
+                    statusElement.className += ' bg-green-900 text-green-300';
+                    break;
+                case 'error':
+                    statusElement.textContent = '❌ Error';
+                    statusElement.className += ' bg-red-900 text-red-300';
+                    break;
+            }
+        }
+
+        // Only update values if we have new data (preserve old values during loading/error)
+        if (playerData && countElement && maxElement) {
+            // Update the actual values
+            countElement.textContent = playerData.current;
+            maxElement.textContent = playerData.max;
+
+            // Update progress bar
+            if (progressBar) {
+                progressBar.style.width = `${playerData.percentage}%`;
+                
+                // Update color based on percentage
+                progressBar.className = 'player-count-fill bg-gradient-to-r rounded-full h-full transition-all duration-500';
+                if (playerData.percentage >= 90) {
+                    progressBar.className += ' from-red-500 to-red-600';
+                } else if (playerData.percentage >= 75) {
+                    progressBar.className += ' from-orange-500 to-red-500';
+                } else if (playerData.percentage >= 50) {
+                    progressBar.className += ' from-yellow-500 to-orange-500';
+                } else {
+                    progressBar.className += ' from-green-400 to-cyan-400';
+                }
+            }
+
+            // Update source indicator
+            if (sourceElement) {
+                sourceElement.textContent = playerData.source === 'server_logs' ? 'Server Logs' : 
+                                           playerData.source === 'mock' ? 'Demo Data' : 
+                                           playerData.source === 'auto_command_logs' ? 'Auto Commands + Logs' :
+                                           playerData.source === 'logs_api' ? 'Server Logs' :
+                                           'Unknown';
+            }
+
+            // Update server card attributes
+            if (serverCard) {
+                serverCard.setAttribute('data-has-players', playerData.current > 0 ? 'true' : 'false');
+            }
+
+            console.log(`📊 Updated display for ${serverId}: ${playerData.current}/${playerData.max} (${playerData.percentage}%)`);
+            
+        } else if (status === 'loading') {
+            // During loading, keep old values but update source
+            if (sourceElement) {
+                sourceElement.textContent = 'Loading...';
+            }
+            console.log(`⏳ Loading player count for ${serverId} (keeping old values)`);
+            
+        } else if (status === 'error' && !playerData) {
+            // On error without new data, keep old values but update source
+            if (sourceElement) {
+                sourceElement.textContent = 'Error - Using Last Known';
+            }
+            console.log(`❌ Error getting player count for ${serverId} (keeping old values)`);
+        }
+
+        // Special case: If this is the first time and we have no data, show default
+        if (!playerData && countElement && maxElement && countElement.textContent === '--') {
+            countElement.textContent = '--';
+            maxElement.textContent = '--';
+            if (progressBar) progressBar.style.width = '0%';
+            if (sourceElement) sourceElement.textContent = status === 'loading' ? 'Loading...' : 'No Data';
+            if (serverCard) serverCard.setAttribute('data-has-players', 'false');
+        }
+    }
+
+    /**
+     * LOGS-BASED: Generate mock player data (realistic)
+     */
+    function generateMockPlayerData(serverId) {
+        const playerCount = Math.floor(Math.random() * 60);
+        const maxPlayers = [50, 100, 150, 200][Math.floor(Math.random() * 4)];
+        
+        return {
+            current: playerCount,
+            max: maxPlayers,
+            percentage: maxPlayers > 0 ? Math.round((playerCount / maxPlayers) * 100) : 0,
+            timestamp: new Date().toISOString(),
+            source: 'mock'
+        };
+    }
+
+    /**
+     * LOGS-BASED: Manual refresh for specific server
+     */
+    function refreshPlayerCount(serverId) {
+        console.log(`🔄 Manual logs-based refresh for server ${serverId}`);
+        
+        // Check if logs-based function is available
+        if (typeof window.getPlayerCountFromLogs === 'function') {
+            window.getPlayerCountFromLogs(serverId);
+        } else {
+            // Fallback to direct API call
+            logsBasedQueryServerPlayerCount(serverId);
+        }
+    }
+
+    /**
+     * LOGS-BASED: Test integration
+     */
+    function testLogsIntegration() {
+        console.log('🧪 Testing logs-based integration...');
+        
+        if (!managedServers || managedServers.length === 0) {
+            console.log('❌ No servers configured for testing');
+            return;
+        }
+        
+        const testServerId = managedServers[0].serverId;
+        console.log(`🎯 Testing with server: ${testServerId}`);
+        
+        // Test using logs-based approach
+        refreshPlayerCount(testServerId);
+    }
+
     // ============================================================================
     // CRITICAL: IMMEDIATE GLOBAL FUNCTION EXPOSURE
     // ============================================================================
@@ -569,6 +979,15 @@
     window.getStatusClass = getStatusClass;
     window.getStatusText = getStatusText;
     
+    // LOGS-BASED: Player count functions
+    window.safeCall = safeCall;
+    window.safeGetElement = safeGetElement;
+    window.logsBasedInitializePlayerCount = logsBasedInitializePlayerCount;
+    window.refreshPlayerCount = refreshPlayerCount;
+    window.updatePlayerCountDisplay = updatePlayerCountDisplay;
+    window.generateMockPlayerData = generateMockPlayerData;
+    window.testLogsIntegration = testLogsIntegration;
+    
     // Ensure global variables are accessible
     window.currentTab = currentTab;
     window.servers = servers;
@@ -582,9 +1001,11 @@
     window.autoScroll = autoScroll;
     window.websocketsAvailable = websocketsAvailable;
     
-    console.log('🚀 GUST Bot Enhanced - Core Module Initialized (FIXED)');
+    console.log('🚀 GUST Bot Enhanced - Core Module Initialized (LOGS-BASED + MODULAR + ENHANCED UX)');
     console.log('⚡ Global functions exposed immediately');
     console.log('📦 Modular architecture active - feature modules loaded separately');
+    console.log('📋 Logs-based player count system ready');
+    console.log('✨ Enhanced UX: Preserves old values during loading');
     
     // ============================================================================
     // INITIALIZATION (PRESERVED EXACT BEHAVIOR)
@@ -618,7 +1039,9 @@
         console.log('✅ Core initialization complete');
         console.log('🌐 Global functions available:', {
             showTab: typeof window.showTab,
-            currentTab: window.currentTab
+            currentTab: window.currentTab,
+            logsBasedPlayerCount: typeof window.logsBasedInitializePlayerCount,
+            enhancedUX: 'Preserves old values during loading'
         });
     });
 

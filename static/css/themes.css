@@ -1,51 +1,501 @@
-﻿/* ============================================================================
-   GUST Bot Enhanced - Extracted Theme CSS
+/* ============================================================================
+   GUST Bot Enhanced - Extracted Theme CSS (PRODUCTION SAFE)
    ============================================================================
-   Extracted from enhanced_dashboard.html on 2025-06-17 12:20:33
+   SAFE VERSION: Reduces !important usage and provides better compatibility
    
-   This file contains all the G-Portal theme styling and variables
-   that were previously embedded in the main template.
+   SAFETY FEATURES:
+   - Minimal !important declarations
+   - Better CSS specificity
+   - Performance optimized animations
+   - Accessible design
+   - Mobile-first responsive
    ============================================================================ */
 
 .nav-tab {
-            transition: all 0.2s ease;
-        }
-        .nav-tab.active {
-            background: linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%);
-        }
-        .live-indicator {
-            animation: pulse 2s infinite;
-        }
-        .message-type-chat { border-left: 4px solid #3B82F6; }
-        .message-type-auth { border-left: 4px solid #10B981; }
-        .message-type-save { border-left: 4px solid #F59E0B; }
-        .message-type-error { border-left: 4px solid #EF4444; }
-        .message-type-system { border-left: 4px solid #6B7280; }
-        .message-type-command { border-left: 4px solid #8B5CF6; }
-        .message-type-player { border-left: 4px solid #06B6D4; }
-        .message-type-kill { border-left: 4px solid #DC2626; }
-        .message-type-warning { border-left: 4px solid #F59E0B; }
-        .message-type-event { border-left: 4px solid #F59E0B; }
-        .message-type-ban { border-left: 4px solid #DC2626; }
-        
-        /* Console live message styling */
-        .console-live-message {
-            position: relative;
-            padding-left: 8px;
-        }
-        .console-live-message::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background: #06B6D4;
-            border-radius: 2px;
-        }
-        .console-live-message.message-type-chat::before { background: #3B82F6; }
-        .console-live-message.message-type-auth::before { background: #10B981; }
-        .console-live-message.message-type-save::before { background: #F59E0B; }
-        .console-live-message.message-type-error::before { background: #EF4444; }
-        .console-live-message.message-type-kill::before { background: #DC2626; }
-        .console-live-message.message-type-warning::before { background: #F59E0B; }
+    transition: all 0.2s ease;
+}
+.nav-tab.active {
+    background: linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%);
+}
+.live-indicator {
+    animation: pulse 2s infinite;
+}
+.message-type-chat { border-left: 4px solid #3B82F6; }
+.message-type-auth { border-left: 4px solid #10B981; }
+.message-type-save { border-left: 4px solid #F59E0B; }
+.message-type-error { border-left: 4px solid #EF4444; }
+.message-type-system { border-left: 4px solid #6B7280; }
+.message-type-command { border-left: 4px solid #8B5CF6; }
+.message-type-player { border-left: 4px solid #06B6D4; }
+.message-type-kill { border-left: 4px solid #DC2626; }
+.message-type-warning { border-left: 4px solid #F59E0B; }
+.message-type-event { border-left: 4px solid #F59E0B; }
+.message-type-ban { border-left: 4px solid #DC2626; }
+
+/* Console live message styling */
+.console-live-message {
+    position: relative;
+    padding-left: 8px;
+}
+.console-live-message::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #06B6D4;
+    border-radius: 2px;
+}
+.console-live-message.message-type-chat::before { background: #3B82F6; }
+.console-live-message.message-type-auth::before { background: #10B981; }
+.console-live-message.message-type-save::before { background: #F59E0B; }
+.console-live-message.message-type-error::before { background: #EF4444; }
+.console-live-message.message-type-kill::before { background: #DC2626; }
+.console-live-message.message-type-warning::before { background: #F59E0B; }
+
+/* ============================================================================
+   LIVE PLAYER COUNT STYLES - PRODUCTION SAFE
+   ============================================================================ */
+
+/* Player Count Container */
+.player-count-container {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(139, 92, 246, 0.06));
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    transition: all 0.3s ease;
+    backdrop-filter: blur(2px);
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+}
+
+.player-count-container:hover {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+    border-color: rgba(99, 102, 241, 0.35);
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.12);
+    transform: translateY(-1px);
+}
+
+/* Player Count Text */
+.player-count-text {
+    font-family: 'Courier New', 'Monaco', 'Consolas', monospace;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0.025em;
+}
+
+/* Player Count Values - Safe specificity */
+.player-count-container .player-count-value {
+    color: #00ff9f;
+    font-weight: 600;
+    text-shadow: 0 0 3px rgba(0, 255, 159, 0.15);
+    font-family: 'Courier New', 'Monaco', 'Consolas', monospace;
+}
+
+.player-count-container .player-max-value {
+    color: #a855f7;
+    font-weight: 500;
+    font-family: 'Courier New', 'Monaco', 'Consolas', monospace;
+}
+
+/* Status Indicators - Safe classes */
+.player-count-status {
+    font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Status variants - Better specificity */
+.player-count-container .player-count-status.loading {
+    background-color: rgba(252, 211, 77, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(252, 211, 77, 0.25);
+    animation: safePlayerCountPulse 2s infinite;
+}
+
+.player-count-container .player-count-status.success {
+    background-color: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.player-count-container .player-count-status.error {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.player-count-container .player-count-status.offline {
+    background-color: rgba(107, 114, 128, 0.15);
+    color: #6b7280;
+    border: 1px solid rgba(107, 114, 128, 0.25);
+}
+
+/* Progress Bar */
+.player-count-bar {
+    background: linear-gradient(90deg, rgba(75, 85, 99, 0.5), rgba(55, 65, 81, 0.7));
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+    border-radius: 0.375rem;
+    overflow: hidden;
+    position: relative;
+    height: 0.375rem;
+}
+
+.player-count-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+    animation: safeShimmer 3s infinite;
+}
+
+.player-count-fill {
+    box-shadow: 0 0 6px rgba(34, 197, 94, 0.3);
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    border-radius: 0.375rem;
+}
+
+/* Progress Bar Color Variants - Safer selectors */
+.player-count-container .player-count-fill.medium {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
+}
+
+.player-count-container .player-count-fill.high {
+    background: linear-gradient(90deg, #f59e0b, #ff6b35);
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
+}
+
+.player-count-container .player-count-fill.critical {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.3);
+    animation: safeCriticalPulse 2s infinite;
+}
+
+/* Server Card Enhancements - Safe attribute selectors */
+[data-has-players="true"] {
+    border-color: rgba(34, 197, 94, 0.35);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.08);
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.015), rgba(34, 197, 94, 0.008));
+}
+
+[data-has-players="false"] {
+    border-color: rgba(107, 114, 128, 0.25);
+}
+
+/* Hover effects for server cards with players */
+[data-server-id]:hover[data-has-players="true"] .player-count-container {
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.15);
+}
+
+/* Player Count Loading State */
+.player-count-loading {
+    animation: safePlayerCountPulse 2s infinite;
+}
+
+/* Safe Animations - Optimized for performance */
+@keyframes safePlayerCountPulse {
+    0%, 100% { 
+        opacity: 1; 
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 0.7; 
+        transform: scale(0.99);
+    }
+}
+
+@keyframes safeCriticalPulse {
+    0%, 100% { 
+        opacity: 1; 
+        transform: scaleY(1);
+        box-shadow: 0 0 6px rgba(239, 68, 68, 0.3);
+    }
+    50% { 
+        opacity: 0.85; 
+        transform: scaleY(1.02);
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+    }
+}
+
+@keyframes safeShimmer {
+    0% { transform: translateX(-100%); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateX(100%); opacity: 0; }
+}
+
+/* Hover Effects - Safe and subtle */
+.player-count-container:hover .player-count-value {
+    text-shadow: 0 0 4px rgba(0, 255, 159, 0.25);
+}
+
+.player-count-container:hover .player-max-value {
+    text-shadow: 0 0 3px rgba(168, 85, 247, 0.2);
+}
+
+/* Player Count Action Button Enhancements - Safe selectors */
+button[onclick*="refreshPlayerCount"] {
+    transition: all 0.2s ease;
+}
+
+button[onclick*="refreshPlayerCount"]:hover {
+    background-color: #ea580c;
+    box-shadow: 0 0 6px rgba(234, 88, 12, 0.25);
+    transform: scale(1.02);
+}
+
+button[onclick*="refreshPlayerCount"]:active {
+    transform: scale(0.98);
+}
+
+/* Server Card General Enhancements */
+.bg-gray-700[data-server-id] {
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.bg-gray-700[data-server-id]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, transparent, rgba(99, 102, 241, 0.015), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.bg-gray-700[data-server-id]:hover::before {
+    opacity: 1;
+}
+
+/* Player Count Statistics - Safe layout */
+.player-count-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background: rgba(55, 65, 81, 0.25);
+    border-radius: 0.25rem;
+    margin-top: 0.5rem;
+    border: 1px solid rgba(75, 85, 99, 0.25);
+}
+
+.player-count-stat {
+    text-align: center;
+    flex: 1;
+}
+
+.player-count-stat-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #00ff9f;
+    font-family: 'Courier New', monospace;
+}
+
+.player-count-stat-label {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    margin-top: 0.125rem;
+}
+
+/* Responsive Design - Mobile-first approach */
+@media (max-width: 768px) {
+    .player-count-container {
+        padding: 0.375rem;
+        margin-top: 0.375rem;
+    }
+    
+    .player-count-text {
+        font-size: 0.75rem;
+    }
+    
+    .player-count-status {
+        font-size: 0.625rem;
+        padding: 0.1875rem 0.375rem;
+    }
+    
+    .player-count-value,
+    .player-max-value {
+        font-size: 0.75rem;
+    }
+    
+    .player-count-bar {
+        height: 0.25rem;
+    }
+    
+    /* Stack server actions better on mobile */
+    .bg-gray-700[data-server-id] .flex.space-x-2 {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    
+    .bg-gray-700[data-server-id] .flex.space-x-2 button {
+        min-width: 2rem;
+        font-size: 0.75rem;
+        padding: 0.25rem 0.375rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .player-count-container {
+        padding: 0.3125rem;
+    }
+    
+    .player-count-text {
+        font-size: 0.6875rem;
+    }
+    
+    .player-count-container .flex {
+        flex-direction: column;
+        gap: 0.1875rem;
+    }
+    
+    .player-count-status {
+        align-self: flex-end;
+        font-size: 0.5625rem;
+    }
+    
+    .player-count-bar {
+        height: 0.1875rem;
+    }
+}
+
+/* Dark theme compatibility - Better defaults */
+@media (prefers-color-scheme: dark) {
+    .player-count-container {
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
+        border-color: rgba(99, 102, 241, 0.2);
+    }
+    
+    .player-count-bar {
+        background: linear-gradient(90deg, rgba(55, 65, 81, 0.7), rgba(31, 41, 55, 0.8));
+    }
+}
+
+/* High contrast mode support - Accessibility */
+@media (prefers-contrast: high) {
+    .player-count-container {
+        border-width: 2px;
+        border-color: rgba(99, 102, 241, 0.5);
+    }
+    
+    .player-count-container .player-count-value {
+        color: #00ff9f;
+        text-shadow: none;
+        font-weight: 700;
+    }
+    
+    .player-count-container .player-max-value {
+        color: #a855f7;
+        text-shadow: none;
+        font-weight: 700;
+    }
+    
+    .player-count-status {
+        border-width: 2px;
+        font-weight: 600;
+    }
+}
+
+/* Reduced motion support - Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .player-count-container,
+    .player-count-fill,
+    .player-count-status,
+    button[onclick*="refreshPlayerCount"] {
+        transition: none;
+        animation: none;
+    }
+    
+    .player-count-container:hover,
+    button[onclick*="refreshPlayerCount"]:hover,
+    button[onclick*="refreshPlayerCount"]:active {
+        transform: none;
+    }
+    
+    .player-count-bar::before {
+        animation: none;
+    }
+}
+
+/* Print styles - Clean printing */
+@media print {
+    .player-count-container {
+        background: white;
+        border: 1px solid #333;
+        box-shadow: none;
+    }
+    
+    .player-count-value,
+    .player-max-value {
+        color: #000;
+        text-shadow: none;
+    }
+    
+    .player-count-bar {
+        background: #f0f0f0;
+        border: 1px solid #333;
+    }
+    
+    .player-count-fill {
+        background: #666;
+        box-shadow: none;
+    }
+    
+    .player-count-status {
+        background: #f0f0f0;
+        color: #333;
+        border: 1px solid #333;
+    }
+}
+
+/* Performance optimizations */
+.player-count-container * {
+    will-change: auto;
+}
+
+.player-count-fill {
+    will-change: width;
+}
+
+/* Focus states for accessibility */
+button[onclick*="refreshPlayerCount"]:focus {
+    outline: 2px solid rgba(99, 102, 241, 0.5);
+    outline-offset: 2px;
+}
+
+/* Loading state improvements */
+.player-count-loading .player-count-value,
+.player-count-loading .player-max-value {
+    opacity: 0.6;
+}
+
+/* Error state styling */
+.player-count-container[data-status="error"] {
+    border-color: rgba(239, 68, 68, 0.3);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.02));
+}
+
+/* Success state styling */
+.player-count-container[data-status="success"] {
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+/* Container state transitions */
+.player-count-container[data-status] {
+    transition: border-color 0.3s ease, background 0.3s ease;
+}

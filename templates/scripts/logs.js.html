@@ -1,75 +1,57 @@
 <!-- ============================================================================
-     GUST Bot Enhanced - logs JavaScript Module (FIXED)
+     GUST Bot Enhanced - logs JavaScript Module (COMPLETE WORKING VERSION)
      ============================================================================
-     Generated: 2025-06-19 03:56:50 (GLOBAL FUNCTIONS FIXED)
+     Generated: 2025-06-19 (FINAL VERSION - USES EXISTING CONSOLE SYSTEM)
      
-     Module for logs specific functionality
+     Module for logs specific functionality + SIMPLE Auto Commands
      
-     FIXES APPLIED:
-     - Added proper global function exposure
-     - Fixed showLogsTab function availability
-     - Ensured loadLogs function is properly exposed
-     - Added fallback navigation
+     FEATURES:
+     - ✅ Original logs functions (preserved)
+     - ✅ Logs-based player count integration 
+     - ✅ SIMPLE auto commands using existing sendConsoleCommand()
+     - ✅ Actually sends "serverinfo" every 10 seconds
+     - ✅ Direct integration with your existing console system
      
-     Extracted functions: 1+ (Enhanced)
-     Total lines: 8+ (Enhanced)
+     FLOW: Use Existing Console → Send Commands → Get Logs → Parse → Display
      ============================================================================ -->
 
 <script>
     // ============================================================================
-    // LOGS MODULE - EXACT EXTRACTED FUNCTIONS (ENHANCED WITH GLOBAL EXPOSURE)
+    // LOGS MODULE - ORIGINAL FUNCTIONS (PRESERVED)
     // ============================================================================
     
-    // ============================================================================
-    // Function 1: loadLogs (8 lines)
-    // ============================================================================
-
-        
-        function loadLogs() {
-            console.log('📋 Loading Logs...');
-            // Add your logs loading logic here
-            if (typeof initializeLogs === 'function') {
-                initializeLogs();
-            }
+    function loadLogs() {
+        console.log('📋 Loading Logs...');
+        if (typeof initializeLogs === 'function') {
+            initializeLogs();
         }
+    }
 
-    // ============================================================================
-    // Function 2: showLogsTab (Enhanced - integrates with existing navigation)
-    // ============================================================================
-    
     function showLogsTab() {
         console.log('📋 Switching to logs tab...');
         
         if (typeof showTab === 'function') {
-            // Use the standard tab switching function
             showTab('logs');
         } else {
-            // Fallback navigation if showTab isn't available
-            console.log('📋 Using fallback navigation for logs tab');
-            
-            // Hide all views
+            // Fallback navigation
             document.querySelectorAll('.view').forEach(view => {
                 if (view && view.classList) {
                     view.classList.add('hidden');
                 }
             });
             
-            // Remove active from all nav tabs
             document.querySelectorAll('.nav-tab').forEach(tab => {
                 if (tab && tab.classList) {
                     tab.classList.remove('active');
                 }
             });
             
-            // Show logs view
             const logsView = document.getElementById('logs-view');
             const logsTab = document.getElementById('logs-tab');
             
             if (logsView) {
                 logsView.classList.remove('hidden');
                 console.log('✅ Logs view shown');
-            } else {
-                console.error('❌ Logs view not found');
             }
             
             if (logsTab) {
@@ -78,7 +60,6 @@
             }
         }
         
-        // Always ensure logs are initialized when showing logs tab
         setTimeout(() => {
             if (typeof initializeLogs === 'function') {
                 initializeLogs();
@@ -86,38 +67,32 @@
             loadLogs();
         }, 100);
     }
-
-    // ============================================================================
-    // Function 3: initializeLogs (Enhanced - placeholder for full logs functionality)
-    // ============================================================================
     
     function initializeLogs() {
         console.log('🔧 Initializing Logs functionality...');
         
-        // Try to load servers for logs
         if (typeof loadServers === 'function') {
             loadServers();
         }
         
-        // Show status that logs are ready
         const statusDiv = document.getElementById('logs-status');
         if (statusDiv) {
             statusDiv.innerHTML = `
                 <div class="text-green-400 text-sm">
-                    ✅ Logs module initialized and ready
+                    ✅ Logs module initialized and ready (with auto commands)
                 </div>
             `;
             statusDiv.classList.remove('hidden');
         }
         
+        // Start automatic command system after initialization
+        setTimeout(() => {
+            startAutoConsoleCommands();
+        }, 3000);
+        
         console.log('✅ Logs initialization complete');
     }
     
-    // ============================================================================
-    // Additional Helper Functions
-    // ============================================================================
-    
-    // Show status message for logs
     function showLogsStatus(message, type = 'info') {
         console.log(`📋 Logs Status [${type.toUpperCase()}]: ${message}`);
         
@@ -146,7 +121,6 @@
         }
     }
     
-    // Hide status message
     function hideLogsStatus() {
         const statusDiv = document.getElementById('logs-status');
         if (statusDiv) {
@@ -155,30 +129,782 @@
     }
 
     // ============================================================================
+    // LOGS-BASED PLAYER COUNT FUNCTIONS
+    // ============================================================================
+
+    /**
+     * Get player count from logs for a specific server (MAIN FUNCTION)
+     */
+    async function getPlayerCountFromLogs(serverId) {
+        try {
+            console.log(`📊 Getting player count from logs for server ${serverId}...`);
+            
+            if (!serverId) {
+                throw new Error('Server ID is required');
+            }
+            
+            const response = await fetch(`/api/logs/player-count/${serverId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                console.log(`✅ Got player count from logs: ${result.data.current}/${result.data.max} (${result.data.percentage}%)`);
+                
+                if (typeof window.updatePlayerCountDisplay === 'function') {
+                    window.updatePlayerCountDisplay(serverId, result.data, 'success');
+                }
+                
+                return {
+                    success: true,
+                    data: result.data,
+                    source: 'logs_api'
+                };
+            } else {
+                console.warn(`⚠️ Logs API returned no data for ${serverId}: ${result.error || 'Unknown error'}`);
+                
+                if (typeof window.updatePlayerCountDisplay === 'function') {
+                    window.updatePlayerCountDisplay(serverId, null, 'error');
+                }
+                
+                return {
+                    success: false,
+                    error: result.error || 'No player count data available',
+                    source: 'logs_api'
+                };
+            }
+            
+        } catch (error) {
+            console.error(`❌ Error getting player count from logs for ${serverId}:`, error);
+            
+            if (typeof window.updatePlayerCountDisplay === 'function') {
+                window.updatePlayerCountDisplay(serverId, null, 'error');
+            }
+            
+            return {
+                success: false,
+                error: error.message,
+                source: 'logs_api'
+            };
+        }
+    }
+
+    /**
+     * Force refresh with command + logs
+     */
+    async function forceRefreshPlayerCountFromLogs(serverId) {
+        try {
+            console.log(`🔄 Force refresh for ${serverId}...`);
+            
+            // Send command first
+            await sendSingleAutoCommand(serverId, 'serverinfo');
+            
+            // Wait and get fresh logs
+            setTimeout(async () => {
+                await getPlayerCountFromLogs(serverId);
+            }, 4000);
+            
+        } catch (error) {
+            console.error(`❌ Force refresh failed for ${serverId}:`, error);
+        }
+    }
+
+    // ============================================================================
+    // SIMPLE AUTO CONSOLE COMMAND SYSTEM - USES EXISTING CONSOLE
+    // ============================================================================
+    
+    // Configuration
+    const autoConsoleConfig = {
+        enabled: true,
+        interval: 10000,           // 10 seconds between commands
+        commandsToSend: ['serverinfo'], // Commands to send automatically
+        rotateServers: true,       // Rotate through servers
+        maxServersPerRound: 1,     // How many servers per round
+        debug: true                // Enable debug logging
+    };
+    
+    // State tracking
+    const autoConsoleState = {
+        running: false,
+        intervalId: null,
+        monitorInterval: null,  // For player count monitoring
+        currentServerIndex: 0,
+        totalCommandsSent: 0,
+        lastCommandTime: null,
+        errors: 0,
+        activeCommands: new Map(),  // Track active commands
+        lastCommandTimes: new Map() // Track last command time per server
+    };
+    
+    /**
+     * Start automatic console command sending
+     */
+    function startAutoConsoleCommands() {
+        if (autoConsoleState.running) {
+            console.log('⚠️ Auto console commands already running');
+            return;
+        }
+        
+        console.log('🚀 Starting automatic console commands...');
+        console.log(`📡 Will send commands every ${autoConsoleConfig.interval/1000} seconds`);
+        
+        autoConsoleState.running = true;
+        
+        // Send first command after short delay
+        setTimeout(() => {
+            sendAutomaticConsoleCommand();
+        }, 2000);
+        
+        // Set up interval for regular commands
+        autoConsoleState.intervalId = setInterval(() => {
+            sendAutomaticConsoleCommand();
+        }, autoConsoleConfig.interval);
+        
+        console.log('✅ Auto console commands started');
+        updateAutoCommandStatus('▶️ Running');
+    }
+    
+    /**
+     * Stop automatic console command sending
+     */
+    function stopAutoConsoleCommands() {
+        if (!autoConsoleState.running) {
+            return;
+        }
+        
+        console.log('⏹️ Stopping automatic console commands...');
+        
+        autoConsoleState.running = false;
+        
+        if (autoConsoleState.intervalId) {
+            clearInterval(autoConsoleState.intervalId);
+            autoConsoleState.intervalId = null;
+        }
+        
+        console.log('✅ Auto console commands stopped');
+        updateAutoCommandStatus('⏸️ Stopped');
+    }
+    
+    /**
+     * Send automatic console command using existing console system
+     */
+    async function sendAutomaticConsoleCommand() {
+        try {
+            if (!autoConsoleConfig.enabled || !autoConsoleState.running) {
+                return;
+            }
+            
+            // Get available servers
+            const servers = getAvailableServersForAutoCommands();
+            if (servers.length === 0) {
+                if (autoConsoleConfig.debug) {
+                    console.log('📊 No servers available for auto commands');
+                }
+                return;
+            }
+            
+            // Get server(s) to send commands to
+            const targetServers = getTargetServersForCommands(servers);
+            
+            for (const server of targetServers) {
+                for (const command of autoConsoleConfig.commandsToSend) {
+                    await sendSingleAutoCommand(server.id, command);
+                    
+                    // Small delay between commands
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+            
+            autoConsoleState.lastCommandTime = new Date().toISOString();
+            
+            if (autoConsoleConfig.debug) {
+                console.log(`📊 Auto commands complete. Total sent: ${autoConsoleState.totalCommandsSent}`);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error in automatic console command:', error);
+            autoConsoleState.errors++;
+        }
+    }
+    
+    /**
+     * Send a single automatic command using existing console system
+     */
+    async function sendSingleAutoCommand(serverId, command) {
+        try {
+            if (autoConsoleConfig.debug) {
+                console.log(`📡 Auto-sending "${command}" to server ${serverId}...`);
+            }
+            
+            // Check if command is already active for this server
+            if (autoConsoleState.activeCommands.has(serverId)) {
+                console.log(`⏳ Command already active for ${serverId}, skipping`);
+                return;
+            }
+            
+            // Mark command as active
+            autoConsoleState.activeCommands.set(serverId, {
+                command: command,
+                startTime: Date.now(),
+                status: 'sending'
+            });
+            
+            // Set up the console for this server and command
+            const consoleServerSelect = document.getElementById('consoleServerSelect');
+            const consoleInput = document.getElementById('consoleInput');
+            
+            if (!consoleServerSelect || !consoleInput) {
+                console.error('❌ Console elements not found');
+                autoConsoleState.activeCommands.delete(serverId);
+                return;
+            }
+            
+            // Save current values
+            const originalServer = consoleServerSelect.value;
+            const originalCommand = consoleInput.value;
+            
+            // Set server and command
+            consoleServerSelect.value = serverId;
+            consoleInput.value = command;
+            
+            // Update display to show loading (but preserve old values)
+            if (typeof window.updatePlayerCountDisplay === 'function') {
+                window.updatePlayerCountDisplay(serverId, null, 'loading');
+            }
+            
+            // Check if sendConsoleCommand function exists and use it
+            if (typeof window.sendConsoleCommand === 'function') {
+                await window.sendConsoleCommand();
+                
+                autoConsoleState.totalCommandsSent++;
+                autoConsoleState.lastCommandTimes.set(serverId, Date.now());
+                
+                // Update command status
+                const commandInfo = autoConsoleState.activeCommands.get(serverId);
+                if (commandInfo) {
+                    commandInfo.status = 'sent';
+                    commandInfo.sentTime = Date.now();
+                }
+                
+                if (autoConsoleConfig.debug) {
+                    console.log(`✅ Auto command "${command}" sent to ${serverId}`);
+                }
+                
+                // Trigger logs-based update after command
+                setTimeout(async () => {
+                    try {
+                        await getPlayerCountFromLogs(serverId);
+                        
+                        // Mark command as complete
+                        const cmdInfo = autoConsoleState.activeCommands.get(serverId);
+                        if (cmdInfo) {
+                            cmdInfo.status = 'completed';
+                            cmdInfo.completedTime = Date.now();
+                            
+                            // Remove from active commands after a short delay
+                            setTimeout(() => {
+                                autoConsoleState.activeCommands.delete(serverId);
+                            }, 2000);
+                        }
+                    } catch (error) {
+                        console.error(`❌ Error in logs update for ${serverId}:`, error);
+                        autoConsoleState.activeCommands.delete(serverId);
+                        
+                        // Update display to show error (but preserve old values)
+                        if (typeof window.updatePlayerCountDisplay === 'function') {
+                            window.updatePlayerCountDisplay(serverId, null, 'error');
+                        }
+                    }
+                }, 4000); // Wait 4 seconds for command to execute and be logged
+                
+            } else {
+                console.warn('⚠️ sendConsoleCommand function not available');
+                autoConsoleState.activeCommands.delete(serverId);
+                
+                // Update display to show error (but preserve old values)
+                if (typeof window.updatePlayerCountDisplay === 'function') {
+                    window.updatePlayerCountDisplay(serverId, null, 'error');
+                }
+            }
+            
+            // Restore original values
+            consoleServerSelect.value = originalServer;
+            consoleInput.value = originalCommand;
+            
+        } catch (error) {
+            console.error(`❌ Error sending auto command to ${serverId}:`, error);
+            autoConsoleState.errors++;
+            autoConsoleState.activeCommands.delete(serverId);
+            
+            // Update display to show error (but preserve old values)
+            if (typeof window.updatePlayerCountDisplay === 'function') {
+                window.updatePlayerCountDisplay(serverId, null, 'error');
+            }
+        }
+    }
+    
+    /**
+     * Get available servers for auto commands
+     */
+    function getAvailableServersForAutoCommands() {
+        const servers = [];
+        
+        // Try to get from managedServers (main system)
+        if (typeof window.managedServers !== 'undefined' && window.managedServers) {
+            window.managedServers.forEach(server => {
+                if (server && server.serverId && server.isActive !== false) {
+                    servers.push({
+                        id: server.serverId,
+                        name: server.serverName || `Server ${server.serverId}`,
+                        region: server.serverRegion || 'US'
+                    });
+                }
+            });
+        }
+        
+        // Fallback: try to get from console dropdown
+        if (servers.length === 0) {
+            const consoleSelect = document.getElementById('consoleServerSelect');
+            if (consoleSelect) {
+                Array.from(consoleSelect.options).forEach(option => {
+                    if (option.value && option.value !== '') {
+                        servers.push({
+                            id: option.value,
+                            name: option.textContent || `Server ${option.value}`,
+                            region: 'US'
+                        });
+                    }
+                });
+            }
+        }
+        
+        return servers;
+    }
+    
+    /**
+     * Get target servers for this command round
+     */
+    function getTargetServersForCommands(servers) {
+        if (!autoConsoleConfig.rotateServers) {
+            // Send to all servers (up to maxServersPerRound)
+            return servers.slice(0, autoConsoleConfig.maxServersPerRound);
+        }
+        
+        // Rotate through servers
+        const targetServers = [];
+        
+        for (let i = 0; i < autoConsoleConfig.maxServersPerRound && servers.length > 0; i++) {
+            const serverIndex = autoConsoleState.currentServerIndex % servers.length;
+            targetServers.push(servers[serverIndex]);
+            autoConsoleState.currentServerIndex++;
+        }
+        
+        return targetServers;
+    }
+    
+    /**
+     * Update auto command status in UI (Enhanced)
+     */
+    function updateAutoCommandStatus(status) {
+        // Try to find or create status element
+        let statusElement = document.getElementById('auto-command-status');
+        
+        if (!statusElement) {
+            // Try to add to logs status area
+            const logsStatus = document.getElementById('logs-status');
+            if (logsStatus) {
+                const statusDiv = document.createElement('div');
+                statusDiv.id = 'auto-command-status';
+                statusDiv.className = 'text-sm mt-2 p-2 bg-gray-800 rounded border';
+                logsStatus.appendChild(statusDiv);
+                statusElement = statusDiv;
+            }
+        }
+        
+        if (statusElement) {
+            const activeCount = autoConsoleState.activeCommands.size;
+            const successRate = autoConsoleState.totalCommandsSent > 0 ? 
+                ((autoConsoleState.totalCommandsSent - autoConsoleState.errors) / autoConsoleState.totalCommandsSent * 100).toFixed(1) : 
+                '100';
+                
+            statusElement.innerHTML = `
+                <div class="text-cyan-400 font-medium">🤖 Auto Console Commands</div>
+                <div class="text-xs text-gray-300 mt-1">
+                    Status: ${status} | 
+                    Commands Sent: ${autoConsoleState.totalCommandsSent} | 
+                    Errors: ${autoConsoleState.errors} |
+                    Success Rate: ${successRate}%
+                </div>
+                <div class="text-xs text-gray-400 mt-1">
+                    Active: ${activeCount} | 
+                    Interval: ${autoConsoleConfig.interval/1000}s | 
+                    Last: ${autoConsoleState.lastCommandTime ? new Date(autoConsoleState.lastCommandTime).toLocaleTimeString() : 'Never'}
+                </div>
+            `;
+        }
+    }
+    
+    /**
+     * Test the auto command system
+     */
+    function testAutoConsoleCommands() {
+        console.log('🧪 Testing auto console command system...');
+        
+        const servers = getAvailableServersForAutoCommands();
+        console.log(`📊 Found ${servers.length} servers:`, servers);
+        
+        if (servers.length > 0) {
+            console.log('🎯 Testing with first server...');
+            sendSingleAutoCommand(servers[0].id, 'serverinfo');
+        } else {
+            console.log('❌ No servers available for testing');
+        }
+    }
+    
+    /**
+     * Get enhanced auto command system status
+     */
+    function getAutoConsoleStatus() {
+        const activeServers = getAvailableServersForAutoCommands();
+        
+        return {
+            running: autoConsoleState.running,
+            config: autoConsoleConfig,
+            state: {
+                ...autoConsoleState,
+                activeCommands: autoConsoleState.activeCommands.size,
+                activeCommandsList: Array.from(autoConsoleState.activeCommands.entries()).map(([serverId, cmdInfo]) => ({
+                    serverId,
+                    command: cmdInfo.command,
+                    status: cmdInfo.status,
+                    duration: Date.now() - cmdInfo.startTime
+                }))
+            },
+            availableServers: activeServers.length,
+            serverList: activeServers.map(s => ({ id: s.id, name: s.name }))
+        };
+    }
+    
+    /**
+     * Get detailed system statistics
+     */
+    function getSystemStats() {
+        const status = getAutoConsoleStatus();
+        const playerSummary = getPlayerCountStatusSummary();
+        
+        return {
+            autoCommands: status,
+            playerCounts: playerSummary,
+            systemHealth: {
+                totalErrors: autoConsoleState.errors,
+                successRate: autoConsoleState.totalCommandsSent > 0 ? 
+                    ((autoConsoleState.totalCommandsSent - autoConsoleState.errors) / autoConsoleState.totalCommandsSent * 100).toFixed(1) + '%' : 
+                    '0%',
+                averageResponseTime: 'N/A', // Could be implemented with timing
+                lastActivity: autoConsoleState.lastCommandTime
+            }
+        };
+    }
+    
+    /**
+     * Reset auto command statistics
+     */
+    function resetAutoCommandStats() {
+        autoConsoleState.totalCommandsSent = 0;
+        autoConsoleState.errors = 0;
+        autoConsoleState.lastCommandTime = null;
+        autoConsoleState.activeCommands.clear();
+        autoConsoleState.lastCommandTimes.clear();
+        
+        console.log('📊 Auto command statistics reset');
+        updateAutoCommandStatus(autoConsoleState.running ? '▶️ Running (Stats Reset)' : '⏸️ Stopped');
+    }
+    
+    /**
+     * Toggle auto commands on/off
+     */
+    function toggleAutoConsoleCommands() {
+        if (autoConsoleState.running) {
+            stopAutoConsoleCommands();
+        } else {
+            startAutoConsoleCommands();
+        }
+        
+        return autoConsoleState.running;
+    }
+
+    // ============================================================================
+    // ADDITIONAL LOGS FUNCTIONS FOR COMPATIBILITY (COMPLETE SET)
+    // ============================================================================
+
+    /**
+     * Batch get player counts for multiple servers
+     */
+    async function getPlayerCountsFromLogsMultiple(serverIds) {
+        try {
+            console.log(`📊 Getting player counts for ${serverIds.length} servers from logs...`);
+            
+            const results = {};
+            const batchSize = 2; // Process 2 servers at a time to avoid overwhelming the API
+            
+            for (let i = 0; i < serverIds.length; i += batchSize) {
+                const batch = serverIds.slice(i, i + batchSize);
+                
+                // Process batch in parallel
+                const batchPromises = batch.map(serverId => 
+                    getPlayerCountFromLogs(serverId).then(result => ({
+                        serverId,
+                        result
+                    }))
+                );
+                
+                const batchResults = await Promise.all(batchPromises);
+                
+                // Store results
+                batchResults.forEach(({ serverId, result }) => {
+                    results[serverId] = result;
+                });
+                
+                // Small delay between batches
+                if (i + batchSize < serverIds.length) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
+            
+            console.log(`✅ Batch player count complete: ${Object.keys(results).length} servers processed`);
+            return { success: true, results };
+            
+        } catch (error) {
+            console.error('❌ Error in batch player count:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Test the logs-based player count integration
+     */
+    async function testLogsPlayerCountIntegration(serverId = null) {
+        try {
+            console.log('🧪 Testing logs-based player count integration...');
+            
+            // Get a test server ID if none provided
+            if (!serverId) {
+                if (typeof window.managedServers !== 'undefined' && window.managedServers.length > 0) {
+                    serverId = window.managedServers[0].serverId;
+                } else {
+                    console.log('❌ No server ID provided and no managed servers available');
+                    return;
+                }
+            }
+            
+            console.log(`🎯 Testing with server: ${serverId}`);
+            
+            // Test the integration
+            const result = await getPlayerCountFromLogs(serverId);
+            
+            if (result.success) {
+                console.log(`✅ TEST PASSED: Player count ${result.data.current}/${result.data.max} (${result.data.percentage}%)`);
+                console.log(`📊 Data source: ${result.data.source}`);
+                console.log(`⏰ Timestamp: ${result.data.timestamp}`);
+            } else {
+                console.log(`❌ TEST FAILED: ${result.error}`);
+            }
+            
+            return result;
+            
+        } catch (error) {
+            console.error('❌ Test failed with error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Start player count monitoring from logs
+     */
+    function startPlayerCountMonitorFromLogs(intervalSeconds = 60) {
+        if (autoConsoleState.monitorInterval) {
+            clearInterval(autoConsoleState.monitorInterval);
+        }
+        
+        console.log(`▶️ Starting player count monitor (logs-based) - ${intervalSeconds}s interval`);
+        
+        // Initial refresh
+        autoRefreshPlayerCountsFromLogs();
+        
+        // Set up interval
+        autoConsoleState.monitorInterval = setInterval(() => {
+            autoRefreshPlayerCountsFromLogs();
+        }, intervalSeconds * 1000);
+        
+        console.log('✅ Player count monitor started');
+    }
+    
+    /**
+     * Stop player count monitoring from logs
+     */
+    function stopPlayerCountMonitorFromLogs() {
+        if (autoConsoleState.monitorInterval) {
+            clearInterval(autoConsoleState.monitorInterval);
+            autoConsoleState.monitorInterval = null;
+            console.log('⏹️ Player count monitor stopped');
+        }
+    }
+
+    /**
+     * Get player count status summary
+     */
+    function getPlayerCountStatusSummary() {
+        try {
+            if (typeof window.managedServers === 'undefined' || !window.managedServers) {
+                return { total_servers: 0, total_players: 0, servers: [] };
+            }
+            
+            const summary = {
+                total_servers: 0,
+                total_players: 0,
+                total_capacity: 0,
+                servers: []
+            };
+            
+            window.managedServers.forEach(server => {
+                if (!server || !server.serverId) return;
+                
+                const playerCountElement = document.querySelector(`#player-count-${server.serverId} .player-count-value`);
+                const maxPlayersElement = document.querySelector(`#player-count-${server.serverId} .player-max-value`);
+                
+                const currentPlayers = playerCountElement ? parseInt(playerCountElement.textContent) || 0 : 0;
+                const maxPlayers = maxPlayersElement ? parseInt(maxPlayersElement.textContent) || 0 : 0;
+                
+                summary.total_servers++;
+                summary.total_players += currentPlayers;
+                summary.total_capacity += maxPlayers;
+                
+                summary.servers.push({
+                    id: server.serverId,
+                    name: server.serverName || `Server ${server.serverId}`,
+                    current: currentPlayers,
+                    max: maxPlayers,
+                    percentage: maxPlayers > 0 ? Math.round((currentPlayers / maxPlayers) * 100) : 0
+                });
+            });
+            
+            summary.overall_percentage = summary.total_capacity > 0 ? 
+                Math.round((summary.total_players / summary.total_capacity) * 100) : 0;
+            
+            return summary;
+            
+        } catch (error) {
+            console.error('Error getting player count status:', error);
+            return { error: error.message };
+        }
+    }
+
+    /**
+     * Auto-refresh player count for all managed servers
+     */
+    async function autoRefreshPlayerCountsFromLogs() {
+        try {
+            if (typeof window.managedServers === 'undefined' || !window.managedServers) {
+                console.log('📊 No managed servers available for auto-refresh');
+                return;
+            }
+            
+            const activeServers = window.managedServers
+                .filter(server => server && server.serverId && server.isActive !== false)
+                .map(server => server.serverId);
+            
+            if (activeServers.length === 0) {
+                console.log('📊 No active servers to refresh player counts for');
+                return;
+            }
+            
+            console.log(`🔄 Auto-refreshing player counts for ${activeServers.length} servers...`);
+            
+            await getPlayerCountsFromLogsMultiple(activeServers);
+            
+            console.log('✅ Auto-refresh complete');
+            
+        } catch (error) {
+            console.error('❌ Auto-refresh error:', error);
+        }
+    }
+
+    /**
+     * Enhanced force refresh that sends command first, then gets logs
+     */
+    async function forceRefreshWithCommandFirst(serverId) {
+        try {
+            console.log(`🔄 Force refresh with command first for ${serverId}...`);
+            
+            // Send command using auto command system
+            await sendSingleAutoCommand(serverId, 'serverinfo');
+            
+            // Wait for command execution
+            await new Promise(resolve => setTimeout(resolve, 4000));
+            
+            // Get fresh logs
+            const result = await getPlayerCountFromLogs(serverId);
+            
+            if (result.success) {
+                console.log(`✅ Force refresh successful: ${result.data.current}/${result.data.max}`);
+            } else {
+                console.log(`⚠️ Force refresh completed but no data: ${result.error}`);
+            }
+            
+            return result;
+            
+        } catch (error) {
+            console.error(`❌ Force refresh failed for ${serverId}:`, error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // ============================================================================
     // MODULE INITIALIZATION
     // ============================================================================
     
-    console.log('logs module loaded - Enhanced with global function exposure');
+    console.log('logs module loaded - Enhanced with Simple Auto Commands (uses existing console)');
     
-    // Make functions globally accessible (preserve original behavior)
+    // Make functions globally accessible
     if (typeof window !== 'undefined') {
-        // Browser environment - attach to window IMMEDIATELY
+        // Original logs functions
         window.loadLogs = loadLogs;
         window.showLogsTab = showLogsTab;
         window.initializeLogs = initializeLogs;
         window.showLogsStatus = showLogsStatus;
         window.hideLogsStatus = hideLogsStatus;
         
-        console.log('✅ Logs functions attached to window:', {
-            loadLogs: typeof window.loadLogs,
-            showLogsTab: typeof window.showLogsTab,
-            initializeLogs: typeof window.initializeLogs
-        });
+        // Player count functions
+        window.getPlayerCountFromLogs = getPlayerCountFromLogs;
+        window.getPlayerCountsFromLogsMultiple = getPlayerCountsFromLogsMultiple;
+        window.testLogsPlayerCountIntegration = testLogsPlayerCountIntegration;
+        window.forceRefreshPlayerCountFromLogs = forceRefreshPlayerCountFromLogs;
+        window.forceRefreshWithCommandFirst = forceRefreshWithCommandFirst;
+        window.autoRefreshPlayerCountsFromLogs = autoRefreshPlayerCountsFromLogs;
+        window.getPlayerCountStatusSummary = getPlayerCountStatusSummary;
+        window.startPlayerCountMonitorFromLogs = startPlayerCountMonitorFromLogs;
+        window.stopPlayerCountMonitorFromLogs = stopPlayerCountMonitorFromLogs;
+        
+        // Auto command functions
+        window.startAutoConsoleCommands = startAutoConsoleCommands;
+        window.stopAutoConsoleCommands = stopAutoConsoleCommands;
+        window.testAutoConsoleCommands = testAutoConsoleCommands;
+        window.getAutoConsoleStatus = getAutoConsoleStatus;
+        window.getSystemStats = getSystemStats;
+        window.resetAutoCommandStats = resetAutoCommandStats;
+        window.toggleAutoConsoleCommands = toggleAutoConsoleCommands;
+        window.sendSingleAutoCommand = sendSingleAutoCommand;
+        
+        console.log('✅ All logs functions attached to window');
     }
     
-    // Initialize module-specific functionality
+    // Initialize module
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('✅ logs module initialized');
+        console.log('✅ Logs module initialized with Simple Auto Commands');
         
         // Auto-initialize when page loads if logs tab is active
         if (window.location.hash === '#logs') {
@@ -191,16 +917,46 @@
         }
         window.tabInitializers.logs = initializeLogs;
         
-        // Module-specific DOM event handlers can be added here
-        // Original event listeners preserved in their exact form
+        // Wait for everything to load, then start auto commands if enabled
+        setTimeout(() => {
+            if (autoConsoleConfig.enabled) {
+                const servers = getAvailableServersForAutoCommands();
+                if (servers.length > 0) {
+                    console.log('🔧 Auto-starting console command system...');
+                    startAutoConsoleCommands();
+                } else {
+                    console.log('⏳ Waiting for servers to be available...');
+                    
+                    // Check for servers periodically
+                    const serverCheck = setInterval(() => {
+                        const availableServers = getAvailableServersForAutoCommands();
+                        if (availableServers.length > 0) {
+                            clearInterval(serverCheck);
+                            console.log('🎯 Servers detected, starting auto console commands...');
+                            startAutoConsoleCommands();
+                        }
+                    }, 3000);
+                    
+                    // Stop checking after 30 seconds
+                    setTimeout(() => {
+                        clearInterval(serverCheck);
+                    }, 30000);
+                }
+            }
+        }, 5000); // Wait 5 seconds for full system initialization
     });
     
-    // IMMEDIATE global function attachment (don't wait for DOMContentLoaded)
+    // Immediate function attachment
     setTimeout(function() {
         if (typeof loadLogs !== 'undefined') window.loadLogs = loadLogs;
         if (typeof showLogsTab !== 'undefined') window.showLogsTab = showLogsTab;
         if (typeof initializeLogs !== 'undefined') window.initializeLogs = initializeLogs;
-        console.log('⚡ Immediate logs function attachment complete');
+        if (typeof getPlayerCountFromLogs !== 'undefined') window.getPlayerCountFromLogs = getPlayerCountFromLogs;
+        if (typeof startAutoConsoleCommands !== 'undefined') window.startAutoConsoleCommands = startAutoConsoleCommands;
+        console.log('⚡ Logs + auto commands function attachment complete');
     }, 50);
+    
+    console.log('🚀 Simple Auto Console Commands Module FULLY LOADED');
+    console.log('📡 Will use existing sendConsoleCommand() to send "serverinfo" every 10 seconds');
     
 </script>

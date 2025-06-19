@@ -1,24 +1,25 @@
 <!-- ============================================================================
-     GUST Bot Enhanced - console JavaScript Module
+     GUST Bot Enhanced - console JavaScript Module (LOGS-INTEGRATED + MODULAR)
      ============================================================================
-     Generated: 2025-06-19 03:56:50
+     CORRECTED VERSION: Now integrates with logs-based player count system
+     MODULAR: Respects modular architecture - console-specific functionality only
+     LOGS-INTEGRATED: Triggers logs-based updates instead of parsing console output
      
-     Module for console specific functionality
-     
-     ⚠️  IMPORTANT: This module contains EXACT extracted content from main.js.html
-     Functions preserved character-for-character with original formatting
-     
-     Extracted functions: 9
-     Total lines: 288
+     FEATURES:
+     - Console command execution
+     - Logs-based player count triggers
+     - Proper modular separation
+     - G-Portal command sending
+     - Integration with logs system for player data
      ============================================================================ -->
 
 <script>
     // ============================================================================
-    // CONSOLE MODULE - EXACT EXTRACTED FUNCTIONS
+    // CONSOLE MODULE - LOGS-INTEGRATED VERSION
     // ============================================================================
     
     // ============================================================================
-    // Function 1: displayCombinedConsoleOutput (64 lines)
+    // Function 1: displayCombinedConsoleOutput (Enhanced)
     // Dependencies: escapeHtml, getTypeIcon
     // ============================================================================
 
@@ -85,13 +86,14 @@
             if (autoScroll && wasScrolledToBottom) {
                 outputDiv.scrollTop = outputDiv.scrollHeight;
             }
+
+            // LOGS-INTEGRATED: Check for serverinfo commands to trigger logs-based updates
+            logsIntegratedProcessConsoleForPlayerCount(consoleOutput, liveMessages);
         }
 
     // ============================================================================
-    // Function 2: testLiveConsole (33 lines)
-    // Dependencies: refreshConsoleWithLiveMessages
+    // Function 2-9: All original console functions (preserved)
     // ============================================================================
-
         
         // TEST FUNCTION FOR LIVE CONSOLE
         async function testLiveConsole() {
@@ -126,12 +128,6 @@ ${data.error ? 'Error: ' + data.error : 'Working!'}`;
             }
         }
 
-    // ============================================================================
-    // Function 3: connectToLiveConsole (12 lines)
-    // Dependencies: showTab, addLiveConsoleMessage
-    // ============================================================================
-
-        
         async function connectToLiveConsole(serverId) {
             // Just switch to console tab since auto-connection handles the connection
             showTab('console');
@@ -144,11 +140,6 @@ ${data.error ? 'Error: ' + data.error : 'Working!'}`;
             });
         }
 
-    // ============================================================================
-    // Function 4: clearConsole (7 lines)
-    // ============================================================================
-
-        
         function clearConsole() {
             const outputDiv = document.getElementById('consoleOutput');
             if (outputDiv) {
@@ -156,11 +147,6 @@ ${data.error ? 'Error: ' + data.error : 'Working!'}`;
             }
         }
 
-    // ============================================================================
-    // Function 5: updateSystemStatus (78 lines)
-    // ============================================================================
-
-        
         function updateSystemStatus() {
             // Check token status
             fetch('/api/token/status').then(r => r.json()).then(data => {
@@ -239,11 +225,6 @@ ${data.error ? 'Error: ' + data.error : 'Working!'}`;
             }).catch(e => console.error('Error checking health:', e));
         }
 
-    // ============================================================================
-    // Function 6: setCommand (8 lines)
-    // ============================================================================
-
-        
         // Console Functions - Updated to use centralized servers
         function setCommand(command) {
             const consoleInput = document.getElementById('consoleInput');
@@ -252,12 +233,6 @@ ${data.error ? 'Error: ' + data.error : 'Working!'}`;
             }
         }
 
-    // ============================================================================
-    // Function 7: sendConsoleCommand (50 lines)
-    // Dependencies: getServerRegion, addCommandOutput, refreshConsoleWithLiveMessages, getServerById
-    // ============================================================================
-
-        
         async function sendConsoleCommand() {
             const command = document.getElementById('consoleInput').value.trim();
             const serverSelect = document.getElementById('consoleServerSelect');
@@ -300,6 +275,11 @@ ${data.error ? 'Error: ' + data.error : 'Working!'}`;
                     setTimeout(() => {
                         refreshConsoleWithLiveMessages();
                     }, 1000);
+
+                    // LOGS-INTEGRATED: Trigger logs-based player count update for serverinfo
+                    if (command.toLowerCase() === 'serverinfo') {
+                        logsIntegratedTriggerPlayerCountUpdate(serverId);
+                    }
                 } else {
                     addCommandOutput(`❌ Command failed: ${result.error || 'Unknown error'}`, 'error');
                 }
@@ -308,11 +288,6 @@ ${data.error ? 'Error: ' + data.error : 'Working!'}`;
             }
         }
 
-    // ============================================================================
-    // Function 8: addCommandOutput (14 lines)
-    // ============================================================================
-
-        
         function addCommandOutput(message, type) {
             const outputDiv = document.getElementById('consoleOutput');
             if (!outputDiv) return;
@@ -325,13 +300,17 @@ ${data.error ? 'Error: ' + data.error : 'Working!'}`;
             
             outputDiv.appendChild(messageDiv);
             outputDiv.scrollTop = outputDiv.scrollHeight;
+
+            // LOGS-INTEGRATED: Check if this is a serverinfo command response
+            if (type === 'success' && message.toLowerCase().includes('serverinfo')) {
+                const consoleServerSelect = document.getElementById('consoleServerSelect');
+                const currentServerId = consoleServerSelect ? consoleServerSelect.value : null;
+                if (currentServerId) {
+                    logsIntegratedTriggerPlayerCountUpdate(currentServerId);
+                }
+            }
         }
 
-    // ============================================================================
-    // Function 9: refreshConsole (22 lines)
-    // ============================================================================
-
-        
         function refreshConsole() {
             // Fallback console refresh (basic version)
             fetch('/api/console/output').then(r => r.json()).then(output => {
@@ -354,17 +333,232 @@ ${data.error ? 'Error: ' + data.error : 'Working!'}`;
             }).catch(e => console.error('Error refreshing console:', e));
         }
 
-    
     // ============================================================================
-    // MODULE INITIALIZATION
+    // LOGS-INTEGRATED PLAYER COUNT SYSTEM
+    // ============================================================================
+
+    /**
+     * LOGS-INTEGRATED: Process console output to trigger logs-based player count updates
+     * Instead of parsing console output, this triggers logs-based API calls
+     */
+    function logsIntegratedProcessConsoleForPlayerCount(consoleOutput, liveMessages) {
+        try {
+            // Get current server from console dropdown
+            const consoleServerSelect = document.getElementById('consoleServerSelect');
+            const currentServerId = consoleServerSelect ? consoleServerSelect.value : null;
+
+            if (!currentServerId) {
+                return;
+            }
+
+            console.log(`🎯 Console processing for server: ${currentServerId} - logs-integrated mode`);
+
+            // Check console output for serverinfo commands
+            let shouldTriggerLogsUpdate = false;
+            
+            if (consoleOutput && Array.isArray(consoleOutput)) {
+                consoleOutput.forEach(entry => {
+                    if (entry.command && entry.command.toLowerCase().includes('serverinfo')) {
+                        shouldTriggerLogsUpdate = true;
+                        console.log('🔍 Serverinfo command detected in console output');
+                    }
+                });
+            }
+            
+            if (liveMessages && Array.isArray(liveMessages)) {
+                liveMessages.forEach(message => {
+                    if (message.message && message.message.toLowerCase().includes('serverinfo')) {
+                        shouldTriggerLogsUpdate = true;
+                        console.log('🔍 Serverinfo mention detected in live messages');
+                    }
+                });
+            }
+            
+            if (shouldTriggerLogsUpdate) {
+                console.log('📡 Triggering logs-based player count update...');
+                logsIntegratedTriggerPlayerCountUpdate(currentServerId);
+            }
+        } catch (error) {
+            console.warn('Logs-integrated console processing error:', error);
+        }
+    }
+
+    /**
+     * LOGS-INTEGRATED: Trigger logs-based player count update
+     */
+    function logsIntegratedTriggerPlayerCountUpdate(serverId) {
+        try {
+            console.log(`📋 Triggering logs-based player count update for ${serverId}...`);
+            
+            // Wait a moment for the command to execute and be logged
+            setTimeout(() => {
+                // Check if logs module function is available
+                if (typeof window.getPlayerCountFromLogs === 'function') {
+                    console.log('📋 Using logs module function...');
+                    window.getPlayerCountFromLogs(serverId);
+                } else if (typeof window.refreshPlayerCount === 'function') {
+                    console.log('📋 Using main module refresh function...');
+                    window.refreshPlayerCount(serverId);
+                } else {
+                    // Direct API call fallback
+                    console.log('📋 Using direct API call...');
+                    fetch(`/api/logs/player-count/${serverId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success && result.data) {
+                            console.log(`✅ Direct API: Player count ${result.data.current}/${result.data.max} for ${serverId}`);
+                            if (typeof window.updatePlayerCountDisplay === 'function') {
+                                window.updatePlayerCountDisplay(serverId, result.data, 'success');
+                            }
+                        } else {
+                            console.warn(`⚠️ Direct API failed for ${serverId}: ${result.error}`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('❌ Direct API error:', error);
+                    });
+                }
+            }, 4000); // Wait 4 seconds for command to execute and be logged
+        } catch (error) {
+            console.error('❌ Error triggering logs-based update:', error);
+        }
+    }
+
+    /**
+     * LOGS-INTEGRATED: Send serverinfo command for logs-based approach
+     */
+    async function sendServerInfoCommand(serverId) {
+        return new Promise(async (resolve) => {
+            try {
+                const server = managedServers.find(s => s.serverId === serverId);
+                if (!server) {
+                    resolve({ success: false, error: 'Server not found' });
+                    return;
+                }
+
+                console.log(`📡 Console sending serverinfo command to ${serverId} (logs-integrated)...`);
+
+                // Check if we're in demo mode
+                if (isDemo) {
+                    console.log('🎭 Console demo mode: will trigger mock logs response');
+                    
+                    // In demo mode, just return success and let the system handle mock data
+                    setTimeout(() => {
+                        resolve({ 
+                            success: true, 
+                            response: 'Demo mode serverinfo sent',
+                            source: 'demo'
+                        });
+                    }, 1000);
+                    return;
+                }
+
+                // REAL MODE: Send actual serverinfo command and trigger logs-based update
+                try {
+                    // Set up console for this server
+                    const consoleSelect = document.getElementById('consoleServerSelect');
+                    if (consoleSelect) {
+                        consoleSelect.value = serverId;
+                    }
+
+                    const consoleInput = document.getElementById('consoleInput');
+                    if (consoleInput) {
+                        const originalCommand = consoleInput.value;
+                        consoleInput.value = 'serverinfo';
+
+                        // Send the command using this module's function
+                        console.log(`🚀 Console executing serverinfo command for ${serverId}`);
+                        await sendConsoleCommand();
+
+                        // Restore original command
+                        consoleInput.value = originalCommand;
+
+                        // Trigger logs-based update instead of parsing console output
+                        logsIntegratedTriggerPlayerCountUpdate(serverId);
+
+                        resolve({ 
+                            success: true, 
+                            response: 'Command sent, logs-based update triggered',
+                            source: 'logs_integrated'
+                        });
+
+                    } else {
+                        console.log('⚠️ Console input not available');
+                        resolve({ success: false, error: 'Console input not available' });
+                    }
+
+                } catch (error) {
+                    console.error(`❌ Console error sending serverinfo to ${serverId}:`, error);
+                    resolve({ success: false, error: error.message });
+                }
+
+            } catch (error) {
+                resolve({ success: false, error: error.message });
+            }
+        });
+    }
+
+    /**
+     * LOGS-INTEGRATED: Get server region (helper function)
+     */
+    function getServerRegion(serverId) {
+        try {
+            if (typeof window.getServerById === 'function') {
+                const server = window.getServerById(serverId);
+                return server ? server.serverRegion : 'US';
+            }
+            return 'US';
+        } catch (error) {
+            console.warn('getServerRegion error:', error);
+            return 'US';
+        }
+    }
+
+    /**
+     * LOGS-INTEGRATED: Test function for logs integration
+     */
+    function testLogsIntegratedConsole(serverId) {
+        console.log(`🧪 Testing logs-integrated console for ${serverId}...`);
+        
+        if (!serverId && managedServers && managedServers.length > 0) {
+            serverId = managedServers[0].serverId;
+        }
+        
+        if (!serverId) {
+            console.log('❌ No server ID provided and no servers available');
+            return;
+        }
+        
+        console.log(`🎯 Testing serverinfo command with logs integration...`);
+        
+        // Test the integrated approach
+        sendServerInfoCommand(serverId)
+            .then(result => {
+                console.log('📊 Test result:', result);
+                if (result.success) {
+                    console.log(`✅ SUCCESS: Command sent and logs update triggered for ${serverId}`);
+                } else {
+                    console.log(`❌ FAILED: ${result.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Test failed:', error);
+            });
+    }
+
+    // ============================================================================
+    // MODULE INITIALIZATION (LOGS-INTEGRATED)
     // ============================================================================
     
-    console.log('console module loaded - 9 functions available');
+    console.log('console module loaded - logs-integrated version (no console parsing)');
     
-    // Make functions globally accessible (preserve original behavior)
+    // Make functions globally accessible (preserve original behavior + logs-integrated)
     if (typeof window !== 'undefined') {
         // Browser environment - attach to window
-                window.displayCombinedConsoleOutput = displayCombinedConsoleOutput;
+        window.displayCombinedConsoleOutput = displayCombinedConsoleOutput;
         window.testLiveConsole = testLiveConsole;
         window.connectToLiveConsole = connectToLiveConsole;
         window.clearConsole = clearConsole;
@@ -373,14 +567,79 @@ ${data.error ? 'Error: ' + data.error : 'Working!'}`;
         window.sendConsoleCommand = sendConsoleCommand;
         window.addCommandOutput = addCommandOutput;
         window.refreshConsole = refreshConsole;
+        
+        // LOGS-INTEGRATED: Player count functions that work with logs system
+        window.logsIntegratedProcessConsoleForPlayerCount = logsIntegratedProcessConsoleForPlayerCount;
+        window.logsIntegratedTriggerPlayerCountUpdate = logsIntegratedTriggerPlayerCountUpdate;
+        window.sendServerInfoCommand = sendServerInfoCommand;
+        window.getServerRegion = getServerRegion;
+        window.testLogsIntegratedConsole = testLogsIntegratedConsole;
     }
     
     // Initialize module-specific functionality
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('✅ console module initialized');
+        console.log('✅ console module initialized with logs integration (no console parsing)');
         
-        // Module-specific DOM event handlers can be added here
-        // Original event listeners preserved in their exact form
+        // Set up integration with logs system
+        setTimeout(() => {
+            setupLogsIntegration();
+        }, 5000); // Wait 5 seconds for everything to load
     });
+
+    /**
+     * LOGS-INTEGRATED: Set up integration with logs system
+     */
+    function setupLogsIntegration() {
+        try {
+            console.log('🔗 Setting up console-logs integration...');
+            
+            // Check if logs module is available
+            if (typeof window.getPlayerCountFromLogs === 'function') {
+                console.log('✅ Logs module detected - integration ready');
+            } else {
+                console.log('⚠️ Logs module not detected - will use direct API calls');
+            }
+            
+            // Set up console monitoring for automatic triggers
+            const consoleOutput = document.getElementById('consoleOutput');
+            if (consoleOutput) {
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'childList') {
+                            mutation.addedNodes.forEach(function(node) {
+                                if (node.nodeType === Node.ELEMENT_NODE && node.textContent) {
+                                    const text = node.textContent;
+                                    
+                                    // Check for serverinfo command success
+                                    if (text.includes('serverinfo') && text.includes('✅')) {
+                                        const consoleServerSelect = document.getElementById('consoleServerSelect');
+                                        const currentServerId = consoleServerSelect ? consoleServerSelect.value : null;
+                                        
+                                        if (currentServerId) {
+                                            console.log(`🎯 Auto-triggered logs update for ${currentServerId}`);
+                                            logsIntegratedTriggerPlayerCountUpdate(currentServerId);
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    });
+                });
+                
+                observer.observe(consoleOutput, {
+                    childList: true,
+                    subtree: true
+                });
+                
+                console.log('👥 Console-logs integration observer active');
+            }
+            
+            console.log('✅ Console-logs integration setup complete');
+        } catch (error) {
+            console.warn('Console-logs integration setup error:', error);
+        }
+    }
+    
+    console.log('✅ Logs-integrated console module loaded (triggers logs API instead of parsing)');
     
 </script>
