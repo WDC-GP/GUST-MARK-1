@@ -1,16 +1,108 @@
-﻿<!-- ============================================================================
+<!-- ============================================================================
      GUST Bot Enhanced - clans JavaScript Module
      ============================================================================
-     Created on 2025-06-17 12:20:33
+     Generated: 2025-06-19 03:56:50
      
      Module for clans specific functionality
      
-     NOTE: Functions should be moved here from main.js.html for better organization
+     ⚠️  IMPORTANT: This module contains EXACT extracted content from main.js.html
+     Functions preserved character-for-character with original formatting
+     
+     Extracted functions: 2
+     Total lines: 55
      ============================================================================ -->
 
 <script>
-    // clans specific functionality
-    // TODO: Move relevant functions from main.js.html to this module
+    // ============================================================================
+    // CLANS MODULE - EXACT EXTRACTED FUNCTIONS
+    // ============================================================================
     
-    console.log('clans module loaded');
+    // ============================================================================
+    // Function 1: loadClans (20 lines)
+    // ============================================================================
+
+        
+        // Clan Management Functions
+        function loadClans() {
+            fetch('/api/clans').then(r => r.json()).then(clans => {
+                const list = document.getElementById('clansList');
+                if (!list) return;
+                
+                list.innerHTML = '';
+                clans.forEach(clan => {
+                    const div = document.createElement('div');
+                    div.className = 'bg-gray-700 p-3 rounded mb-2';
+                    div.innerHTML = `
+                        <div class="font-semibold">${clan.name}</div>
+                        <div class="text-sm text-gray-300">Leader: ${clan.leader}</div>
+                        <div class="text-sm text-gray-300">Members: ${clan.members.length}</div>
+                    `;
+                    list.appendChild(div);
+                });
+            }).catch(e => console.error('Error loading clans:', e));
+        }
+
+    // ============================================================================
+    // Function 2: createClan (35 lines)
+    // Dependencies: loadClans
+    // ============================================================================
+
+        
+        async function createClan() {
+            const name = document.getElementById('clanName').value.trim();
+            const leader = document.getElementById('clanLeader').value.trim();
+            const serverId = document.getElementById('clanServerSelect').value.trim();
+            const description = document.getElementById('clanDescription').value.trim();
+            
+            if (!name || !leader || !serverId) {
+                alert('Please fill required fields');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/clans/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, leader, serverId, description})
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Clan created successfully!');
+                    document.getElementById('clanName').value = '';
+                    document.getElementById('clanLeader').value = '';
+                    document.getElementById('clanServerSelect').value = '';
+                    document.getElementById('clanDescription').value = '';
+                    loadClans();
+                } else {
+                    alert('Failed to create clan');
+                }
+            } catch (error) {
+                alert('Error creating clan: ' + error.message);
+            }
+        }
+
+    
+    // ============================================================================
+    // MODULE INITIALIZATION
+    // ============================================================================
+    
+    console.log('clans module loaded - 2 functions available');
+    
+    // Make functions globally accessible (preserve original behavior)
+    if (typeof window !== 'undefined') {
+        // Browser environment - attach to window
+                window.loadClans = loadClans;
+        window.createClan = createClan;
+    }
+    
+    // Initialize module-specific functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('✅ clans module initialized');
+        
+        // Module-specific DOM event handlers can be added here
+        // Original event listeners preserved in their exact form
+    });
+    
 </script>

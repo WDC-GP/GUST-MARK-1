@@ -1,16 +1,63 @@
-﻿<!-- ============================================================================
+<!-- ============================================================================
      GUST Bot Enhanced - economy JavaScript Module
      ============================================================================
-     Created on 2025-06-17 12:20:33
+     Generated: 2025-06-19 03:56:50
      
      Module for economy specific functionality
      
-     NOTE: Functions should be moved here from main.js.html for better organization
+     ⚠️  IMPORTANT: This module contains EXACT extracted content from main.js.html
+     Functions preserved character-for-character with original formatting
+     
+     Extracted functions: 1
+     Total lines: 17
      ============================================================================ -->
 
 <script>
-    // economy specific functionality
-    // TODO: Move relevant functions from main.js.html to this module
+    // ============================================================================
+    // ECONOMY MODULE - EXACT EXTRACTED FUNCTIONS
+    // ============================================================================
     
-    console.log('economy module loaded');
+    // ============================================================================
+    // Function 1: lookupBalance (17 lines)
+    // ============================================================================
+
+        
+        // Economy Functions
+        async function lookupBalance() {
+            const userId = document.getElementById('lookupUserId').value.trim();
+            if (!userId) {
+                alert('Please enter a user ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/economy/balance/${userId}`);
+                const result = await response.json();
+                document.getElementById('balanceResult').textContent = `Balance: ${result.balance} coins`;
+            } catch (error) {
+                document.getElementById('balanceResult').textContent = `Error: ${error.message}`;
+            }
+        }
+
+    
+    // ============================================================================
+    // MODULE INITIALIZATION
+    // ============================================================================
+    
+    console.log('economy module loaded - 1 functions available');
+    
+    // Make functions globally accessible (preserve original behavior)
+    if (typeof window !== 'undefined') {
+        // Browser environment - attach to window
+                window.lookupBalance = lookupBalance;
+    }
+    
+    // Initialize module-specific functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('✅ economy module initialized');
+        
+        // Module-specific DOM event handlers can be added here
+        // Original event listeners preserved in their exact form
+    });
+    
 </script>

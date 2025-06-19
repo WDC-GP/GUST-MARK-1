@@ -1,16 +1,122 @@
-﻿<!-- ============================================================================
+<!-- ============================================================================
      GUST Bot Enhanced - gambling JavaScript Module
      ============================================================================
-     Created on 2025-06-17 12:20:33
+     Generated: 2025-06-19 03:56:50
      
      Module for gambling specific functionality
      
-     NOTE: Functions should be moved here from main.js.html for better organization
+     ⚠️  IMPORTANT: This module contains EXACT extracted content from main.js.html
+     Functions preserved character-for-character with original formatting
+     
+     Extracted functions: 2
+     Total lines: 70
      ============================================================================ -->
 
 <script>
-    // gambling specific functionality
-    // TODO: Move relevant functions from main.js.html to this module
+    // ============================================================================
+    // GAMBLING MODULE - EXACT EXTRACTED FUNCTIONS
+    // ============================================================================
     
-    console.log('gambling module loaded');
+    // ============================================================================
+    // Function 1: playSlots (35 lines)
+    // ============================================================================
+
+        
+        // Gambling Functions
+        async function playSlots() {
+            const userId = document.getElementById('slotsUserId').value.trim();
+            const bet = parseInt(document.getElementById('slotsBet').value);
+            
+            if (!userId || !bet) {
+                alert('Please fill all fields');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/gambling/slots', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({userId, bet})
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('slotsResult').innerHTML = `
+                        <div class="text-2xl mb-2">${result.result.join(' ')}</div>
+                        <div class="${result.net_change > 0 ? 'text-green-400' : 'text-red-400'}">
+                            ${result.net_change > 0 ? 'Won' : 'Lost'}: ${Math.abs(result.net_change)} coins
+                        </div>
+                        <div>New Balance: ${result.new_balance}</div>
+                    `;
+                } else {
+                    document.getElementById('slotsResult').innerHTML = `<div class="text-red-400">${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('slotsResult').innerHTML = `<div class="text-red-400">Error: ${error.message}</div>`;
+            }
+        }
+
+    // ============================================================================
+    // Function 2: playCoinflip (35 lines)
+    // ============================================================================
+
+        
+        async function playCoinflip() {
+            const userId = document.getElementById('coinflipUserId').value.trim();
+            const bet = parseInt(document.getElementById('coinflipBet').value);
+            const choice = document.getElementById('coinflipChoice').value;
+            
+            if (!userId || !bet) {
+                alert('Please fill all fields');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/gambling/coinflip', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({userId, amount: bet, choice})
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('coinflipResult').innerHTML = `
+                        <div>Result: ${result.result}</div>
+                        <div class="${result.won ? 'text-green-400' : 'text-red-400'}">
+                            ${result.won ? 'Won' : 'Lost'}: ${Math.abs(result.net_change)} coins
+                        </div>
+                        <div>New Balance: ${result.new_balance}</div>
+                    `;
+                } else {
+                    document.getElementById('coinflipResult').innerHTML = `<div class="text-red-400">${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('coinflipResult').innerHTML = `<div class="text-red-400">Error: ${error.message}</div>`;
+            }
+        }
+
+    
+    // ============================================================================
+    // MODULE INITIALIZATION
+    // ============================================================================
+    
+    console.log('gambling module loaded - 2 functions available');
+    
+    // Make functions globally accessible (preserve original behavior)
+    if (typeof window !== 'undefined') {
+        // Browser environment - attach to window
+                window.playSlots = playSlots;
+        window.playCoinflip = playCoinflip;
+    }
+    
+    // Initialize module-specific functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('✅ gambling module initialized');
+        
+        // Module-specific DOM event handlers can be added here
+        // Original event listeners preserved in their exact form
+    });
+    
 </script>

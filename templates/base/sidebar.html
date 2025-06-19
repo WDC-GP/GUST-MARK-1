@@ -1,9 +1,14 @@
-﻿<!-- ============================================================================
-     GUST Bot Enhanced - Sidebar Navigation Component
+<!-- ============================================================================
+     GUST Bot Enhanced - Sidebar Navigation Component (FIXED)
      ============================================================================
      Extracted from enhanced_dashboard.html on 2025-06-17 12:20:33
      
      This component contains the main navigation sidebar with all tabs.
+     
+     FIXES APPLIED:
+     - Made logs tab consistent with other tabs using showTab('logs')
+     - Fixed duplicate closing button tags
+     - Ensured all tabs follow the same pattern
      ============================================================================ -->
 
 <div class="w-64 bg-gray-800 p-4 overflow-y-auto">
@@ -54,11 +59,11 @@
                             id="user-management-tab">
                         👤 User Management
                     </button>
+                    <button onclick="showTab('logs')" 
+                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                            id="logs-tab">
+                        📋 Server Logs
                     </button>
-                    
-        <button onclick="showLogsTab()" class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" id="logs-tab">
-            📋 Server Logs
-        </button>
                 </div>
             </div>
             
@@ -85,5 +90,3 @@
                 <a href="/logout" class="block p-2 rounded hover:bg-red-700 text-red-400">🚪 Logout</a>
             </div>
         </div>
-
-

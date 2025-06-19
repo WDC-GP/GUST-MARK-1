@@ -1,16 +1,130 @@
-﻿<!-- ============================================================================
+<!-- ============================================================================
      GUST Bot Enhanced - events JavaScript Module
      ============================================================================
-     Created on 2025-06-17 12:20:33
+     Generated: 2025-06-19 03:56:50
      
      Module for events specific functionality
      
-     NOTE: Functions should be moved here from main.js.html for better organization
+     ⚠️  IMPORTANT: This module contains EXACT extracted content from main.js.html
+     Functions preserved character-for-character with original formatting
+     
+     Extracted functions: 2
+     Total lines: 76
      ============================================================================ -->
 
 <script>
-    // events specific functionality
-    // TODO: Move relevant functions from main.js.html to this module
+    // ============================================================================
+    // EVENTS MODULE - EXACT EXTRACTED FUNCTIONS
+    // ============================================================================
     
-    console.log('events module loaded');
+    // ============================================================================
+    // Function 1: loadEvents (25 lines)
+    // Dependencies: getServerById
+    // ============================================================================
+
+        
+        // Event Management Functions - Updated to use centralized window.servers
+        function loadEvents() {
+            fetch('/api/events').then(r => r.json()).then(events => {
+                const list = document.getElementById('activeEventsList');
+                if (!list) return;
+                
+                list.innerHTML = '';
+                events.forEach(event => {
+                    const server = getServerById(event.serverId);
+                    const serverName = server ? server.serverName : `Server ${event.serverId}`;
+                    
+                    const div = document.createElement('div');
+                    div.className = 'bg-gray-700 p-3 rounded mb-2';
+                    div.innerHTML = `
+                        <div class="font-semibold">${event.type.toUpperCase()} Event</div>
+                        <div class="text-sm text-gray-300">Server: ${serverName} (${event.serverId})</div>
+                        <div class="text-sm text-gray-300">Reward: ${event.reward}</div>
+                        ${event.arena_location ? `<div class="text-sm text-gray-300">Location: ${event.arena_location}</div>` : ''}
+                        <div class="text-xs text-green-400 mt-1">✅ Vanilla Compatible</div>
+                    `;
+                    list.appendChild(div);
+                });
+            }).catch(e => console.error('Error loading events:', e));
+        }
+
+    // ============================================================================
+    // Function 2: startKothEvent (51 lines)
+    // Dependencies: loadEvents, getServerById
+    // ============================================================================
+
+        
+        async function startKothEvent() {
+            const serverSelect = document.getElementById('eventServerSelect');
+            const serverId = serverSelect.value;
+            const duration = parseInt(document.getElementById('eventDuration').value);
+            const rewardItem = document.getElementById('eventRewardItem').value.trim();
+            const rewardAmount = parseInt(document.getElementById('eventRewardAmount').value);
+            const arenaLocation = document.getElementById('eventArenaLocation').value;
+            
+            if (!serverId) {
+                alert('Please select a server from the dropdown');
+                return;
+            }
+            
+            const server = getServerById(serverId);
+            if (!server) {
+                alert('Selected server not found. Please refresh the page.');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/events/koth/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        serverId: serverId,
+                        region: server.serverRegion,
+                        duration: duration,
+                        reward_item: rewardItem,
+                        reward_amount: rewardAmount,
+                        arena_location: arenaLocation
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`✅ KOTH event started successfully on ${server.serverName}!
+Duration: ${duration} minutes
+Location: ${arenaLocation}
+Reward: ${rewardAmount} ${rewardItem}
+
+Check console for announcements.`);
+                    loadEvents();
+                } else {
+                    alert('❌ Failed to start event: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error starting event: ' + error.message);
+            }
+        }
+
+    
+    // ============================================================================
+    // MODULE INITIALIZATION
+    // ============================================================================
+    
+    console.log('events module loaded - 2 functions available');
+    
+    // Make functions globally accessible (preserve original behavior)
+    if (typeof window !== 'undefined') {
+        // Browser environment - attach to window
+                window.loadEvents = loadEvents;
+        window.startKothEvent = startKothEvent;
+    }
+    
+    // Initialize module-specific functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('✅ events module initialized');
+        
+        // Module-specific DOM event handlers can be added here
+        // Original event listeners preserved in their exact form
+    });
+    
 </script>

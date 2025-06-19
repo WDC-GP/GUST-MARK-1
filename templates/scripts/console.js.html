@@ -1,16 +1,386 @@
-﻿<!-- ============================================================================
+<!-- ============================================================================
      GUST Bot Enhanced - console JavaScript Module
      ============================================================================
-     Created on 2025-06-17 12:20:33
+     Generated: 2025-06-19 03:56:50
      
      Module for console specific functionality
      
-     NOTE: Functions should be moved here from main.js.html for better organization
+     ⚠️  IMPORTANT: This module contains EXACT extracted content from main.js.html
+     Functions preserved character-for-character with original formatting
+     
+     Extracted functions: 9
+     Total lines: 288
      ============================================================================ -->
 
 <script>
-    // console specific functionality
-    // TODO: Move relevant functions from main.js.html to this module
+    // ============================================================================
+    // CONSOLE MODULE - EXACT EXTRACTED FUNCTIONS
+    // ============================================================================
     
-    console.log('console module loaded');
+    // ============================================================================
+    // Function 1: displayCombinedConsoleOutput (64 lines)
+    // Dependencies: escapeHtml, getTypeIcon
+    // ============================================================================
+
+        
+        // DISPLAY COMBINED CONSOLE OUTPUT (COMMANDS + LIVE MESSAGES)
+        function displayCombinedConsoleOutput(consoleOutput, liveMessages) {
+            const outputDiv = document.getElementById('consoleOutput');
+            if (!outputDiv) return;
+            
+            const wasScrolledToBottom = outputDiv.scrollTop + outputDiv.clientHeight >= outputDiv.scrollHeight - 10;
+            
+            // Clear and add header
+            outputDiv.innerHTML = '<div class="text-green-400">GUST Bot Console - Ready (Commands + Live Messages)</div>';
+            
+            // Add console command output
+            consoleOutput.forEach(entry => {
+                const div = document.createElement('div');
+                div.className = 'mb-1 text-sm';
+                
+                if (entry.command) {
+                    div.className += ' text-blue-400 font-mono';
+                    div.textContent = `> ${entry.command}`;
+                } else {
+                    div.className += entry.status === 'server_response' ? ' text-white' : ' text-gray-400';
+                    div.textContent = entry.message;
+                }
+                
+                outputDiv.appendChild(div);
+            });
+            
+            // Add live messages if any
+            if (liveMessages.length > 0) {
+                // Add separator
+                const separator = document.createElement('div');
+                separator.className = 'text-yellow-400 text-sm border-t border-gray-600 pt-2 mt-2';
+                separator.textContent = '📺 Live Console Messages:';
+                outputDiv.appendChild(separator);
+                
+                // Add live messages
+                liveMessages.forEach(message => {
+                    const div = document.createElement('div');
+                    div.className = 'console-live-message text-sm mb-1 pl-2 border-l-2 border-blue-500';
+                    
+                    const time = new Date(message.timestamp).toLocaleTimeString();
+                    const type = message.type || 'system';
+                    const serverId = message.server_id || message.serverId || '';
+                    
+                    // Format the message with timestamp and type
+                    const typeIcon = getTypeIcon(type);
+                    const serverInfo = serverId ? ` [${serverId}]` : '';
+                    
+                    div.innerHTML = `
+                        <span class="text-gray-500 text-xs">[${time}]</span>
+                        <span class="text-xs bg-gray-700 px-1 rounded">${typeIcon} ${type}</span>
+                        ${serverInfo ? `<span class="text-xs text-gray-400">${serverInfo}</span>` : ''}
+                        <div class="text-gray-200 font-mono mt-1">${escapeHtml(message.message)}</div>
+                    `;
+                    
+                    outputDiv.appendChild(div);
+                });
+            }
+            
+            // Auto-scroll if needed
+            if (autoScroll && wasScrolledToBottom) {
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+            }
+        }
+
+    // ============================================================================
+    // Function 2: testLiveConsole (33 lines)
+    // Dependencies: refreshConsoleWithLiveMessages
+    // ============================================================================
+
+        
+        // TEST FUNCTION FOR LIVE CONSOLE
+        async function testLiveConsole() {
+            try {
+                const response = await fetch('/api/console/live/test');
+                const data = await response.json();
+                
+                const alertMsg = `Live Console Test Results:
+                
+✅ Success: ${data.success}
+🔌 WebSockets Available: ${data.websockets_available}
+📡 Active Connections: ${data.total_connections || 0}
+📨 Recent Messages: ${data.message_count || 0}
+
+${data.recent_messages && data.recent_messages.length > 0 ? 
+  'Latest Message: ' + (data.recent_messages[data.recent_messages.length-1].message || 'N/A').substring(0, 100) : 
+  'No recent messages'}
+
+${data.error ? 'Error: ' + data.error : 'Working!'}`;
+                
+                alert(alertMsg);
+                console.log('🔍 Live Console Test Data:', data);
+                
+                // Also refresh the console after test
+                if (window.currentTab === 'console') {
+                    refreshConsoleWithLiveMessages();
+                }
+                
+            } catch (error) {
+                alert(`Test Error: ${error.message}`);
+                console.error('Test error:', error);
+            }
+        }
+
+    // ============================================================================
+    // Function 3: connectToLiveConsole (12 lines)
+    // Dependencies: showTab, addLiveConsoleMessage
+    // ============================================================================
+
+        
+        async function connectToLiveConsole(serverId) {
+            // Just switch to console tab since auto-connection handles the connection
+            showTab('console');
+            
+            addLiveConsoleMessage({
+                timestamp: new Date().toISOString(),
+                message: `📺 Switched to console view. Server ${serverId} is auto-connected for live monitoring.`,
+                type: 'system',
+                source: 'navigation'
+            });
+        }
+
+    // ============================================================================
+    // Function 4: clearConsole (7 lines)
+    // ============================================================================
+
+        
+        function clearConsole() {
+            const outputDiv = document.getElementById('consoleOutput');
+            if (outputDiv) {
+                outputDiv.innerHTML = '<div class="text-green-400">GUST Bot Console - Cleared</div>';
+            }
+        }
+
+    // ============================================================================
+    // Function 5: updateSystemStatus (78 lines)
+    // ============================================================================
+
+        
+        function updateSystemStatus() {
+            // Check token status
+            fetch('/api/token/status').then(r => r.json()).then(data => {
+                const dbStatus = document.getElementById('dbStatus');
+                const tokenStatus = document.getElementById('tokenStatus');
+                const modeStatus = document.getElementById('modeStatus');
+                const websocketStatus = document.getElementById('websocketStatus');
+                const refreshBtn = document.getElementById('refreshTokenBtn');
+                
+                websocketsAvailable = data.websockets_available;
+                
+                if (data.demo_mode) {
+                    tokenStatus.textContent = '• G-Portal Token: Demo Mode';
+                    modeStatus.textContent = '• Mode: Demo (simulated commands)';
+                    if (refreshBtn) refreshBtn.classList.add('hidden');
+                } else if (data.has_token && data.token_valid) {
+                    tokenStatus.textContent = `• G-Portal Token: Valid (${Math.floor(data.time_left/60)}m left)`;
+                    modeStatus.textContent = '• Mode: Live (real G-Portal API)';
+                    if (refreshBtn) refreshBtn.classList.add('hidden');
+                } else {
+                    tokenStatus.textContent = '• G-Portal Token: Expired/Invalid';
+                    modeStatus.textContent = '• Mode: Needs authentication';
+                    if (refreshBtn) refreshBtn.classList.remove('hidden');
+                }
+                
+                if (websocketStatus) {
+                    websocketStatus.textContent = `• WebSocket Support: ${websocketsAvailable ? 'Available ✅' : 'Not Available ❌'}`;
+                }
+                
+                // Update live console description based on WebSocket availability
+                const liveConsoleDesc = document.getElementById('liveConsoleDescription');
+                const liveConsoleFeatures = document.getElementById('liveConsoleFeatures');
+                const websocketStatusDetail = document.getElementById('websocketStatusDetail');
+                
+                if (!websocketsAvailable) {
+                    if (liveConsoleDesc) {
+                        liveConsoleDesc.textContent = 'WebSocket support not available. Install with: pip install websockets';
+                        liveConsoleDesc.className = 'text-red-200 mb-3';
+                    }
+                    if (liveConsoleFeatures) {
+                        liveConsoleFeatures.innerHTML = `
+                            <li>• Install websockets: pip install websockets</li>
+                            <li>• Then restart the application</li>
+                            <li>• Command console still works normally</li>
+                            <li>• Live monitoring will be available after install</li>
+                        `;
+                    }
+                    if (websocketStatusDetail) {
+                        websocketStatusDetail.innerHTML = `
+                            <div class="text-red-300">WebSocket support not available</div>
+                            <div class="mt-1">Install: pip install websockets</div>
+                        `;
+                    }
+                } else {
+                    if (websocketStatusDetail) {
+                        websocketStatusDetail.innerHTML = `
+                            <div class="text-green-300">WebSocket support available</div>
+                            <div class="mt-1">Live console ready</div>
+                        `;
+                    }
+                }
+            }).catch(e => console.error('Error checking token status:', e));
+            
+            // Check health
+            fetch('/health').then(r => r.json()).then(data => {
+                const dbStatus = document.getElementById('dbStatus');
+                const liveConnections = document.getElementById('liveConnections');
+                
+                if (dbStatus) {
+                    dbStatus.textContent = '• Database: ' + data.database;
+                }
+                
+                if (liveConnections) {
+                    liveConnections.textContent = data.live_connections || 0;
+                }
+            }).catch(e => console.error('Error checking health:', e));
+        }
+
+    // ============================================================================
+    // Function 6: setCommand (8 lines)
+    // ============================================================================
+
+        
+        // Console Functions - Updated to use centralized servers
+        function setCommand(command) {
+            const consoleInput = document.getElementById('consoleInput');
+            if (consoleInput) {
+                consoleInput.value = command;
+            }
+        }
+
+    // ============================================================================
+    // Function 7: sendConsoleCommand (50 lines)
+    // Dependencies: getServerRegion, addCommandOutput, refreshConsoleWithLiveMessages, getServerById
+    // ============================================================================
+
+        
+        async function sendConsoleCommand() {
+            const command = document.getElementById('consoleInput').value.trim();
+            const serverSelect = document.getElementById('consoleServerSelect');
+            const serverId = serverSelect.value;
+            
+            if (!command) {
+                alert('Please enter a command');
+                return;
+            }
+            
+            if (!serverId) {
+                alert('Please select a server from the dropdown');
+                return;
+            }
+            
+            const region = getServerRegion(serverId);
+            const outputDiv = document.getElementById('consoleOutput');
+            
+            // Add command to output
+            addCommandOutput(`> ${command} (Server: ${serverId})`, 'command');
+            
+            try {
+                const response = await fetch('/api/console/send', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        command: command,
+                        serverId: serverId,
+                        region: region
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addCommandOutput(`✅ Command sent successfully to ${getServerById(serverId)?.serverName || serverId}`, 'success');
+                    document.getElementById('consoleInput').value = '';
+                    
+                    // Auto-refresh to show new messages
+                    setTimeout(() => {
+                        refreshConsoleWithLiveMessages();
+                    }, 1000);
+                } else {
+                    addCommandOutput(`❌ Command failed: ${result.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                addCommandOutput(`❌ Send error: ${error.message}`, 'error');
+            }
+        }
+
+    // ============================================================================
+    // Function 8: addCommandOutput (14 lines)
+    // ============================================================================
+
+        
+        function addCommandOutput(message, type) {
+            const outputDiv = document.getElementById('consoleOutput');
+            if (!outputDiv) return;
+            
+            const time = new Date().toLocaleTimeString();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `mb-2 ${type === 'error' ? 'text-red-400' : type === 'success' ? 'text-green-400' : 'text-gray-300'}`;
+            messageDiv.innerHTML = `<span class="text-gray-500">[${time}]</span> ${message}`;
+            
+            outputDiv.appendChild(messageDiv);
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+
+    // ============================================================================
+    // Function 9: refreshConsole (22 lines)
+    // ============================================================================
+
+        
+        function refreshConsole() {
+            // Fallback console refresh (basic version)
+            fetch('/api/console/output').then(r => r.json()).then(output => {
+                const outputDiv = document.getElementById('consoleOutput');
+                if (!outputDiv) return;
+                
+                outputDiv.innerHTML = '<div class="text-green-400">GUST Bot Console - Ready</div>';
+                output.forEach(entry => {
+                    const div = document.createElement('div');
+                    if (entry.command) {
+                        div.className = 'text-blue-400';
+                        div.textContent = `> ${entry.command}`;
+                    } else {
+                        div.className = entry.status === 'server_response' ? 'text-white' : 'text-gray-400';
+                        div.textContent = entry.message;
+                    }
+                    outputDiv.appendChild(div);
+                });
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+            }).catch(e => console.error('Error refreshing console:', e));
+        }
+
+    
+    // ============================================================================
+    // MODULE INITIALIZATION
+    // ============================================================================
+    
+    console.log('console module loaded - 9 functions available');
+    
+    // Make functions globally accessible (preserve original behavior)
+    if (typeof window !== 'undefined') {
+        // Browser environment - attach to window
+                window.displayCombinedConsoleOutput = displayCombinedConsoleOutput;
+        window.testLiveConsole = testLiveConsole;
+        window.connectToLiveConsole = connectToLiveConsole;
+        window.clearConsole = clearConsole;
+        window.updateSystemStatus = updateSystemStatus;
+        window.setCommand = setCommand;
+        window.sendConsoleCommand = sendConsoleCommand;
+        window.addCommandOutput = addCommandOutput;
+        window.refreshConsole = refreshConsole;
+    }
+    
+    // Initialize module-specific functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('✅ console module initialized');
+        
+        // Module-specific DOM event handlers can be added here
+        // Original event listeners preserved in their exact form
+    });
+    
 </script>

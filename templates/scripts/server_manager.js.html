@@ -1,16 +1,443 @@
-﻿<!-- ============================================================================
-     GUST Bot Enhanced - server_manager JavaScript Module
+<!-- ============================================================================
+     GUST Bot Enhanced - server_manager JavaScript Module (FIXED)
      ============================================================================
-     Created on 2025-06-17 12:20:33
+     Generated: 2025-06-19 03:56:50 (API ENDPOINTS FIXED)
      
      Module for server_manager specific functionality
      
-     NOTE: Functions should be moved here from main.js.html for better organization
+     FIXES APPLIED:
+     - Fixed API endpoints from /api/window.servers/* to /api/servers/*
+     - Updated all fetch calls to use correct URLs
+     - Maintained all original functionality
+     
+     Extracted functions: 14
+     Total lines: 306
      ============================================================================ -->
 
 <script>
-    // server_manager specific functionality
-    // TODO: Move relevant functions from main.js.html to this module
+    // ============================================================================
+    // SERVER_MANAGER MODULE - EXACT EXTRACTED FUNCTIONS (FIXED ENDPOINTS)
+    // ============================================================================
     
-    console.log('server_manager module loaded');
+    // ============================================================================
+    // Function 1: loadManagedServers (22 lines)
+    // Dependencies: updateAllServerDropdowns, autoConnectToAllServers
+    // ============================================================================
+
+        
+        // ===========================================
+        // CENTRALIZED SERVER MANAGEMENT FUNCTIONS
+        // ===========================================
+        
+        async function loadManagedServers() {
+            try {
+                const response = await fetch('/api/servers'); // FIXED: was /api/window.servers
+                managedServers = await response.json();
+                
+                // Update all server dropdowns
+                updateAllServerDropdowns();
+                
+                // Auto-connect to all active servers for live monitoring
+                await autoConnectToAllServers();
+                
+                console.log('Loaded servers:', managedServers.length);
+            } catch (error) {
+                console.error('Error loading managed servers:', error);
+                managedServers = [];
+            }
+        }
+
+    // ============================================================================
+    // Function 2: autoConnectToAllServers (16 lines)
+    // Dependencies: autoConnectToServer
+    // ============================================================================
+
+        
+        async function autoConnectToAllServers() {
+            if (!websocketsAvailable) {
+                console.log('WebSockets not available - skipping auto-connect');
+                return;
+            }
+            
+            // Connect to all active servers
+            for (const server of managedServers) {
+                if (server.isActive) {
+                    await autoConnectToServer(server);
+                    // Small delay between connections to avoid overwhelming
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+        }
+
+    // ============================================================================
+    // Function 3: autoConnectToServer (40 lines)
+    // Dependencies: addLiveConsoleMessage
+    // ============================================================================
+
+        
+        async function autoConnectToServer(server) {
+            try {
+                console.log(`🔄 Auto-connecting to ${server.serverName} (${server.serverId})`);
+                
+                const response = await fetch('/api/console/live/connect', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        serverId: server.serverId,
+                        region: server.serverRegion
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log(`✅ Auto-connected to ${server.serverName}`);
+                    addLiveConsoleMessage({
+                        timestamp: new Date().toISOString(),
+                        message: `🔄 Auto-connected to ${server.serverName} for live monitoring`,
+                        type: 'system',
+                        source: 'auto_connection'
+                    });
+                } else {
+                    console.log(`❌ Auto-connect failed for ${server.serverName}: ${result.error}`);
+                    // Only show error message if not in demo mode
+                    if (!result.error.includes('Demo mode') && !result.error.includes('demo')) {
+                        addLiveConsoleMessage({
+                            timestamp: new Date().toISOString(),
+                            message: `⚠️ Auto-connect failed for ${server.serverName}: ${result.error}`,
+                            type: 'warning',
+                            source: 'auto_connection'
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error(`Error auto-connecting to ${server.serverName}:`, error);
+            }
+        }
+
+    // ============================================================================
+    // Function 4: getServerRegion (5 lines)
+    // Dependencies: getServerById
+    // ============================================================================
+
+        
+        function getServerRegion(serverId) {
+            const server = getServerById(serverId);
+            return server ? server.serverRegion : 'US';
+        }
+
+    // ============================================================================
+    // Function 5: addNewServer (46 lines)
+    // Dependencies: loadManagedServers, loadServerManager, clearServerForm
+    // ============================================================================
+
+        
+        async function addNewServer() {
+            const serverId = document.getElementById('newServerId').value.trim();
+            const serverName = document.getElementById('newServerName').value.trim();
+            const serverRegion = document.getElementById('newServerRegion').value;
+            const serverType = document.getElementById('newServerType').value;
+            const description = document.getElementById('newServerDescription').value.trim();
+            
+            if (!serverId || !serverName) {
+                alert('Please fill in Server ID and Server Name (required fields)');
+                return;
+            }
+            
+            // Check if server already exists
+            if (managedServers.find(s => s.serverId === serverId)) {
+                alert('A server with this ID already exists!');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/servers/add', { // FIXED: was /api/window.servers/add
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        serverId,
+                        serverName,
+                        serverRegion,
+                        serverType,
+                        description
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Server added successfully!');
+                    clearServerForm();
+                    await loadManagedServers(); // Reload server list and auto-connect
+                    loadServerManager(); // Refresh the server manager view
+                } else {
+                    alert('❌ Failed to add server: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('❌ Error adding server: ' + error.message);
+            }
+        }
+
+    // ============================================================================
+    // Function 6: clearServerForm (8 lines)
+    // ============================================================================
+
+        
+        function clearServerForm() {
+            document.getElementById('newServerId').value = '';
+            document.getElementById('newServerName').value = '';
+            document.getElementById('newServerDescription').value = '';
+            document.getElementById('newServerRegion').value = 'US';
+            document.getElementById('newServerType').value = 'Standard';
+        }
+
+    // ============================================================================
+    // Function 7: loadServerManager (4 lines)
+    // Dependencies: refreshServerList
+    // ============================================================================
+
+        
+        function loadServerManager() {
+            refreshServerList();
+        }
+
+    // ============================================================================
+    // Function 8: getStatusClass (8 lines)
+    // ============================================================================
+
+        
+        function getStatusClass(status) {
+            switch(status) {
+                case 'online': return 'bg-green-800 text-green-200';
+                case 'offline': return 'bg-red-800 text-red-200';
+                default: return 'bg-gray-700 text-gray-300';
+            }
+        }
+
+    // ============================================================================
+    // Function 9: getStatusText (8 lines)
+    // ============================================================================
+
+        
+        function getStatusText(status) {
+            switch(status) {
+                case 'online': return '🟢 Online';
+                case 'offline': return '🔴 Offline';
+                default: return '⚪ Unknown';
+            }
+        }
+
+    // ============================================================================
+    // Function 10: pingSingleServer (24 lines)
+    // Dependencies: updateAllServerDropdowns, refreshServerList
+    // ============================================================================
+
+        
+        async function pingSingleServer(serverId) {
+            try {
+                const response = await fetch(`/api/servers/ping/${serverId}`, { // FIXED: was /api/window.servers/ping/${serverId}
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update server status in local list
+                    const server = managedServers.find(s => s.serverId === serverId);
+                    if (server) {
+                        server.status = result.status;
+                        server.lastPing = new Date().toISOString();
+                    }
+                    refreshServerList();
+                    updateAllServerDropdowns();
+                } else {
+                    alert('Failed to ping server');
+                }
+            } catch (error) {
+                alert('Error pinging server: ' + error.message);
+            }
+        }
+
+    // ============================================================================
+    // Function 11: deleteServer (36 lines)
+    // Dependencies: updateAllServerDropdowns, getServerById, refreshServerList
+    // ============================================================================
+
+        
+        async function deleteServer(serverId) {
+            const server = getServerById(serverId);
+            if (!server) return;
+            
+            if (!confirm(`Are you sure you want to delete "${server.serverName}"?
+
+This will:
+• Remove the server from all tabs
+• Disconnect any live console connections
+• This action cannot be undone`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/servers/delete/${serverId}`, { // FIXED: was /api/window.servers/delete/${serverId}
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Remove from local list
+                    managedServers = managedServers.filter(s => s.serverId !== serverId);
+                    
+                    refreshServerList();
+                    updateAllServerDropdowns();
+                    
+                    alert('✅ Server deleted successfully');
+                } else {
+                    alert('❌ Failed to delete server');
+                }
+            } catch (error) {
+                alert('❌ Error deleting server: ' + error.message);
+            }
+        }
+
+    // ============================================================================
+    // Function 12: startPolling (28 lines)
+    // Dependencies: loadManagedServers, refreshConsoleWithLiveMessages, checkAndReconnectServers, updateConsoleFilters, updateLiveConnectionStatus
+    // ============================================================================
+
+        
+        function startPolling() {
+            // Poll for live messages every 3 seconds when on console tab
+            setInterval(() => {
+                if (currentTab === 'console') {
+                    updateLiveConnectionStatus();
+                    updateConsoleFilters();
+                    refreshConsoleWithLiveMessages(); // FIXED: Auto-refresh live messages
+                }
+            }, 3000);
+            
+            // Auto-reconnect check every 30 seconds
+            setInterval(() => {
+                if (websocketsAvailable && managedServers.length > 0) {
+                    checkAndReconnectServers();
+                }
+            }, 30000);
+            
+            // Poll for system status every 30 seconds
+            setInterval(updateSystemStatus, 30000);
+            
+            // Refresh server list every 2 minutes
+            setInterval(() => {
+                if (currentTab === 'server-manager') {
+                    loadManagedServers();
+                }
+            }, 120000);
+        }
+
+    // ============================================================================
+    // Function 13: checkAndReconnectServers (25 lines)
+    // Dependencies: autoConnectToServer, getServerById
+    // ============================================================================
+
+        
+        async function checkAndReconnectServers() {
+            // Check connection status and reconnect if needed
+            try {
+                const response = await fetch('/api/console/live/status');
+                const data = await response.json();
+                
+                const connectedServerIds = Object.keys(data.connections || {});
+                const activeServerIds = managedServers.filter(s => s.isActive).map(s => s.serverId);
+                
+                // Find servers that should be connected but aren't
+                for (const serverId of activeServerIds) {
+                    if (!connectedServerIds.includes(serverId)) {
+                        const server = getServerById(serverId);
+                        if (server) {
+                            console.log(`🔄 Auto-reconnecting to ${server.serverName}`);
+                            await autoConnectToServer(server);
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking connections for auto-reconnect:', error);
+            }
+        }
+
+    // ============================================================================
+    // Function 14: disconnectServer (36 lines)
+    // Dependencies: updateLiveConnectionStatus, addLiveConsoleMessage
+    // ============================================================================
+
+        
+        async function disconnectServer(serverId) {
+            try {
+                const response = await fetch('/api/console/live/disconnect', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ serverId: serverId })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLiveConsoleMessage({
+                        timestamp: new Date().toISOString(),
+                        message: `🔌 Disconnected from server ${serverId}`,
+                        type: 'system',
+                        source: 'connection'
+                    });
+                    updateLiveConnectionStatus();
+                } else {
+                    addLiveConsoleMessage({
+                        timestamp: new Date().toISOString(),
+                        message: `❌ Failed to disconnect from server ${serverId}: ${result.error}`,
+                        type: 'error',
+                        source: 'connection'
+                    });
+                }
+            } catch (error) {
+                addLiveConsoleMessage({
+                    timestamp: new Date().toISOString(),
+                    message: `❌ Disconnect error for server ${serverId}: ${error.message}`,
+                    type: 'error',
+                    source: 'connection'
+                });
+            }
+        }
+
+    
+    // ============================================================================
+    // MODULE INITIALIZATION
+    // ============================================================================
+    
+    console.log('server_manager module loaded - 14 functions available (FIXED API ENDPOINTS)');
+    
+    // Make functions globally accessible (preserve original behavior)
+    if (typeof window !== 'undefined') {
+        // Browser environment - attach to window
+        window.loadManagedServers = loadManagedServers;
+        window.autoConnectToAllServers = autoConnectToAllServers;
+        window.autoConnectToServer = autoConnectToServer;
+        window.getServerRegion = getServerRegion;
+        window.addNewServer = addNewServer;
+        window.clearServerForm = clearServerForm;
+        window.loadServerManager = loadServerManager;
+        window.getStatusClass = getStatusClass;
+        window.getStatusText = getStatusText;
+        window.pingSingleServer = pingSingleServer;
+        window.deleteServer = deleteServer;
+        window.startPolling = startPolling;
+        window.checkAndReconnectServers = checkAndReconnectServers;
+        window.disconnectServer = disconnectServer;
+    }
+    
+    // Initialize module-specific functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('✅ server_manager module initialized (FIXED API ENDPOINTS)');
+        
+        // Module-specific DOM event handlers can be added here
+        // Original event listeners preserved in their exact form
+    });
+    
 </script>

@@ -1,16 +1,62 @@
-﻿<!-- ============================================================================
+<!-- ============================================================================
      GUST Bot Enhanced - dashboard JavaScript Module
      ============================================================================
-     Created on 2025-06-17 12:20:33
+     Generated: 2025-06-19 03:56:50
      
      Module for dashboard specific functionality
      
-     NOTE: Functions should be moved here from main.js.html for better organization
+     ⚠️  IMPORTANT: This module contains EXACT extracted content from main.js.html
+     Functions preserved character-for-character with original formatting
+     
+     Extracted functions: 1
+     Total lines: 15
      ============================================================================ -->
 
 <script>
-    // dashboard specific functionality
-    // TODO: Move relevant functions from main.js.html to this module
+    // ============================================================================
+    // DASHBOARD MODULE - EXACT EXTRACTED FUNCTIONS
+    // ============================================================================
     
-    console.log('dashboard module loaded');
+    // ============================================================================
+    // Function 1: loadDashboard (15 lines)
+    // Dependencies: updateSystemStatus
+    // ============================================================================
+
+        
+        function loadDashboard() {
+            // Use managed window.servers count
+            document.getElementById('activeServers').textContent = managedServers.length;
+            
+            fetch('/api/events').then(r => r.json()).then(events => {
+                document.getElementById('activeEvents').textContent = events.length;
+            }).catch(e => console.error('Error loading events:', e));
+            
+            fetch('/api/clans').then(r => r.json()).then(clans => {
+                document.getElementById('totalClans').textContent = clans.length;
+            }).catch(e => console.error('Error loading clans:', e));
+            
+            updateSystemStatus();
+        }
+
+    
+    // ============================================================================
+    // MODULE INITIALIZATION
+    // ============================================================================
+    
+    console.log('dashboard module loaded - 1 functions available');
+    
+    // Make functions globally accessible (preserve original behavior)
+    if (typeof window !== 'undefined') {
+        // Browser environment - attach to window
+                window.loadDashboard = loadDashboard;
+    }
+    
+    // Initialize module-specific functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('✅ dashboard module initialized');
+        
+        // Module-specific DOM event handlers can be added here
+        // Original event listeners preserved in their exact form
+    });
+    
 </script>
