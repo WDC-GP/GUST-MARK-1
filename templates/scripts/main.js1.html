@@ -1,4 +1,4 @@
-<!-- ============================================================================
+﻿<!-- ============================================================================
      GUST Bot Enhanced - Core JavaScript
      ============================================================================
      Extracted from enhanced_dashboard.html on 2025-06-17 12:20:33
@@ -113,163 +113,23 @@ let currentTab = 'dashboard';
             }, 100);
         });
         
-        // FIXED showTab function with proper null checking
         function showTab(tab) {
-            console.log('🔄 Switching to tab:', tab);
+            currentTab = tab;
             
-            try {
-                currentTab = tab;
-                
-                // Update nav tabs - with null checking
-                document.querySelectorAll('.nav-tab').forEach(t => {
-                    if (t && t.classList) {
-                        t.classList.remove('active');
-                    }
-                });
-                
-                // Find and activate the nav tab
-                const navTab = document.getElementById(tab + '-tab');
-                if (navTab && navTab.classList) {
-                    navTab.classList.add('active');
-                } else {
-                    console.warn('❌ Nav tab not found:', tab + '-tab');
-                }
-                
-                // Update views - with null checking
-                document.querySelectorAll('.view').forEach(view => {
-                    if (view && view.classList) {
-                        view.classList.add('hidden');
-                    }
-                });
-                
-                // Show target view - try multiple ID patterns
-                let targetView = document.getElementById(tab + '-view');
-                if (!targetView) {
-                    targetView = document.getElementById(tab); // Alternative pattern
-                }
-                
-                if (targetView && targetView.classList) {
-                    targetView.classList.remove('hidden');
-                    console.log('✅ Showing view:', targetView.id);
-                } else {
-                    console.error('❌ No view found for tab:', tab);
-                    console.log('🔍 Looking for:', tab + '-view', 'or', tab);
-                    console.log('🔍 Available .view elements:');
-                    document.querySelectorAll('.view').forEach(el => {
-                        console.log('   - ID:', el.id || 'no-id', 'Classes:', el.className);
-                    });
-                    
-                    // Create a placeholder view if none exists
-                    createPlaceholderView(tab);
-                    return;
-                }
-                
-                // Load tab-specific data
-                try {
-                    if (tab === 'dashboard') loadDashboard();
-                    else if (tab === 'server-manager') loadServerManager();
-                    else if (tab === 'events') loadEvents();
-                    else if (tab === 'clans') loadClans();
-                    else if (tab === 'console') initializeConsole();
-                    else if (tab === 'user-management') loadUserManagement();
-                    else if (tab === 'users') loadUserManagement(); // Alternative name
-                    else if (tab === 'logs') loadLogs();
-                } catch (error) {
-                    console.warn('Tab-specific loader error:', error);
-                }
-                
-                console.log('✅ Tab switch complete:', tab);
-                
-            } catch (error) {
-                console.error('❌ showTab error:', error);
-                console.error('Stack trace:', error.stack);
-            }
-        }
-        
-        // Helper function to create placeholder views for missing tabs
-        function createPlaceholderView(tabId) {
-            console.log('🔧 Creating placeholder view for:', tabId);
+            // Update nav tabs
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(tab + '-tab').classList.add('active');
             
-            // Find a container to add the view to (usually the main content area)
-            let container = document.querySelector('.main-content') || document.querySelector('main') || document.body;
+            // Update views
+            document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
+            document.getElementById(tab + '-view').classList.remove('hidden');
             
-            // Create the placeholder view
-            const placeholderView = document.createElement('div');
-            placeholderView.id = tabId + '-view';
-            placeholderView.className = 'view bg-gray-800 p-6 rounded-lg';
-            
-            // Add content based on the tab type
-            let title = tabId.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
-            let content = '';
-            
-            switch(tabId) {
-                case 'user-management':
-                case 'users':
-                    title = '👤 User Management';
-                    content = `
-                        <p class="text-gray-400 mb-4">User management functionality coming soon...</p>
-                        <div class="space-y-4">
-                            <div class="bg-gray-700 p-4 rounded">
-                                <h4 class="font-semibold mb-2">🚫 Temporary Ban User</h4>
-                                <p class="text-sm text-gray-400">Ban management tools will be available here</p>
-                            </div>
-                            <div class="bg-gray-700 p-4 rounded">
-                                <h4 class="font-semibold mb-2">🎁 Give Items</h4>
-                                <p class="text-sm text-gray-400">Item distribution tools will be available here</p>
-                            </div>
-                        </div>
-                    `;
-                    break;
-                case 'logs':
-                    title = '📋 Server Logs';
-                    content = `
-                        <p class="text-gray-400 mb-4">Server logs functionality coming soon...</p>
-                        <div class="bg-gray-700 p-4 rounded">
-                            <h4 class="font-semibold mb-2">📥 Log Management</h4>
-                            <p class="text-sm text-gray-400">Download and view server logs will be available here</p>
-                        </div>
-                    `;
-                    break;
-                default:
-                    content = `<p class="text-gray-400">This ${title} tab is under development...</p>`;
-            }
-            
-            placeholderView.innerHTML = `
-                <h2 class="text-2xl font-bold mb-4">${title}</h2>
-                ${content}
-                <div class="mt-6 p-4 bg-blue-900 bg-opacity-30 border border-blue-600 rounded">
-                    <p class="text-blue-300 text-sm">
-                        <strong>🔧 Developer Note:</strong> This view was automatically created because the corresponding template wasn't found. 
-                        Create <code>templates/views/${tabId}.html</code> to replace this placeholder.
-                    </p>
-                </div>
-            `;
-            
-            // Hide all other views first
-            document.querySelectorAll('.view').forEach(view => {
-                if (view && view.classList) {
-                    view.classList.add('hidden');
-                }
-            });
-            
-            // Add the placeholder to the container
-            container.appendChild(placeholderView);
-            
-            console.log('✅ Created placeholder view:', tabId + '-view');
-        }
-        
-        // Placeholder functions for missing tab loaders
-        function loadUserManagement() {
-            console.log('👤 Loading User Management...');
-            // Add your user management loading logic here
-        }
-        
-        function loadLogs() {
-            console.log('📋 Loading Logs...');
-            // Add your logs loading logic here
-            if (typeof initializeLogs === 'function') {
-                initializeLogs();
-            }
+            // Load tab-specific data
+            if (tab === 'dashboard') loadDashboard();
+            else if (tab === 'server-manager') loadServerManager();
+            else if (tab === 'events') loadEvents();
+            else if (tab === 'clans') loadClans();
+            else if (tab === 'console') initializeConsole();
         }
         
         // ===========================================
@@ -1155,9 +1015,6 @@ This will:
         }
         
         function escapeHtml(text) {
-            if (!text) return '';
-            if (typeof text !== 'string') return String(text);
-            
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;

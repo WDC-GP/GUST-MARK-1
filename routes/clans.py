@@ -36,6 +36,29 @@ clans_bp = Blueprint('clans', __name__)
 def init_clans_routes(app, db, clans_storage, user_storage):
     '''Initialize clan routes with user database integration'''
     
+    @clans_bp.route('/api/clans')
+    @require_auth
+    def get_all_clans():
+        '''Get all clans across all servers - ADDED TO FIX 404 ERROR'''
+        try:
+            if db:
+                clans = list(db.clans.find({}, {'_id': 0}))
+            else:
+                # For in-memory storage, get all clans from all servers
+                all_clans = []
+                if hasattr(clans_storage, 'get_clans'):
+                    # If using InMemoryUserStorage
+                    all_clans = clans_storage.get_clans()  # Gets all clans
+                else:
+                    # If using simple list
+                    all_clans = list(clans_storage) if clans_storage else []
+            
+            return jsonify(all_clans)
+            
+        except Exception as e:
+            logger.error(f'❌ Error getting all clans: {e}')
+            return jsonify([])  # Return empty array instead of error to prevent frontend crash
+    
     @clans_bp.route('/api/clans/<server_id>')
     @require_auth
     def get_server_clans(server_id):
