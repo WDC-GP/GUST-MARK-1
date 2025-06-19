@@ -1,7 +1,0 @@
-[2025-06-18 23:04:24] [INFO] ?? GUST-MARK-1 Project Cleanup Script Starting...
-[2025-06-18 23:04:24] [INFO] ================================================================
-[2025-06-18 23:04:25] [INFO] ?? Initial project state:
-[2025-06-18 23:04:25] [INFO]   ?? Total files: 202
-[2025-06-18 23:04:25] [INFO]   ?? Total size: 2.31 MB
-[2025-06-18 23:04:25] [INFO] 
-?? Creating safety backup...

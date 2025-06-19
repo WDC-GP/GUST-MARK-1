@@ -15,9 +15,7 @@ import requests
 from utils.helpers import save_token
 
 # Local imports
-from config import Config
-
-
+from config import Config, WEBSOCKETS_AVAILABLE
 
 
 logger = logging.getLogger(__name__)
@@ -44,21 +42,21 @@ def login():
             session['logged_in'] = True
             session['username'] = username
             session['demo_mode'] = True
-            logger.info(f"ðŸŽ­ Demo mode login: {username}")
+            logger.info(f"🎭 Demo mode login: {username}")
             return jsonify({'success': True, 'demo_mode': True})
         else:
             # Real G-Portal authentication
-            logger.info(f"ðŸ” Attempting G-Portal authentication for: {username}")
+            logger.info(f"🔐 Attempting G-Portal authentication for: {username}")
             auth_success = authenticate_gportal(username, password)
             
             if auth_success:
                 session['logged_in'] = True
                 session['username'] = username
                 session['demo_mode'] = False
-                logger.info(f"âœ… G-Portal authentication successful for: {username}")
+                logger.info(f"✅ G-Portal authentication successful for: {username}")
                 return jsonify({'success': True, 'demo_mode': False})
             else:
-                logger.warning(f"âŒ G-Portal authentication failed for: {username}")
+                logger.warning(f"❌ G-Portal authentication failed for: {username}")
                 return jsonify({
                     'success': False, 
                     'error': 'G-Portal authentication failed. Check credentials or try your email address as username.'
@@ -75,7 +73,7 @@ def logout():
     # Clean up session
     session.clear()
     
-    logger.info(f"ðŸ‘‹ User logged out: {username} ({'demo' if demo_mode else 'live'} mode)")
+    logger.info(f"👋 User logged out: {username} ({'demo' if demo_mode else 'live'} mode)")
     
     return redirect(url_for('auth.login'))
 
@@ -105,23 +103,23 @@ def token_status():
                 'refresh_valid': refresh_time_left > 0,
                 'refresh_time_left': int(refresh_time_left),
                 'demo_mode': session.get('demo_mode', True),
-                'websockets_available': True  # Will be updated by main app
+                'websockets_available': WEBSOCKETS_AVAILABLE  # ✅ FIXED: Now uses actual config value
             })
         else:
             return jsonify({
                 'has_token': False,
                 'token_valid': False,
                 'demo_mode': session.get('demo_mode', True),
-                'websockets_available': True  # Will be updated by main app
+                'websockets_available': WEBSOCKETS_AVAILABLE  # ✅ FIXED: Now uses actual config value
             })
     except Exception as e:
-        logger.error(f"âŒ Error checking token status: {e}")
+        logger.error(f"❌ Error checking token status: {e}")
         return jsonify({
             'has_token': False,
             'token_valid': False,
             'error': str(e),
             'demo_mode': session.get('demo_mode', True),
-            'websockets_available': True  # Will be updated by main app
+            'websockets_available': WEBSOCKETS_AVAILABLE  # ✅ FIXED: Now uses actual config value
         })
 
 @auth_bp.route('/api/token/refresh', methods=['POST'])
@@ -132,13 +130,67 @@ def refresh_token_endpoint():
     try:
         success = refresh_token()
         if success:
-            logger.info("âœ… Token refreshed successfully")
+            logger.info("✅ Token refreshed successfully")
         else:
-            logger.warning("âŒ Token refresh failed")
+            logger.warning("❌ Token refresh failed")
         return jsonify({'success': success})
     except Exception as e:
-        logger.error(f"âŒ Error refreshing token: {e}")
+        logger.error(f"❌ Error refreshing token: {e}")
         return jsonify({'success': False, 'error': str(e)})
+
+@auth_bp.route('/api/system/status')
+def system_status():
+    """Get comprehensive system status including WebSocket availability"""
+    try:
+        # Get token status
+        import os
+        import json
+        import time
+        
+        token_status = {
+            'has_token': False,
+            'token_valid': False,
+            'demo_mode': session.get('demo_mode', True)
+        }
+        
+        if os.path.exists(Config.TOKEN_FILE):
+            try:
+                with open(Config.TOKEN_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                current_time = time.time()
+                token_exp = data.get('access_token_exp', 0)
+                time_left = max(0, token_exp - current_time)
+                
+                token_status.update({
+                    'has_token': True,
+                    'token_valid': time_left > 30,
+                    'time_left': int(time_left)
+                })
+            except:
+                pass
+        
+        return jsonify({
+            **token_status,
+            'websockets_available': WEBSOCKETS_AVAILABLE,
+            'websocket_support': {
+                'package_installed': WEBSOCKETS_AVAILABLE,
+                'status': 'Available' if WEBSOCKETS_AVAILABLE else 'Not Available',
+                'install_command': 'pip install websockets==11.0.3' if not WEBSOCKETS_AVAILABLE else None
+            },
+            'system_health': {
+                'status': 'operational',
+                'timestamp': time.time()
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Error getting system status: {e}")
+        return jsonify({
+            'websockets_available': WEBSOCKETS_AVAILABLE,
+            'demo_mode': session.get('demo_mode', True),
+            'error': str(e)
+        })
 
 def authenticate_gportal(username, password):
     """
@@ -160,7 +212,7 @@ def authenticate_gportal(username, password):
     }
     
     try:
-        logger.info(f"ðŸ”„ Making authentication request to G-Portal...")
+        logger.info(f"📡 Making authentication request to G-Portal...")
         response = requests.post(
             Config.GPORTAL_AUTH_URL,
             data=data,
@@ -171,35 +223,35 @@ def authenticate_gportal(username, password):
             timeout=15
         )
         
-        logger.info(f"ðŸ“¡ G-Portal auth response: {response.status_code}")
+        logger.info(f"📡 G-Portal auth response: {response.status_code}")
         
         if response.status_code == 200:
             tokens = response.json()
             
             # Save tokens using helper function
             if save_token(tokens, username):
-                logger.info(f"âœ… Token saved successfully for {username}")
+                logger.info(f"✅ Token saved successfully for {username}")
                 return True
             else:
-                logger.error(f"âŒ Failed to save token for {username}")
+                logger.error(f"❌ Failed to save token for {username}")
                 return False
         else:
-            logger.warning(f"âŒ Authentication failed with status {response.status_code}")
+            logger.warning(f"❌ Authentication failed with status {response.status_code}")
             try:
                 error_data = response.json()
-                logger.warning(f"âŒ Error details: {error_data}")
+                logger.warning(f"❌ Error details: {error_data}")
             except:
                 pass
             return False
                 
     except requests.exceptions.Timeout:
-        logger.error("âŒ Authentication timeout - G-Portal servers may be slow")
+        logger.error("❌ Authentication timeout - G-Portal servers may be slow")
         return False
     except requests.exceptions.ConnectionError:
-        logger.error("âŒ Connection error - check internet connection")
+        logger.error("❌ Connection error - check internet connection")
         return False
     except Exception as e:
-        logger.error(f"âŒ Authentication error: {e}")
+        logger.error(f"❌ Authentication error: {e}")
         return False
 
 def require_auth(f):
@@ -241,11 +293,13 @@ def require_live_mode(f):
             if request.is_json:
                 return jsonify({
                     'error': 'This feature requires G-Portal authentication',
-                    'demo_mode': True
+                    'demo_mode': True,
+                    'websockets_available': WEBSOCKETS_AVAILABLE
                 }), 403
             return jsonify({
                 'error': 'Live mode required',
-                'demo_mode': True
+                'demo_mode': True,
+                'websockets_available': WEBSOCKETS_AVAILABLE
             }), 403
         return f(*args, **kwargs)
     return decorated_function
@@ -255,10 +309,29 @@ def get_user_info():
     Get current user information
     
     Returns:
-        dict: User information
+        dict: User information including WebSocket status
     """
     return {
         'username': session.get('username', 'Anonymous'),
         'logged_in': session.get('logged_in', False),
-        'demo_mode': session.get('demo_mode', True)
+        'demo_mode': session.get('demo_mode', True),
+        'websockets_available': WEBSOCKETS_AVAILABLE,
+        'can_use_live_console': WEBSOCKETS_AVAILABLE and not session.get('demo_mode', True)
+    }
+
+def check_websocket_requirements():
+    """
+    Check if all WebSocket requirements are met
+    
+    Returns:
+        dict: WebSocket requirements status
+    """
+    return {
+        'websockets_package': WEBSOCKETS_AVAILABLE,
+        'live_mode_required': not session.get('demo_mode', True),
+        'ready_for_live_console': WEBSOCKETS_AVAILABLE and not session.get('demo_mode', True),
+        'install_instructions': {
+            'package': 'pip install websockets==11.0.3' if not WEBSOCKETS_AVAILABLE else None,
+            'authentication': 'Login with G-Portal credentials (not demo mode)' if session.get('demo_mode', True) else None
+        }
     }

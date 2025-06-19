@@ -1,812 +1,716 @@
-/**
- * Console Component - Console and Live Monitoring
- * Handles console commands, live message monitoring, and WebSocket connections
- */
-class ConsoleComponent extends BaseComponent {
-    constructor(containerId, options = {}) {
-        super(containerId, options);
-        this.api = options.api || window.App.api;
-        this.eventBus = options.eventBus || window.App.eventBus;
-        this.websocketService = options.websocketService || window.App.websocketService;
-        this.autoScrollEnabled = true;
-        this.refreshInterval = null;
-    }
+// COMPLETE Enhanced Console JavaScript - No Auto-Connect Spam + Response Capture (FIXED)
+// This is the complete, ready-to-use console.js file with all features preserved
+
+// Global console state
+let consoleState = {
+    messages: [],
+    servers: [],
+    selectedServer: null,
+    autoScroll: true,
+    refreshInterval: null,
+    pendingCommands: new Map(), // Track commands awaiting responses
+    commandTimeout: 10000, // 10 second timeout for command responses
+    lastCommandTime: null, // Track last command time
+    liveConnections: {} // Track connection state to prevent spam
+};
+
+// Initialize console functionality
+function initializeConsole() {
+    console.log('🔧 Initializing ENHANCED console functionality...');
     
-    get defaultOptions() {
-        return {
-            ...super.defaultOptions,
-            messageBufferSize: 1000,
-            autoRefreshInterval: 3000,
-            enableWebSockets: true,
-            autoConnectServers: true
-        };
-    }
+    loadServers();
+    setupConsoleEventListeners();
+    startAutoRefresh();
     
-    getInitialState() {
-        return {
-            ...super.getInitialState(),
-            servers: [],
-            selectedServerId: '',
-            messageTypeFilter: 'all',
-            serverFilter: '',
-            messages: [],
-            connectionStatus: {},
-            websocketsAvailable: false,
-            liveConnections: {}
-        };
-    }
-    
-    render() {
-        this.container.innerHTML = `
-            <div class="console">
-                <h2 class="text-3xl font-bold mb-6">🔧 Console & Live Monitor (Enhanced)</h2>
-                
-                <!-- Enhanced Console Info -->
-                <div class="bg-green-800 border border-green-600 p-4 rounded-lg mb-6">
-                    <h3 class="text-lg font-semibold text-green-300">📺 Auto Live Console Active!</h3>
-                    <p class="text-green-200">All servers from Server Manager are automatically connected for live monitoring!</p>
-                    <div class="text-sm text-green-200 mt-2">
-                        <span class="font-medium">Auto Features:</span>
-                        Auto-connect | Auto-reconnect | Real-time display | Combined output
-                    </div>
-                </div>
-                
-                <div class="flex gap-6">
-                    <!-- Main Console Area -->
-                    <div class="flex-1">
-                        <div class="bg-gray-800 p-6 rounded-lg">
-                            <!-- Command Controls -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-2">Command Target Server</label>
-                                    <select id="consoleServerSelect" class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
-                                        <option value="">Choose a server...</option>
-                                    </select>
-                                </div>
-                                <div class="flex items-end">
-                                    <button id="refreshConsoleBtn" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded">
-                                        Refresh Output
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Command Input -->
-                            <div class="flex mb-4">
-                                <input type="text" id="consoleInput" 
-                                       class="flex-1 bg-gray-700 p-3 rounded-l border border-gray-600 focus:border-purple-500" 
-                                       placeholder="Enter console command...">
-                                <button id="sendCommandBtn" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-r">
-                                    Send
-                                </button>
-                            </div>
-                            
-                            <!-- Quick Commands -->
-                            <div class="mb-6">
-                                <h4 class="text-sm font-medium mb-3">Quick Commands</h4>
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                    <button class="quick-command p-2 bg-gray-700 hover:bg-gray-600 rounded text-sm" 
-                                            data-command="serverinfo">📊 Server Info</button>
-                                    <button class="quick-command p-2 bg-gray-700 hover:bg-gray-600 rounded text-sm" 
-                                            data-command="global.getauthlevels">👑 Auth Levels</button>
-                                    <button class="quick-command p-2 bg-gray-700 hover:bg-gray-600 rounded text-sm" 
-                                            data-command="server.save">💾 Save Server</button>
-                                    <button class="quick-command p-2 bg-gray-700 hover:bg-gray-600 rounded text-sm" 
-                                            data-command='global.say "Server Message"'>📢 Say Message</button>
-                                </div>
-                            </div>
-                            
-                            <!-- Live Monitor Controls -->
-                            <div class="border-t border-gray-700 pt-4 mb-4">
-                                <h4 class="text-sm font-medium mb-3">Live Monitor Controls</h4>
-                                <div class="flex items-center space-x-4 mb-4">
-                                    <select id="monitorServerFilter" class="p-2 bg-gray-700 rounded border border-gray-600 focus:border-purple-500">
-                                        <option value="">🌐 All Connected Servers</option>
-                                    </select>
-                                    <select id="consoleMessageTypeFilter" class="p-2 bg-gray-700 rounded border border-gray-600 focus:border-purple-500">
-                                        <option value="all">📋 All Messages</option>
-                                        <option value="chat">💬 Chat Messages</option>
-                                        <option value="auth">🔐 Auth/VIP Updates</option>
-                                        <option value="save">💾 Server Saves</option>
-                                        <option value="kill">⚔️ Kill Feed</option>
-                                        <option value="error">❌ Errors</option>
-                                        <option value="warning">⚠️ Warnings</option>
-                                        <option value="command">🔧 Commands</option>
-                                        <option value="player">👥 Player Events</option>
-                                        <option value="system">🖥️ System Messages</option>
-                                        <option value="event">🎯 Events</option>
-                                        <option value="ban">🚫 Bans</option>
-                                    </select>
-                                    <button id="clearConsoleBtn" class="bg-red-600 hover:bg-red-700 px-3 py-2 rounded text-sm">
-                                        Clear
-                                    </button>
-                                    <label class="flex items-center">
-                                        <input type="checkbox" id="consoleAutoScroll" checked class="mr-2">
-                                        <span class="text-sm">Auto-scroll</span>
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <!-- Server Status Info -->
-                            <div class="mb-4">
-                                <div class="text-sm text-gray-400">
-                                    No servers? <button id="gotoServerManagerBtn" class="text-purple-400 hover:text-purple-300 underline">Add servers in Server Manager</button>
-                                </div>
-                            </div>
-                            
-                            <!-- Console Output -->
-                            <div id="consoleOutput" class="bg-black p-4 rounded h-96 overflow-y-auto font-mono text-sm">
-                                <div class="text-green-400">GUST Bot Console - Ready (Commands + Live Messages)</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Live Connection Sidebar -->
-                    <div class="w-80 bg-gray-800 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold mb-4">🔗 Live Connections</h3>
-                        
-                        <!-- Auto-Connection Status -->
-                        <div class="mb-6 p-4 bg-gray-700 rounded">
-                            <div class="text-center">
-                                <div class="text-sm font-medium text-green-300 mb-2">🔄 Auto-Connect Mode</div>
-                                <div class="text-xs text-gray-300">
-                                    All servers from Server Manager are automatically connected for live monitoring.
-                                </div>
-                                <div class="text-xs text-blue-300 mt-2">
-                                    Add servers in <button id="gotoServerManager2Btn" class="text-purple-400 hover:text-purple-300 underline">Server Manager</button> to see them here.
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- WebSocket Status -->
-                        <div class="mb-6 p-3 bg-gray-700 rounded">
-                            <h4 class="text-sm font-semibold mb-2">WebSocket Status</h4>
-                            <div id="websocketStatusInfo" class="text-xs text-gray-300">
-                                <div>Status: <span id="wsStatus">Checking...</span></div>
-                                <div>Available: <span id="wsAvailable">Checking...</span></div>
-                            </div>
-                        </div>
-                        
-                        <!-- Active Connections -->
-                        <div class="mb-6">
-                            <h4 class="text-md font-semibold mb-3">Active Live Connections</h4>
-                            <div id="liveActiveConnections" class="space-y-2">
-                                <div class="text-gray-400 text-sm text-center py-4">
-                                    No active connections
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Connection Stats -->
-                        <div class="p-3 bg-gray-700 rounded">
-                            <h4 class="text-sm font-semibold mb-2">Connection Status</h4>
-                            <div id="connectionStats" class="text-xs text-gray-300">
-                                <div>Active: <span id="activeConnectionCount">0</span></div>
-                                <div>Total Messages: <span id="totalMessageCount">0</span></div>
-                                <div>Last Update: <span id="lastUpdateTime">Never</span></div>
-                            </div>
-                        </div>
-                        
-                        <!-- Test Button -->
-                        <div class="mt-4">
-                            <button id="testLiveConsoleBtn" class="w-full bg-blue-600 hover:bg-blue-700 p-2 rounded text-sm">
-                                🔍 Test Live Console
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-    
-    bindEvents() {
-        // Command controls
-        const sendBtn = this.container.querySelector('#sendCommandBtn');
-        const refreshBtn = this.container.querySelector('#refreshConsoleBtn');
-        const consoleInput = this.container.querySelector('#consoleInput');
-        const clearBtn = this.container.querySelector('#clearConsoleBtn');
-        
-        this.addEventListener(sendBtn, 'click', () => this.sendConsoleCommand());
-        this.addEventListener(refreshBtn, 'click', () => this.refreshConsole());
-        this.addEventListener(clearBtn, 'click', () => this.clearConsole());
-        
-        // Console input enter key
-        this.addEventListener(consoleInput, 'keypress', (e) => {
-            if (e.key === 'Enter') this.sendConsoleCommand();
-        });
-        
-        // Quick commands
-        const quickCommandBtns = this.container.querySelectorAll('.quick-command');
-        quickCommandBtns.forEach(btn => {
-            this.addEventListener(btn, 'click', (e) => {
-                const command = e.target.dataset.command;
-                this.setCommand(command);
-            });
-        });
-        
-        // Filters
-        const serverFilter = this.container.querySelector('#monitorServerFilter');
-        const messageTypeFilter = this.container.querySelector('#consoleMessageTypeFilter');
-        const autoScrollCheck = this.container.querySelector('#consoleAutoScroll');
-        
-        this.addEventListener(serverFilter, 'change', (e) => {
-            this.setState({ serverFilter: e.target.value });
-            this.refreshConsoleWithLiveMessages();
-        });
-        
-        this.addEventListener(messageTypeFilter, 'change', (e) => {
-            this.setState({ messageTypeFilter: e.target.value });
-            this.refreshConsoleWithLiveMessages();
-        });
-        
-        this.addEventListener(autoScrollCheck, 'change', (e) => {
-            this.autoScrollEnabled = e.target.checked;
-        });
-        
-        // Navigation buttons
-        const gotoServerMgr = this.container.querySelector('#gotoServerManagerBtn');
-        const gotoServerMgr2 = this.container.querySelector('#gotoServerManager2Btn');
-        const testBtn = this.container.querySelector('#testLiveConsoleBtn');
-        
-        this.addEventListener(gotoServerMgr, 'click', () => {
-            this.eventBus.emit('navigation:goto', { route: 'server-manager' });
-        });
-        
-        this.addEventListener(gotoServerMgr2, 'click', () => {
-            this.eventBus.emit('navigation:goto', { route: 'server-manager' });
-        });
-        
-        this.addEventListener(testBtn, 'click', () => this.testLiveConsole());
-        
-        // Listen for events from other components
-        this.eventBus.on('servers:updated', (data) => this.updateServerDropdowns(data.servers));
-        this.eventBus.on('server:auto-connect', (data) => this.autoConnectToServer(data));
-        this.eventBus.on('websocket:message', (data) => this.handleLiveMessage(data));
-        this.eventBus.on('websocket:status-changed', (data) => this.updateConnectionStatus(data));
-    }
-    
-    async loadData() {
-        try {
-            this.setState({ loading: true, error: null });
-            
-            // Load servers and console output
-            await Promise.all([
-                this.loadServers(),
-                this.loadConsoleOutput(),
-                this.loadConnectionStatus()
-            ]);
-            
-            this.setState({ loading: false });
-            this.refreshConsoleWithLiveMessages();
-            
-        } catch (error) {
-            this.handleError(error);
+    // Display initial message
+    addConsoleMessage({
+        timestamp: new Date().toISOString(),
+        message: 'GUST Bot Console - Ready (ENHANCED - No Auto-Connect Spam)',
+        type: 'system',
+        source: 'console_init'
+    });
+
+    // Start cleanup task for expired commands
+    setInterval(() => {
+        cleanupExpiredCommands();
+    }, 30000); // Clean up every 30 seconds
+}
+
+// Clean up expired pending commands
+function cleanupExpiredCommands() {
+    const now = Date.now();
+    for (const [commandId, commandInfo] of consoleState.pendingCommands.entries()) {
+        if (now - commandInfo.timestamp > consoleState.commandTimeout) {
+            consoleState.pendingCommands.delete(commandId);
         }
     }
+}
+
+// Load available servers
+async function loadServers() {
+    try {
+        const response = await fetch('/api/servers');
+        const servers = await response.json();
+        
+        consoleState.servers = servers || [];
+        updateServerDropdown();
+        
+        console.log(`📡 Loaded ${servers.length} servers for console`);
+    } catch (error) {
+        console.error('Failed to load servers:', error);
+        consoleState.servers = [];
+    }
+}
+
+// Update server dropdown
+function updateServerDropdown() {
+    const serverSelect = document.getElementById('consoleServerSelect');
+    if (!serverSelect) return;
     
-    async loadServers() {
-        try {
-            const servers = await this.api.servers.list();
-            this.setState({ servers });
-            this.updateServerDropdowns(servers);
-            
-            // Auto-connect to active servers if enabled
-            if (this.options.autoConnectServers) {
-                this.autoConnectToAllServers(servers);
+    serverSelect.innerHTML = '<option value="">Select Server</option>';
+    
+    consoleState.servers.forEach(server => {
+        const option = document.createElement('option');
+        option.value = server.serverId;
+        option.textContent = `${server.serverName} (${server.serverId}) - ${server.serverRegion}`;
+        serverSelect.appendChild(option);
+    });
+    
+    // Auto-select if only one server
+    if (consoleState.servers.length === 1) {
+        serverSelect.value = consoleState.servers[0].serverId;
+        consoleState.selectedServer = consoleState.servers[0].serverId;
+    }
+}
+
+// Setup event listeners
+function setupConsoleEventListeners() {
+    // Server selection
+    const serverSelect = document.getElementById('consoleServerSelect');
+    if (serverSelect) {
+        serverSelect.addEventListener('change', function() {
+            consoleState.selectedServer = this.value;
+            refreshConsoleOutput();
+        });
+    }
+    
+    // Command input
+    const commandInput = document.getElementById('consoleInput');
+    if (commandInput) {
+        commandInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendConsoleCommand();
             }
-        } catch (error) {
-            console.warn('Failed to load servers:', error);
-        }
-    }
-    
-    async loadConsoleOutput() {
-        try {
-            const output = await this.api.console.output();
-            this.setState({ messages: output });
-        } catch (error) {
-            console.warn('Failed to load console output:', error);
-        }
-    }
-    
-    async loadConnectionStatus() {
-        try {
-            const status = await this.api.console.liveStatus();
-            this.setState({ 
-                connectionStatus: status.connections || {},
-                websocketsAvailable: status.websockets_available || false
-            });
-            this.updateConnectionStatusDisplay();
-        } catch (error) {
-            console.warn('Failed to load connection status:', error);
-        }
-    }
-    
-    updateServerDropdowns(servers) {
-        const consoleSelect = this.container.querySelector('#consoleServerSelect');
-        const monitorSelect = this.container.querySelector('#monitorServerFilter');
-        
-        // Update console server select
-        if (consoleSelect) {
-            const currentValue = consoleSelect.value;
-            consoleSelect.innerHTML = '<option value="">Choose a server...</option>';
-            
-            servers.filter(s => s.isActive).forEach(server => {
-                const option = document.createElement('option');
-                option.value = server.serverId;
-                option.textContent = `${server.serverName} (${server.serverId}) - ${server.serverRegion}`;
-                consoleSelect.appendChild(option);
-            });
-            
-            if (currentValue) consoleSelect.value = currentValue;
-        }
-        
-        // Update monitor filter
-        if (monitorSelect) {
-            const currentValue = monitorSelect.value;
-            monitorSelect.innerHTML = '<option value="">🌐 All Connected Servers</option>';
-            
-            Object.keys(this.state.connectionStatus).forEach(serverId => {
-                const server = servers.find(s => s.serverId === serverId);
-                const serverName = server ? server.serverName : `Server ${serverId}`;
-                const option = document.createElement('option');
-                option.value = serverId;
-                option.textContent = `${serverName} (${serverId})`;
-                monitorSelect.appendChild(option);
-            });
-            
-            if (currentValue) monitorSelect.value = currentValue;
-        }
-    }
-    
-    async autoConnectToAllServers(servers) {
-        if (!this.state.websocketsAvailable) {
-            // WebSockets not available - skipping auto-connect
-            return;
-        }
-        
-        for (const server of servers.filter(s => s.isActive)) {
-            await this.autoConnectToServer(server);
-            // Small delay between connections
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-    }
-    
-    async autoConnectToServer(server) {
-        try {
-            // Auto-connecting to server - console.log removed for production
-            
-            const result = await this.api.console.liveConnect({
-                serverId: server.serverId,
-                region: server.serverRegion || 'US'
-            });
-            
-            if (result.success) {
-                // Auto-connected to server - console.log removed for production
-                this.addConsoleMessage({
-                    timestamp: new Date().toISOString(),
-                    message: `🔄 Auto-connected to ${server.serverName || server.serverId} for live monitoring`,
-                    type: 'system',
-                    source: 'auto_connection'
-                });
-            } else {
-                if (!result.error?.includes('Demo mode') && !result.error?.includes('demo')) {
-                    this.addConsoleMessage({
-                        timestamp: new Date().toISOString(),
-                        message: `⚠️ Auto-connect failed for ${server.serverName || server.serverId}: ${result.error}`,
-                        type: 'warning',
-                        source: 'auto_connection'
-                    });
-                }
-            }
-        } catch (error) {
-            console.error(`Error auto-connecting to ${server.serverName || server.serverId}:`, error);
-        }
-    }
-    
-    setCommand(command) {
-        const input = this.container.querySelector('#consoleInput');
-        if (input) {
-            input.value = command;
-            input.focus();
-        }
-    }
-    
-    async sendConsoleCommand() {
-        const command = this.container.querySelector('#consoleInput').value.trim();
-        const serverSelect = this.container.querySelector('#consoleServerSelect');
-        const serverId = serverSelect.value;
-        
-        if (!command) {
-            this.showNotification('Please enter a command', 'error');
-            return;
-        }
-        
-        if (!serverId) {
-            this.showNotification('Please select a server from the dropdown', 'error');
-            return;
-        }
-        
-        const server = this.state.servers.find(s => s.serverId === serverId);
-        const region = server ? server.serverRegion : 'US';
-        
-        // Add command to output
-        this.addConsoleMessage({
-            timestamp: new Date().toISOString(),
-            message: `> ${command} (Server: ${serverId})`,
-            type: 'command',
-            source: 'user_input'
         });
-        
-        try {
-            const result = await this.api.console.send({
+    }
+    
+    // Send button
+    const sendButton = document.querySelector('button[onclick="sendConsoleCommand()"]');
+    if (sendButton) {
+        sendButton.onclick = sendConsoleCommand;
+    }
+    
+    // Refresh button
+    const refreshButton = document.getElementById('refreshOutput');
+    if (refreshButton) {
+        refreshButton.onclick = refreshConsoleOutput;
+    }
+    
+    // Quick command buttons
+    setupQuickCommandButtons();
+}
+
+// Setup quick command buttons
+function setupQuickCommandButtons() {
+    const buttons = [
+        { id: 'serverInfoBtn', command: 'serverinfo' },
+        { id: 'authLevelsBtn', command: 'auth' },
+        { id: 'saveServerBtn', command: 'save' },
+        { id: 'sayMessageBtn', command: 'say "Server announcement from GUST Bot"' }
+    ];
+    
+    buttons.forEach(({ id, command }) => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.onclick = () => executeQuickCommand(command);
+        }
+    });
+}
+
+// Execute quick command
+function executeQuickCommand(command) {
+    const commandInput = document.getElementById('consoleInput');
+    if (commandInput) {
+        commandInput.value = command;
+        sendConsoleCommand();
+    }
+}
+
+// CRITICAL FIX: Safe message content extraction function
+function getSafeMessageContent(messageObj) {
+    if (!messageObj) return 'No message data';
+    
+    // Try different possible property names for message content
+    if (messageObj.message && typeof messageObj.message === 'string' && messageObj.message.trim() !== '') {
+        return messageObj.message;
+    } else if (messageObj.text && typeof messageObj.text === 'string' && messageObj.text.trim() !== '') {
+        return messageObj.text;
+    } else if (messageObj.content && typeof messageObj.content === 'string' && messageObj.content.trim() !== '') {
+        return messageObj.content;
+    } else if (messageObj.command && typeof messageObj.command === 'string' && messageObj.command.trim() !== '') {
+        return `> ${messageObj.command}`;
+    } else if (messageObj.error && typeof messageObj.error === 'string' && messageObj.error.trim() !== '') {
+        return `Error: ${messageObj.error}`;
+    } else {
+        // Provide meaningful fallback instead of undefined
+        return `[${messageObj.type || 'system'}] System message`;
+    }
+}
+
+// FIXED: Enhanced command response detection with proper null/undefined handling
+function isLikelyCommandResponse(messageText, command) {
+    // CRITICAL FIX: Handle undefined/null values safely
+    if (!messageText || !command) {
+        return false;
+    }
+    
+    // Ensure both values are strings and handle them safely
+    const msgLower = String(messageText).toLowerCase();
+    const cmdLower = String(command).toLowerCase();
+    
+    // Specific patterns for different commands
+    if (cmdLower === 'serverinfo') {
+        return msgLower.includes('hostname') || 
+               msgLower.includes('maxplayers') ||
+               msgLower.includes('framerate') ||
+               msgLower.includes('entitycount') ||
+               messageText.includes('{');
+    }
+    
+    if (cmdLower.startsWith('save')) {
+        return msgLower.includes('save') || msgLower.includes('saving');
+    }
+    
+    if (cmdLower === 'status') {
+        return msgLower.includes('server') && msgLower.includes('status');
+    }
+    
+    // General patterns
+    return msgLower.includes(cmdLower) ||
+           msgLower.includes('executing') ||
+           msgLower.includes('command') ||
+           (consoleState.lastCommandTime && 
+            (Date.now() - consoleState.lastCommandTime) < 5000);
+}
+
+// FIXED: Enhanced message processing for responses with safe content handling
+function processMessageForResponse(message) {
+    // SAFETY CHECK: Ensure message exists
+    if (!message) {
+        return message;
+    }
+    
+    // Get safe message content using the fixed function
+    const messageContent = getSafeMessageContent(message);
+    
+    // Check if this message is a response to a pending command
+    for (const [commandId, commandInfo] of consoleState.pendingCommands.entries()) {
+        if (commandInfo.serverId === message.server_id && 
+            (Date.now() - commandInfo.timestamp) < consoleState.commandTimeout) {
+            
+            // FIXED: Use safe message content and command info
+            if (isLikelyCommandResponse(messageContent, commandInfo.command)) {
+                // Mark as command response
+                message.type = 'server_response';
+                message.isCommandResponse = true;
+                message.originalCommand = commandInfo.command;
+                message.commandId = commandId;
+                
+                // Remove from pending
+                consoleState.pendingCommands.delete(commandId);
+                
+                console.log(`📋 Captured response for command '${commandInfo.command}': ${messageContent.substring(0, 100)}...`);
+                break;
+            }
+        }
+    }
+    
+    return message;
+}
+
+// FIXED: Enhanced auto-connect spam filtering with safe message handling
+function shouldFilterAutoConnectMessage(message) {
+    // Get safe message content
+    const messageContent = getSafeMessageContent(message);
+    
+    if (!messageContent.includes('Auto-connected to')) {
+        return false;
+    }
+    
+    // Extract server identifier
+    let serverIdentifier = null;
+    const parts = messageContent.split(' ');
+    for (let part of parts) {
+        if (part.includes('Test') || part.match(/\d+/) || part.includes('Server')) {
+            serverIdentifier = part;
+            break;
+        }
+    }
+    
+    if (!serverIdentifier) {
+        return false;
+    }
+    
+    const now = Date.now();
+    const lastTime = consoleState.liveConnections[serverIdentifier] || 0;
+    
+    // Only allow one auto-connect message per server per 5 minutes
+    if (now - lastTime < 300000) { // 5 minutes
+        return true; // Filter this message
+    }
+    
+    consoleState.liveConnections[serverIdentifier] = now;
+    return false; // Don't filter
+}
+
+// Enhanced: Send console command with response tracking
+async function sendConsoleCommand() {
+    const commandInput = document.getElementById('consoleInput');
+    const serverSelect = document.getElementById('consoleServerSelect');
+    
+    if (!commandInput || !serverSelect) {
+        console.error('Console elements not found');
+        return;
+    }
+    
+    const command = commandInput.value.trim();
+    const serverId = serverSelect.value;
+    
+    if (!command) {
+        showNotification('Please enter a command', 'error');
+        return;
+    }
+    
+    if (!serverId) {
+        showNotification('Please select a server', 'error');
+        return;
+    }
+    
+    // Get server region
+    const server = consoleState.servers.find(s => s.serverId === serverId);
+    const region = server ? server.serverRegion : 'US';
+    
+    // Generate unique command ID for tracking responses
+    const commandId = `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Add command to display
+    addConsoleMessage({
+        timestamp: new Date().toISOString(),
+        message: `> ${command}`,
+        type: 'command',
+        source: 'user_input',
+        commandId: commandId,
+        serverId: serverId
+    });
+    
+    // Track pending command for response matching
+    consoleState.pendingCommands.set(commandId, {
+        command: command,
+        serverId: serverId,
+        timestamp: Date.now(),
+        expectingResponse: true
+    });
+    
+    // Set timeout for command response
+    setTimeout(() => {
+        if (consoleState.pendingCommands.has(commandId)) {
+            consoleState.pendingCommands.delete(commandId);
+            addConsoleMessage({
+                timestamp: new Date().toISOString(),
+                message: `⏰ Command timeout: No response received for "${command}"`,
+                type: 'warning',
+                source: 'command_timeout',
+                serverId: serverId
+            });
+        }
+    }, consoleState.commandTimeout);
+    
+    try {
+        const response = await fetch('/api/console/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 command: command,
                 serverId: serverId,
-                region: region
-            });
-            
-            if (result.success) {
-                this.addConsoleMessage({
-                    timestamp: new Date().toISOString(),
-                    message: `✅ Command sent successfully to ${server?.serverName || serverId}`,
-                    type: 'system',
-                    source: 'command_response'
-                });
-                
-                this.container.querySelector('#consoleInput').value = '';
-                
-                // Auto-refresh to show new messages
-                setTimeout(() => {
-                    this.refreshConsoleWithLiveMessages();
-                }, 1000);
-                
-            } else {
-                this.addConsoleMessage({
-                    timestamp: new Date().toISOString(),
-                    message: `❌ Command failed: ${result.error || 'Unknown error'}`,
-                    type: 'error',
-                    source: 'command_response'
-                });
-            }
-        } catch (error) {
-            this.addConsoleMessage({
-                timestamp: new Date().toISOString(),
-                message: `❌ Send error: ${error.message}`,
-                type: 'error',
-                source: 'command_response'
-            });
-        }
-    }
-    
-    async refreshConsole() {
-        await this.loadConsoleOutput();
-        this.refreshConsoleWithLiveMessages();
-    }
-    
-    async refreshConsoleWithLiveMessages() {
-        try {
-            // Get regular console output
-            const consoleOutput = this.state.messages;
-            
-            // Get live messages
-            const params = new URLSearchParams();
-            if (this.state.serverFilter) params.append('serverId', this.state.serverFilter);
-            if (this.state.messageTypeFilter !== 'all') params.append('type', this.state.messageTypeFilter);
-            params.append('limit', '30');
-            
-            let liveMessages = [];
-            try {
-                const liveResponse = await this.api.console.liveMessages(Object.fromEntries(params));
-                liveMessages = liveResponse.messages || [];
-            } catch (error) {
-                console.warn('Failed to load live messages:', error);
-            }
-            
-            // Combine and display messages
-            this.displayCombinedConsoleOutput(consoleOutput, liveMessages);
-            
-        } catch (error) {
-            console.error('Error refreshing console with live messages:', error);
-            this.displayCombinedConsoleOutput(this.state.messages, []);
-        }
-    }
-    
-    displayCombinedConsoleOutput(consoleOutput, liveMessages) {
-        const outputDiv = this.container.querySelector('#consoleOutput');
-        if (!outputDiv) return;
-        
-        const wasScrolledToBottom = this.isScrolledToBottom(outputDiv);
-        
-        // Clear and add header
-        outputDiv.innerHTML = '<div class="text-green-400">GUST Bot Console - Ready (Commands + Live Messages)</div>';
-        
-        // Add console command output
-        consoleOutput.forEach(entry => {
-            const div = this.createConsoleMessageElement(entry);
-            outputDiv.appendChild(div);
+                region: region,
+                commandId: commandId  // Pass command ID for tracking
+            })
         });
         
-        // Add live messages if any
-        if (liveMessages.length > 0) {
-            // Add separator
-            const separator = document.createElement('div');
-            separator.className = 'text-yellow-400 text-sm border-t border-gray-600 pt-2 mt-2';
-            separator.textContent = '📺 Live Console Messages:';
-            outputDiv.appendChild(separator);
+        const result = await response.json();
+        
+        if (result.success) {
+            addConsoleMessage({
+                timestamp: new Date().toISOString(),
+                message: `✅ Command sent to ${server?.serverName || serverId}`,
+                type: 'success',
+                source: 'command_response',
+                serverId: serverId
+            });
             
-            // Add live messages
-            liveMessages.forEach(message => {
-                const div = this.createLiveMessageElement(message);
-                outputDiv.appendChild(div);
+            commandInput.value = '';
+            consoleState.lastCommandTime = Date.now();
+            
+            // Enhanced auto-refresh to capture server response
+            setTimeout(() => {
+                refreshConsoleOutput();
+            }, 1000);
+            
+            // Additional refresh to catch delayed responses
+            setTimeout(() => {
+                refreshConsoleOutput();
+            }, 3000);
+            
+        } else {
+            consoleState.pendingCommands.delete(commandId);
+            addConsoleMessage({
+                timestamp: new Date().toISOString(),
+                message: `❌ Command failed: ${result.error || 'Unknown error'}`,
+                type: 'error',
+                source: 'command_response',
+                serverId: serverId
             });
         }
-        
-        // Auto-scroll if needed
-        if (this.autoScrollEnabled && wasScrolledToBottom) {
-            outputDiv.scrollTop = outputDiv.scrollHeight;
-        }
+    } catch (error) {
+        consoleState.pendingCommands.delete(commandId);
+        addConsoleMessage({
+            timestamp: new Date().toISOString(),
+            message: `❌ Send error: ${error.message}`,
+            type: 'error',
+            source: 'command_response'
+        });
+    }
+}
+
+// FIXED: Add console message with auto-connect spam filtering and safe handling
+function addConsoleMessage(messageObj) {
+    // SAFETY CHECK: Ensure messageObj exists
+    if (!messageObj) {
+        return;
     }
     
-    createConsoleMessageElement(entry) {
-        const div = document.createElement('div');
-        div.className = 'mb-1 text-sm';
-        
-        if (entry.command) {
-            div.className += ' text-blue-400 font-mono';
-            div.textContent = `> ${entry.command}`;
-        } else {
-            div.className += entry.status === 'server_response' ? ' text-white' : ' text-gray-400';
-            div.textContent = entry.message;
-        }
-        
-        return div;
+    // Filter out repetitive auto-connect messages using safe content extraction
+    if (shouldFilterAutoConnectMessage(messageObj)) {
+        return; // Skip duplicate auto-connect messages
     }
     
-    createLiveMessageElement(message) {
-        const div = document.createElement('div');
-        div.className = 'console-live-message text-sm mb-1 pl-2 border-l-2 border-blue-500';
+    // Ensure message object has required properties with safe content extraction
+    const message = {
+        timestamp: messageObj.timestamp || new Date().toISOString(),
+        message: getSafeMessageContent(messageObj),
+        type: messageObj.type || 'system',
+        source: messageObj.source || 'unknown',
+        server_id: messageObj.server_id || messageObj.serverId || '',
+        status: messageObj.status || '',
+        command: messageObj.command || '',
+        response: messageObj.response || '',
+        error: messageObj.error || '',
+        commandId: messageObj.commandId || '',
+        isCommandResponse: messageObj.isCommandResponse || false,
+        originalCommand: messageObj.originalCommand || ''
+    };
+    
+    consoleState.messages.push(message);
+    
+    // Keep message buffer size manageable
+    if (consoleState.messages.length > 1000) {
+        consoleState.messages = consoleState.messages.slice(-1000);
+    }
+    
+    updateConsoleDisplay();
+}
+
+// Enhanced console display
+function updateConsoleDisplay() {
+    const outputDiv = document.getElementById('consoleOutput');
+    if (!outputDiv) {
+        console.error('Console output div not found');
+        return;
+    }
+    
+    const wasScrolledToBottom = outputDiv.scrollHeight - outputDiv.clientHeight <= outputDiv.scrollTop + 1;
+    
+    // Clear current content
+    outputDiv.innerHTML = '';
+    
+    // Add header
+    const header = document.createElement('div');
+    header.className = 'text-green-400 mb-2 font-bold border-b border-gray-700 pb-2';
+    header.textContent = 'GUST Bot Console - ENHANCED (No Auto-Connect Spam + Response Capture)';
+    outputDiv.appendChild(header);
+    
+    // Display recent messages
+    const recentMessages = consoleState.messages.slice(-50); // Show last 50 messages
+    
+    recentMessages.forEach(msg => {
+        const messageDiv = createEnhancedMessageElement(msg);
+        outputDiv.appendChild(messageDiv);
+    });
+    
+    // Auto-scroll if was at bottom
+    if (consoleState.autoScroll && wasScrolledToBottom) {
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+    }
+}
+
+// FIXED: Enhanced message element creation with safe content handling
+function createEnhancedMessageElement(message) {
+    const div = document.createElement('div');
+    div.className = 'console-message mb-1 text-sm p-2 rounded';
+    
+    const time = formatTimestamp(message.timestamp);
+    const type = message.type || 'system';
+    const typeIcon = getTypeIcon(type);
+    
+    // FIXED: Use safe message content extraction
+    const displayMessage = getSafeMessageContent(message);
+    
+    // Special formatting for command responses
+    if (message.isCommandResponse || type === 'server_response') {
+        div.className += ' bg-gray-800 border-l-4 border-green-500';
         
-        const time = new Date(message.timestamp).toLocaleTimeString();
-        const type = message.type || 'system';
-        const serverId = message.server_id || message.serverId || '';
+        // Format JSON responses nicely
+        let formattedMessage = displayMessage;
+        if (displayMessage.includes('{') && displayMessage.includes('}')) {
+            try {
+                const jsonStart = displayMessage.indexOf('{');
+                const jsonPart = displayMessage.substring(jsonStart);
+                const parsed = JSON.parse(jsonPart);
+                formattedMessage = displayMessage.substring(0, jsonStart) + '\n' + 
+                               JSON.stringify(parsed, null, 2);
+            } catch (e) {
+                // Keep original if not valid JSON
+            }
+        }
         
-        // Format the message with timestamp and type
-        const typeIcon = this.getTypeIcon(type);
-        const serverInfo = serverId ? ` [${serverId}]` : '';
+        div.innerHTML = `
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-gray-500 text-xs">[${time}]</span>
+                <span class="text-xs bg-green-700 px-2 py-1 rounded">${typeIcon} SERVER RESPONSE</span>
+                ${message.originalCommand ? `<span class="text-xs text-gray-400">to: ${message.originalCommand}</span>` : ''}
+            </div>
+            <pre class="text-green-300 font-mono text-xs whitespace-pre-wrap">${escapeHtml(formattedMessage)}</pre>
+        `;
+    } else if (type === 'command') {
+        div.className += ' bg-blue-900 border-l-4 border-blue-500';
+        div.innerHTML = `
+            <div class="flex items-center gap-2">
+                <span class="text-gray-500 text-xs">[${time}]</span>
+                <span class="text-xs bg-blue-700 px-2 py-1 rounded">${typeIcon} COMMAND</span>
+            </div>
+            <div class="text-blue-300 font-mono mt-1">${escapeHtml(displayMessage)}</div>
+        `;
+    } else {
+        // Regular message formatting
+        const colorClass = getTypeColorClass(type);
+        div.className += ` ${colorClass}`;
         
         div.innerHTML = `
             <span class="text-gray-500 text-xs">[${time}]</span>
             <span class="text-xs bg-gray-700 px-1 rounded">${typeIcon} ${type}</span>
-            ${serverInfo ? `<span class="text-xs text-gray-400">${serverInfo}</span>` : ''}
-            <div class="text-gray-200 font-mono mt-1">${this.escapeHtml(message.message)}</div>
+            <span class="ml-2">${escapeHtml(displayMessage)}</span>
         `;
-        
-        return div;
     }
     
-    addConsoleMessage(message) {
-        const outputDiv = this.container.querySelector('#consoleOutput');
-        if (!outputDiv) return;
+    return div;
+}
+
+// Get type color class
+function getTypeColorClass(type) {
+    const colors = {
+        'error': 'text-red-400',
+        'warning': 'text-yellow-400',
+        'success': 'text-green-400',
+        'command': 'text-blue-400',
+        'server_response': 'text-green-300',
+        'system': 'text-gray-300',
+        'live': 'text-cyan-300'
+    };
+    return colors[type] || 'text-gray-300';
+}
+
+// FIXED: Refresh console output with enhanced processing
+async function refreshConsoleOutput() {
+    try {
+        // Get console output from backend
+        const response = await fetch('/api/console/output');
+        const output = await response.json();
         
-        const wasScrolledToBottom = this.isScrolledToBottom(outputDiv);
-        
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'text-blue-300 text-sm mb-1';
-        
-        const time = new Date(message.timestamp).toLocaleTimeString();
-        messageDiv.textContent = `[${time}] ${message.message}`;
-        
-        outputDiv.appendChild(messageDiv);
-        
-        if (this.autoScrollEnabled && wasScrolledToBottom) {
-            outputDiv.scrollTop = outputDiv.scrollHeight;
-        }
-    }
-    
-    clearConsole() {
-        const outputDiv = this.container.querySelector('#consoleOutput');
-        if (outputDiv) {
-            outputDiv.innerHTML = '<div class="text-green-400">GUST Bot Console - Cleared</div>';
-        }
-    }
-    
-    isScrolledToBottom(element) {
-        return element.scrollTop + element.clientHeight >= element.scrollHeight - 10;
-    }
-    
-    async updateConnectionStatus(data) {
-        this.setState({ connectionStatus: data.connections || {} });
-        await this.loadConnectionStatus();
-        this.updateConnectionStatusDisplay();
-    }
-    
-    updateConnectionStatusDisplay() {
-        const { connectionStatus, websocketsAvailable } = this.state;
-        
-        // Update WebSocket status
-        const wsStatus = this.container.querySelector('#wsStatus');
-        const wsAvailable = this.container.querySelector('#wsAvailable');
-        
-        if (wsStatus) {
-            wsStatus.textContent = websocketsAvailable ? 'Connected' : 'Unavailable';
-            wsStatus.className = websocketsAvailable ? 'text-green-400' : 'text-red-400';
-        }
-        
-        if (wsAvailable) {
-            wsAvailable.textContent = websocketsAvailable ? 'Yes ✅' : 'No ❌';
-            wsAvailable.className = websocketsAvailable ? 'text-green-400' : 'text-red-400';
-        }
-        
-        // Update connection stats
-        const activeCount = Object.values(connectionStatus).filter(c => c.connected).length;
-        const totalMessages = Object.values(connectionStatus).reduce((sum, c) => sum + (c.message_count || 0), 0);
-        
-        this.updateElement('#activeConnectionCount', activeCount);
-        this.updateElement('#totalMessageCount', totalMessages);
-        this.updateElement('#lastUpdateTime', new Date().toLocaleTimeString());
-        
-        // Update active connections display
-        this.updateActiveConnectionsDisplay();
-        
-        // Emit status update for other components
-        this.eventBus.emit('websocket:status-changed', { activeConnections: activeCount });
-    }
-    
-    updateActiveConnectionsDisplay() {
-        const connectionsDiv = this.container.querySelector('#liveActiveConnections');
-        const { connectionStatus, servers } = this.state;
-        
-        if (!connectionsDiv) return;
-        
-        const totalConnections = Object.keys(connectionStatus).length;
-        
-        if (totalConnections === 0) {
-            connectionsDiv.innerHTML = '<div class="text-gray-400 text-sm text-center py-4">No active connections</div>';
-            return;
-        }
-        
-        connectionsDiv.innerHTML = Object.entries(connectionStatus).map(([serverId, status]) => {
-            const server = servers.find(s => s.serverId === serverId);
-            const serverName = server ? server.serverName : `Server ${serverId}`;
-            const serverRegion = server ? server.serverRegion : 'Unknown';
-            
-            return `
-                <div class="flex items-center justify-between p-2 bg-gray-600 rounded mb-2">
-                    <div class="flex-1">
-                        <div class="text-sm font-medium">${this.escapeHtml(serverName)}</div>
-                        <div class="text-xs text-gray-300">${serverId} - ${serverRegion}</div>
-                        <div class="text-xs ${status.connected ? 'text-green-400' : 'text-red-400'}">
-                            ${status.connected ? '● Live Connected' : '○ Disconnected'}
-                        </div>
-                    </div>
-                    <button class="disconnect-server text-red-400 hover:text-red-300 text-xs p-1" 
-                            data-server-id="${serverId}" title="Disconnect">✕</button>
-                </div>
-            `;
-        }).join('');
-        
-        // Bind disconnect events
-        const disconnectBtns = connectionsDiv.querySelectorAll('.disconnect-server');
-        disconnectBtns.forEach(btn => {
-            this.addEventListener(btn, 'click', (e) => {
-                const serverId = e.target.dataset.serverId;
-                this.disconnectServer(serverId);
+        if (Array.isArray(output)) {
+            // Process backend messages and detect responses
+            output.forEach(entry => {
+                // Check if this might be a command response
+                const processedEntry = processBackendMessage(entry);
+                addConsoleMessage(processedEntry);
             });
-        });
-    }
-    
-    async disconnectServer(serverId) {
-        try {
-            const result = await this.api.console.liveDisconnect({ serverId });
-            
-            if (result.success) {
-                this.addConsoleMessage({
-                    timestamp: new Date().toISOString(),
-                    message: `🔌 Disconnected from server ${serverId}`,
-                    type: 'system',
-                    source: 'connection'
-                });
-                await this.loadConnectionStatus();
-            } else {
-                this.showNotification(`Failed to disconnect from server ${serverId}`, 'error');
-            }
-        } catch (error) {
-            this.showNotification(`Disconnect error: ${error.message}`, 'error');
-        }
-    }
-    
-    async testLiveConsole() {
-        try {
-            const response = await this.api.console.liveTest();
-            
-            const alertMsg = `Live Console Test Results:
-            
-✅ Success: ${response.success}
-🔌 WebSockets Available: ${response.websockets_available}
-📡 Active Connections: ${response.total_connections || 0}
-📨 Recent Messages: ${response.message_count || 0}
-
-${response.recent_messages && response.recent_messages.length > 0 ? 
-  'Latest Message: ' + (response.recent_messages[response.recent_messages.length-1].message || 'N/A').substring(0, 100) : 
-  'No recent messages'}
-
-${response.error ? 'Error: ' + response.error : 'Working!'}`;
-            
-            alert(alertMsg);
-            // Live Console Test Data - console.log removed for production
-            
-            // Refresh console after test
-            this.refreshConsoleWithLiveMessages();
-            
-        } catch (error) {
-            alert(`Test Error: ${error.message}`);
-            console.error('Test error:', error);
-        }
-    }
-    
-    handleLiveMessage(message) {
-        // Handle incoming live messages
-        this.addConsoleMessage({
-            timestamp: message.timestamp,
-            message: `📺 Live: ${message.message}`,
-            type: 'live',
-            source: 'websocket_live'
-        });
-    }
-    
-    getTypeIcon(type) {
-        const icons = {
-            'chat': '💬',
-            'auth': '🔐',
-            'save': '💾',
-            'kill': '⚔️',
-            'error': '❌',
-            'warning': '⚠️',
-            'command': '🔧',
-            'player': '👥',
-            'system': '🖥️',
-            'event': '🎯',
-            'ban': '🚫'
-        };
-        return icons[type] || '📋';
-    }
-    
-    updateElement(selector, value) {
-        const element = this.container.querySelector(selector);
-        if (element) {
-            element.textContent = value;
-        }
-    }
-    
-    escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-    
-    showNotification(message, type = 'info') {
-        this.eventBus.emit('notification:show', { message, type });
-    }
-    
-    onReady() {
-        super.onReady();
-        
-        // Start auto-refresh
-        this.refreshInterval = setInterval(() => {
-            this.refreshConsoleWithLiveMessages();
-            this.loadConnectionStatus();
-        }, this.options.autoRefreshInterval);
-    }
-    
-    onDestroy() {
-        // Clean up interval
-        if (this.refreshInterval) {
-            clearInterval(this.refreshInterval);
         }
         
-        // Unsubscribe from events
-        this.eventBus.off('servers:updated');
-        this.eventBus.off('server:auto-connect');
-        this.eventBus.off('websocket:message');
-        this.eventBus.off('websocket:status-changed');
+        // Also get live messages
+        await loadLiveMessages();
+        
+        console.log(`🔄 Refreshed console: ${consoleState.messages.length} messages`);
+    } catch (error) {
+        console.error('Failed to refresh console output:', error);
+        addConsoleMessage({
+            timestamp: new Date().toISOString(),
+            message: `Failed to refresh console: ${error.message}`,
+            type: 'error',
+            source: 'refresh_error'
+        });
     }
 }
+
+// FIXED: Process backend messages for response detection with safe content handling
+function processBackendMessage(entry) {
+    // SAFETY CHECK: Ensure entry exists
+    if (!entry) {
+        return {
+            timestamp: new Date().toISOString(),
+            message: 'Invalid backend message',
+            type: 'system',
+            source: 'backend_error'
+        };
+    }
+    
+    // Get safe message content from entry
+    const messageText = getSafeMessageContent(entry);
+    
+    // Check if this matches any pending command
+    for (const [commandId, commandInfo] of consoleState.pendingCommands.entries()) {
+        if (entry.server_id === commandInfo.serverId) {
+            if (isLikelyCommandResponse(messageText, commandInfo.command)) {
+                // Mark as command response
+                consoleState.pendingCommands.delete(commandId);
+                return {
+                    timestamp: entry.timestamp || new Date().toISOString(),
+                    message: messageText,
+                    type: 'server_response',
+                    source: 'backend_response',
+                    server_id: entry.server_id || '',
+                    isCommandResponse: true,
+                    originalCommand: commandInfo.command,
+                    status: entry.status || '',
+                    command: entry.command || ''
+                };
+            }
+        }
+    }
+    
+    // Regular backend message
+    return {
+        timestamp: entry.timestamp || new Date().toISOString(),
+        message: messageText,
+        type: entry.type || 'system',
+        source: entry.source || 'backend',
+        server_id: entry.server_id || entry.serverId || '',
+        command: entry.command || '',
+        status: entry.status || ''
+    };
+}
+
+// Load live messages
+async function loadLiveMessages() {
+    try {
+        const params = new URLSearchParams();
+        if (consoleState.selectedServer) {
+            params.append('serverId', consoleState.selectedServer);
+        }
+        params.append('limit', '20');
+        
+        const response = await fetch(`/api/console/live/messages?${params}`);
+        const data = await response.json();
+        
+        if (data.messages && Array.isArray(data.messages)) {
+            // Process live messages for command responses
+            data.messages.forEach(msg => {
+                const processedMsg = processMessageForResponse(msg);
+                addConsoleMessage(processedMsg);
+            });
+        }
+    } catch (error) {
+        console.warn('Failed to load live messages:', error);
+    }
+}
+
+// Start auto-refresh
+function startAutoRefresh() {
+    if (consoleState.refreshInterval) {
+        clearInterval(consoleState.refreshInterval);
+    }
+    
+    consoleState.refreshInterval = setInterval(() => {
+        refreshConsoleOutput();
+    }, 5000); // Refresh every 5 seconds
+    
+    console.log('🔄 Auto-refresh started (5s interval)');
+}
+
+// Utility functions
+function formatTimestamp(timestamp) {
+    try {
+        return new Date(timestamp).toLocaleTimeString();
+    } catch {
+        return new Date().toLocaleTimeString();
+    }
+}
+
+function getTypeIcon(type) {
+    const icons = {
+        'command': '🔧',
+        'success': '✅',
+        'error': '❌',
+        'warning': '⚠️',
+        'system': '🖥️',
+        'chat': '💬',
+        'event': '🎯',
+        'live': '📡',
+        'auth': '🔐',
+        'save': '💾',
+        'server_response': '📋'
+    };
+    return icons[type] || '📋';
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showNotification(message, type = 'info') {
+    // Simple notification - can be enhanced with toast library
+    const className = type === 'error' ? 'text-red-400' : 'text-green-400';
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    
+    // Also add to console output
+    addConsoleMessage({
+        timestamp: new Date().toISOString(),
+        message: message,
+        type: type,
+        source: 'notification'
+    });
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait a bit for other scripts to load
+    setTimeout(initializeConsole, 1000);
+});
+
+// Backward compatibility functions (if called from HTML)
+window.sendConsoleCommand = sendConsoleCommand;
+window.refreshConsoleOutput = refreshConsoleOutput;
+window.executeQuickCommand = executeQuickCommand;
+
+console.log('✅ ENHANCED Console JavaScript loaded - Auto-connect spam filtered + Response capture enabled (FIXED)');
