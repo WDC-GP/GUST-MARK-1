@@ -1,0 +1,390 @@
+﻿<script>
+// GUST Bot Enhanced - Logs Management JavaScript
+// =============================================
+
+let logsData = [];
+let currentServers = [];
+
+// Initialize logs functionality
+// Initialize logs functionality
+function initializeLogs() {
+    console.log('🔄 Initializing logs functionality...');
+    loadServers();  // Always load servers when initializing
+    refreshLogs();
+}
+
+// Load available servers for dropdown
+async function loadServers() {
+    try {
+        showLogsStatus('Loading servers...', 'info');
+        const response = await fetch('/api/logs/servers');
+        const data = await response.json();
+        
+        if (data.success) {
+            currentServers = data.servers;
+            populateServerDropdown(currentServers);
+            showLogsStatus('Servers loaded successfully', 'success');
+            setTimeout(() => hideLogsStatus(), 2000);
+        } else {
+            console.error('Failed to load servers:', data.error);
+            showLogsStatus('Failed to load servers', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading servers:', error);
+        showLogsStatus('Error loading servers', 'error');
+    }
+}
+
+// Populate server dropdown
+// Populate server dropdown
+function populateServerDropdown(servers) {
+    const select = document.getElementById('server-select');
+    if (!select) return;
+    
+    select.innerHTML = '';
+    
+    if (servers.length === 0) {
+        select.innerHTML = '<option value="">No servers configured</option>';
+        return;
+    }
+    
+    // Add default option
+    select.innerHTML = '<option value="">Select a server...</option>';
+    
+    // Add server options
+    servers.forEach(server => {
+        const option = document.createElement('option');
+        option.value = server.id;
+        // Safe handling of region - provide default if undefined
+        const region = server.region ? server.region.toUpperCase() : 'UNKNOWN';
+        option.textContent = `${server.name} (${server.id}) - ${region}`;
+        select.appendChild(option);
+    });
+    
+    // Auto-select first server if only one available
+    if (servers.length === 1) {
+        select.value = servers[0].id;
+    }
+}
+
+// Download logs from selected server
+async function downloadLogs() {
+    const serverSelect = document.getElementById('server-select');
+    const serverId = serverSelect ? serverSelect.value : '';
+    
+    if (!serverId) {
+        showLogsStatus('Please select a server first', 'error');
+        return;
+    }
+    
+    const downloadBtn = document.getElementById('download-logs-btn');
+    const originalText = downloadBtn ? downloadBtn.innerHTML : '';
+    
+    try {
+        // Update button state
+        if (downloadBtn) {
+            downloadBtn.innerHTML = '⏳ Downloading...';
+            downloadBtn.disabled = true;
+        }
+        
+        showLogsStatus('Downloading logs from G-Portal...', 'info');
+        
+        const response = await fetch('/api/logs/download', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ server_id: serverId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showLogsStatus(`✅ Successfully downloaded ${data.entries_count} log entries`, 'success');
+            refreshLogs(); // Refresh the logs list
+        } else {
+            showLogsStatus(`❌ Download failed: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error downloading logs:', error);
+        showLogsStatus('❌ Error downloading logs', 'error');
+    } finally {
+        // Restore button state
+        if (downloadBtn) {
+            downloadBtn.innerHTML = originalText;
+            downloadBtn.disabled = false;
+        }
+    }
+}
+
+// Refresh logs list
+async function refreshLogs() {
+    try {
+        const response = await fetch('/api/logs/refresh', {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            logsData = data.logs;
+            displayLogsList(logsData);
+            console.log(`📋 Refreshed logs list: ${data.total} entries`);
+        } else {
+            console.error('Failed to refresh logs:', data.error);
+            showLogsStatus('Failed to refresh logs', 'error');
+        }
+    } catch (error) {
+        console.error('Error refreshing logs:', error);
+        showLogsStatus('Error refreshing logs', 'error');
+    }
+}
+
+// Display logs list
+function displayLogsList(logs) {
+    const logsListContainer = document.getElementById('logs-list');
+    if (!logsListContainer) return;
+    
+    if (logs.length === 0) {
+        logsListContainer.innerHTML = `
+            <div class="text-gray-400 text-center py-8">
+                No logs downloaded yet. Click "Download Logs" to fetch server logs.
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort logs by timestamp (newest first)
+    const sortedLogs = logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    const logsHTML = sortedLogs.map(log => {
+        const date = new Date(log.timestamp);
+        const formattedDate = date.toLocaleString();
+        const serverName = getServerName(log.server_id);
+        
+        return `
+            <div class="bg-gray-700 p-4 rounded-lg mb-3">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h4 class="text-lg font-semibold text-cyan-400">${escapeHtml(serverName)}</h4>
+                        <div class="text-sm text-gray-300 mt-1">
+                            <span class="text-gray-400">Server ID:</span> ${escapeHtml(log.server_id)} • 
+                            <span class="text-gray-400">Region:</span> ${escapeHtml(log.region.toUpperCase())} • 
+                            <span class="text-gray-400">Downloaded:</span> ${escapeHtml(formattedDate)}
+                        </div>
+                        <div class="text-sm text-gray-300 mt-1">
+                            <span class="text-gray-400">Entries:</span> ${log.entries_count} log entries
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="previewLog('${escapeHtml(log.id)}')" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                            👁️ Preview
+                        </button>
+                        <button onclick="downloadLogFile('${escapeHtml(log.id)}')" 
+                                class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                            💾 Download JSON
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    logsListContainer.innerHTML = logsHTML;
+}
+
+// Get server name by ID
+function getServerName(serverId) {
+    const server = currentServers.find(s => s.serverId === serverId);
+    return server ? server.serverName : `Server ${serverId}`;
+}
+
+// Preview log entries
+function previewLog(logId) {
+    const log = logsData.find(l => l.id === logId);
+    if (!log) {
+        showLogsStatus('Log not found', 'error');
+        return;
+    }
+    
+    const previewContainer = document.getElementById('log-preview-container');
+    const previewContent = document.getElementById('log-preview');
+    
+    if (!previewContainer || !previewContent) return;
+    
+    if (log.recent_entries && log.recent_entries.length > 0) {
+        const entriesHTML = log.recent_entries.map(entry => {
+            if (entry.raw) {
+                return `<div class="text-gray-300 mb-1">${escapeHtml(entry.raw)}</div>`;
+            } else {
+                return `
+                    <div class="mb-2">
+                        <span class="text-yellow-400">[${escapeHtml(entry.timestamp)}]</span>
+                        <span class="text-red-400">${escapeHtml(entry.level)}</span>
+                        <span class="text-cyan-400">${escapeHtml(entry.context)}:</span>
+                        <span class="text-gray-300">${escapeHtml(entry.message)}</span>
+                    </div>
+                `;
+            }
+        }).join('');
+        
+        previewContent.innerHTML = entriesHTML;
+        previewContainer.classList.remove('hidden');
+        
+        // Scroll to preview
+        previewContainer.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        showLogsStatus('No recent entries available for preview', 'warning');
+    }
+}
+
+// Hide log preview
+function hideLogPreview() {
+    const previewContainer = document.getElementById('log-preview-container');
+    if (previewContainer) {
+        previewContainer.classList.add('hidden');
+    }
+}
+
+// Download log file
+function downloadLogFile(logId) {
+    const log = logsData.find(l => l.id === logId);
+    if (!log) {
+        showLogsStatus('Log not found', 'error');
+        return;
+    }
+    
+    // Create download link
+    const downloadUrl = `/api/logs/${logId}/download`;
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = log.download_file;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showLogsStatus(`📥 Downloading ${log.download_file}...`, 'info');
+}
+
+// Show status message
+function showLogsStatus(message, type = 'info') {
+    const statusDiv = document.getElementById('logs-status');
+    const statusText = document.getElementById('logs-status-text');
+    
+    if (!statusDiv || !statusText) return;
+    
+    statusText.textContent = message;
+    statusDiv.className = 'mt-4 p-3 rounded';
+    
+    switch (type) {
+        case 'success':
+            statusDiv.classList.add('bg-green-800', 'text-green-200', 'border', 'border-green-600');
+            break;
+        case 'error':
+            statusDiv.classList.add('bg-red-800', 'text-red-200', 'border', 'border-red-600');
+            break;
+        case 'warning':
+            statusDiv.classList.add('bg-yellow-800', 'text-yellow-200', 'border', 'border-yellow-600');
+            break;
+        default:
+            statusDiv.classList.add('bg-blue-800', 'text-blue-200', 'border', 'border-blue-600');
+    }
+    
+    statusDiv.classList.remove('hidden');
+}
+
+// Hide status message
+function hideLogsStatus() {
+    const statusDiv = document.getElementById('logs-status');
+    if (statusDiv) {
+        statusDiv.classList.add('hidden');
+    }
+}
+
+// Utility function to escape HTML
+function escapeHtml(text) {
+    if (typeof text !== 'string') return text;
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Show logs tab - integrates with existing navigation
+// Show logs tab - integrates with existing navigation
+function showLogsTab() {
+    if (typeof showTab === 'function') {
+        showTab('logs');
+    } else {
+        // Fallback navigation
+        document.querySelectorAll('.view').forEach(view => view.classList.add('hidden'));
+        document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+        
+        const logsView = document.getElementById('logs-view');
+        const logsTab = document.getElementById('logs-tab');
+        
+        if (logsView) logsView.classList.remove('hidden');
+        if (logsTab) logsTab.classList.add('active');
+    }
+    
+    // Always ensure servers are loaded when showing logs tab
+    setTimeout(() => {
+        initializeLogs();
+    }, 100);
+}
+
+// Auto-initialize when page loads or when navigating to logs
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize when page loads if logs tab is active
+    if (window.location.hash === '#logs') {
+        initializeLogs();
+    }
+});
+
+// Integration with existing tab system and router
+if (typeof window.tabInitializers === 'undefined') {
+    window.tabInitializers = {};
+}
+window.tabInitializers.logs = initializeLogs;
+
+// Integration with router if available
+if (typeof window.router !== 'undefined' && window.router.loadLogs === undefined) {
+    window.router.loadLogs = initializeLogs;
+    window.router.updateLogsUI = function() {
+        // Called after logs tab is shown
+        if (currentServers.length === 0) {
+            loadServers();
+        }
+    };
+}
+
+// Auto-loader fallback - ensure servers load when tab becomes visible
+document.addEventListener('DOMContentLoaded', function() {
+    // Set up observer to watch for logs tab visibility
+    const logsView = document.getElementById('logs-view');
+    if (logsView) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!logsView.classList.contains('hidden') && currentServers.length === 0) {
+                        console.log('🔄 Logs tab became visible - auto-loading servers...');
+                        loadServers();
+                    }
+                }
+            });
+        });
+        
+        observer.observe(logsView, { attributes: true });
+    }
+    
+    // Also check periodically if we're on logs tab but have no servers
+    setInterval(() => {
+        const logsView = document.getElementById('logs-view');
+        if (logsView && !logsView.classList.contains('hidden') && currentServers.length === 0) {
+            loadServers();
+        }
+    }, 5000); // Check every 5 seconds
+});</script>
+
+
+

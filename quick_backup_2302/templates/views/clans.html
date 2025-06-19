@@ -1,0 +1,36 @@
+﻿<!-- ============================================================================
+     GUST Bot Enhanced - clans View Component
+     ============================================================================
+     Extracted from enhanced_dashboard.html on 2025-06-17 12:20:33
+     
+     This view contains the complete tab content for the clans section.
+     Advanced boundary detection used to ensure complete content extraction.
+     ============================================================================ -->
+
+<div id="clans-view" class="view hidden">
+                <h2 class="text-3xl font-bold mb-6">Clan Management</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-gray-800 p-6 rounded-lg">
+                        <h3 class="text-xl font-semibold mb-4">Create Clan</h3>
+                        <div class="space-y-4">
+                            <input type="text" id="clanName" placeholder="Clan Name" class="w-full bg-gray-700 p-3 rounded">
+                            <input type="text" id="clanLeader" placeholder="Leader ID" class="w-full bg-gray-700 p-3 rounded">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Select Server</label>
+                                <select id="clanServerSelect" class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
+                                    <option value="">Choose a server...</option>
+                                </select>
+                                <div class="text-sm text-gray-400 mt-1">
+                                    No servers? <button onclick="showTab('server-manager')" class="text-purple-400 hover:text-purple-300 underline">Manage servers</button>
+                                </div>
+                            </div>
+                            <textarea id="clanDescription" placeholder="Description" class="w-full bg-gray-700 p-3 rounded h-20"></textarea>
+                            <button onclick="createClan()" class="w-full bg-purple-600 hover:bg-purple-700 p-3 rounded">Create Clan</button>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-lg">
+                        <h3 class="text-xl font-semibold mb-4">Active Clans</h3>
+                        <div id="clansList"></div>
+                    </div>
+                </div>
+            </div>

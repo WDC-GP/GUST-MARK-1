@@ -1,0 +1,170 @@
+<!-- ============================================================================
+     GUST Bot Enhanced - User Management View Component
+     ============================================================================
+     Complete user management interface with correct ID: user-management
+     ============================================================================ -->
+
+<div id="user-management" class="view hidden">
+    <div class="mb-6">
+        <h2 class="text-3xl font-bold mb-2">👤 User Management</h2>
+        <p class="text-gray-400">Manage users, permissions, and player administration across all servers.</p>
+    </div>
+
+    <!-- Server Selector -->
+    <div class="bg-gray-800 p-4 rounded-lg mb-6">
+        <label class="block text-sm font-medium mb-2">Select Server:</label>
+        <select id="userMgmtServerSelect" class="bg-gray-700 text-white p-3 rounded w-full max-w-md border border-gray-600 focus:border-purple-500">
+            <option value="">Loading servers...</option>
+        </select>
+        <div class="text-sm text-gray-400 mt-1">
+            No servers? <button onclick="showTab('server-manager')" class="text-purple-400 hover:text-purple-300 underline">Add servers first</button>
+        </div>
+    </div>
+
+    <!-- User Search & Quick Actions -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- User Search -->
+        <div class="bg-gray-800 p-6 rounded-lg">
+            <h3 class="text-xl font-semibold mb-4">🔍 User Search</h3>
+            <div class="space-y-4">
+                <input type="text" id="userSearchInput" 
+                       placeholder="Enter username or user ID..." 
+                       class="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-purple-500">
+                <button onclick="searchUsers()" 
+                        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded">
+                    Search Users
+                </button>
+                <div id="userSearchResults" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-gray-800 p-6 rounded-lg">
+            <h3 class="text-xl font-semibold mb-4">⚡ Quick Actions</h3>
+            <div class="space-y-4">
+                <input type="text" id="quickActionUserId" 
+                       placeholder="Enter user ID for actions..." 
+                       class="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-purple-500">
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="kickUser()" 
+                            class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
+                        🦵 Kick
+                    </button>
+                    <button onclick="teleportUser()" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                        📍 Teleport
+                    </button>
+                    <button onclick="giveItemQuick()" 
+                            class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                        🎁 Give Item
+                    </button>
+                    <button onclick="banUserQuick()" 
+                            class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+                        🚫 Ban
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Registration -->
+    <div class="bg-gray-800 p-6 rounded-lg mb-6">
+        <h3 class="text-xl font-semibold mb-4">📝 User Registration</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input type="text" id="newUserId" 
+                   placeholder="User ID..." 
+                   class="p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-purple-500">
+            <input type="text" id="newUserNickname" 
+                   placeholder="Nickname..." 
+                   class="p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-purple-500">
+            <button onclick="registerUser()" 
+                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded">
+                Register User
+            </button>
+        </div>
+    </div>
+
+    <!-- Temporary Ban & Give Items (Legacy Interface) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Temporary Ban -->
+        <div class="bg-gray-800 p-6 rounded-lg">
+            <h3 class="text-xl font-semibold mb-4">🚫 Temporary Ban</h3>
+            <div class="space-y-4">
+                <input type="text" id="banUserId" placeholder="User ID" 
+                       class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Select Server</label>
+                    <select id="banServerSelect" class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
+                        <option value="">Choose a server...</option>
+                    </select>
+                    <div class="text-sm text-gray-400 mt-1">
+                        No servers? <button onclick="showTab('server-manager')" class="text-purple-400 hover:text-purple-300 underline">Manage servers</button>
+                    </div>
+                </div>
+                <input type="number" id="banDuration" placeholder="Duration (minutes)" 
+                       class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
+                <input type="text" id="banReason" placeholder="Reason" 
+                       class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
+                <button onclick="tempBanUser()" class="w-full bg-red-600 hover:bg-red-700 p-3 rounded">Ban User</button>
+            </div>
+        </div>
+        
+        <!-- Give Items -->
+        <div class="bg-gray-800 p-6 rounded-lg">
+            <h3 class="text-xl font-semibold mb-4">🎁 Give Items</h3>
+            <div class="space-y-4">
+                <input type="text" id="givePlayerId" placeholder="Player ID" 
+                       class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Select Server</label>
+                    <select id="giveItemServerSelect" class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
+                        <option value="">Choose a server...</option>
+                    </select>
+                </div>
+                <input type="text" id="giveItem" placeholder="Item Name" 
+                       class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
+                <input type="number" id="giveAmount" placeholder="Amount" 
+                       class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
+                <button onclick="giveItem()" class="w-full bg-green-600 hover:bg-green-700 p-3 rounded">Give Item</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Bans Section -->
+    <div class="bg-gray-800 p-6 rounded-lg mb-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold">📋 Active Bans</h3>
+            <button onclick="refreshBans()" 
+                    class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                🔄 Refresh
+            </button>
+        </div>
+        <div id="activeBansList" class="space-y-2">
+            <p class="text-gray-400">Loading bans...</p>
+        </div>
+    </div>
+
+    <!-- User Statistics -->
+    <div class="bg-gray-800 p-6 rounded-lg">
+        <h3 class="text-xl font-semibold mb-4">📊 User Statistics</h3>
+        <div id="userStats" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-gray-700 p-4 rounded">
+                <div class="text-2xl font-bold text-purple-400" id="totalUsers">-</div>
+                <div class="text-gray-400">Total Users</div>
+            </div>
+            <div class="bg-gray-700 p-4 rounded">
+                <div class="text-2xl font-bold text-blue-400" id="activeUsers">-</div>
+                <div class="text-gray-400">Active Users</div>
+            </div>
+            <div class="bg-gray-700 p-4 rounded">
+                <div class="text-2xl font-bold text-red-400" id="bannedUsers">-</div>
+                <div class="text-gray-400">Banned Users</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Messages -->
+    <div id="userMgmtStatus" class="hidden mt-6 p-4 rounded-lg">
+        <div id="userMgmtStatusMessage"></div>
+    </div>
+</div>
