@@ -1,4 +1,4 @@
-﻿"""
+"""
 GUST Bot Enhanced - Gambling Routes (REFACTORED)
 ===============================================
 Server-specific gambling system using user database

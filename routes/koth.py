@@ -1,5 +1,3 @@
-﻿"""
-"""
 """
 GUST Bot Enhanced - KOTH Event System
 ====================================

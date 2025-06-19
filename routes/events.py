@@ -1,5 +1,3 @@
-﻿"""
-"""
 """
 GUST Bot Enhanced - Event Management Routes
 ==========================================

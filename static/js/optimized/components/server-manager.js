@@ -1,0 +1,1 @@
+class ServerManager extends BaseComponent{constructor(containerId,options){super(containerId,options);this.servers = [];}async loadServers(){}addServer(serverData){}}

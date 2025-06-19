@@ -1,4 +1,4 @@
-﻿"""
+"""
 GUST Bot Enhanced - Economy Routes (REFACTORED)
 ==============================================
 Server-specific economy system using user database

@@ -1,4 +1,4 @@
-﻿# routes/__init__.py - FIXED VERSION
+# routes/__init__.py - FIXED VERSION
 # Remove circular imports by lazy loading
 
 def init_all_routes(app, db, user_storage, economy_storage=None):
