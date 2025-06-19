@@ -4,6 +4,7 @@ User Database Helper Functions
 Helper functions for user management and server-specific operations
 """
 
+# Standard library imports
 from datetime import datetime
 import logging
 import random
@@ -229,5 +230,178 @@ def update_user_last_seen(user_id, db, user_storage):
     except Exception as e:
         logger.error(f'Error updating last seen for {user_id}: {e}')
 
+# ================================================================
+# MISSING FUNCTIONS - Added to resolve import errors
+# ================================================================
+
+def create_user_if_not_exists(user_id, server_id, db, user_storage):
+    '''Create user if not exists - wrapper for ensure_user_on_server'''
+    try:
+        # Use existing ensure_user_on_server function which already does this
+        result = ensure_user_on_server(user_id, server_id, db, user_storage)
+        if result:
+            # Return the user data for compatibility
+            return get_user_profile(user_id, db, user_storage)
+        return None
+    except Exception as e:
+        logger.error(f'Error in create_user_if_not_exists for {user_id}: {e}')
+        return None
+
+def get_user_data(user_id, db, user_storage):
+    '''Get user data - wrapper for get_user_profile with data sanitization'''
+    try:
+        user = get_user_profile(user_id, db, user_storage)
+        if user:
+            # Create a copy to avoid modifying original
+            user_data = user.copy() if isinstance(user, dict) else {}
+            
+            # Remove sensitive fields
+            if '_id' in user_data:
+                del user_data['_id']  # Remove MongoDB _id field
+            if 'internalId' in user_data:
+                del user_data['internalId']  # Remove internal ID for security
+            
+            return user_data
+        return {}
+    except Exception as e:
+        logger.error(f'Error getting user data for {user_id}: {e}')
+        return {}
+
+def update_user_data(user_id, update_data, db, user_storage):
+    '''Update user data in database or storage'''
+    try:
+        if db:
+            result = db.users.update_one(
+                {'userId': user_id},
+                {'$set': update_data}
+            )
+            return result.modified_count > 0
+        else:
+            user = user_storage.get(user_id)
+            if user:
+                user.update(update_data)
+                return True
+            return False
+    except Exception as e:
+        logger.error(f'Error updating user data for {user_id}: {e}')
+        return False
+
+def get_user_balance(user_id, server_id, db, user_storage):
+    '''Get user balance - alias for get_server_balance for compatibility'''
+    return get_server_balance(user_id, server_id, db, user_storage)
+
+def update_user_balance(user_id, server_id, new_balance, db, user_storage):
+    '''Update user balance - alias for set_server_balance for compatibility'''
+    return set_server_balance(user_id, server_id, new_balance, db, user_storage)
+
+def create_user_profile(user_id, nickname=None, db=None, user_storage=None):
+    '''Create a new user profile with default settings'''
+    try:
+        user_data = {
+            'userId': user_id,
+            'nickname': nickname or user_id,
+            'internalId': generate_internal_id(),
+            'registeredAt': datetime.now().isoformat(),
+            'lastSeen': datetime.now().isoformat(),
+            'servers': {},
+            'preferences': {
+                'displayNickname': True,
+                'showInLeaderboards': True
+            },
+            'totalServers': 0
+        }
+        
+        if db:
+            db.users.insert_one(user_data)
+        elif user_storage is not None:
+            user_storage[user_id] = user_data
+        
+        return user_data
+    except Exception as e:
+        logger.error(f'Error creating user profile for {user_id}: {e}')
+        return None
+
+def get_user_preferences(user_id, db, user_storage):
+    '''Get user's preferences'''
+    try:
+        user = get_user_profile(user_id, db, user_storage)
+        if user:
+            return user.get('preferences', {
+                'displayNickname': True,
+                'showInLeaderboards': True
+            })
+        return {}
+    except Exception as e:
+        logger.error(f'Error getting preferences for {user_id}: {e}')
+        return {}
+
+def update_user_preferences(user_id, preferences, db, user_storage):
+    '''Update user's preferences'''
+    try:
+        if db:
+            result = db.users.update_one(
+                {'userId': user_id},
+                {'$set': {'preferences': preferences}}
+            )
+            return result.modified_count > 0
+        else:
+            user = user_storage.get(user_id)
+            if user:
+                user['preferences'] = preferences
+                return True
+            return False
+    except Exception as e:
+        logger.error(f'Error updating preferences for {user_id}: {e}')
+        return False
+
+def get_user_servers(user_id, db, user_storage):
+    '''Get list of servers user is on'''
+    try:
+        user = get_user_profile(user_id, db, user_storage)
+        if user and 'servers' in user:
+            return list(user['servers'].keys())
+        return []
+    except Exception as e:
+        logger.error(f'Error getting servers for {user_id}: {e}')
+        return []
+
+def is_user_active_on_server(user_id, server_id, db, user_storage):
+    '''Check if user is active on a specific server'''
+    try:
+        user = get_user_profile(user_id, db, user_storage)
+        if user and 'servers' in user and server_id in user['servers']:
+            return user['servers'][server_id].get('isActive', True)
+        return False
+    except Exception as e:
+        logger.error(f'Error checking if user {user_id} is active on {server_id}: {e}')
+        return False
+
+def set_user_active_status(user_id, server_id, is_active, db, user_storage):
+    '''Set user's active status on a server'''
+    try:
+        if db:
+            result = db.users.update_one(
+                {'userId': user_id},
+                {'$set': {f'servers.{server_id}.isActive': is_active}}
+            )
+            return result.modified_count > 0
+        else:
+            user = user_storage.get(user_id)
+            if user and 'servers' in user and server_id in user['servers']:
+                user['servers'][server_id]['isActive'] = is_active
+                return True
+            return False
+    except Exception as e:
+        logger.error(f'Error setting active status for {user_id} on {server_id}: {e}')
+        return False
+
 # DO NOT import from routes.user_database here - this would create circular import
 # All necessary functions are implemented above
+
+# GUST database optimization imports
+from utils.gust_db_optimization import (
+    get_user_with_cache,
+    get_user_balance_cached,
+    update_user_balance,
+    db_performance_monitor
+)

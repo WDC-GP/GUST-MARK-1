@@ -1,4 +1,4 @@
-"""
+﻿"""
 GUST Bot Enhanced - Systems Package
 ==================================
 Game systems and event management for GUST Bot

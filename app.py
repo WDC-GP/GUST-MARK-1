@@ -1,19 +1,42 @@
 """
+"""
+"""
 GUST Bot Enhanced - CORRECTED VERSION
 ====================================
 Fixed import issues and route parameters for economy and gambling
 """
 
-import os
-import json
-import time
-import threading
-import schedule
-import secrets
-from datetime import datetime, timedelta
+# Standard library imports
 from collections import deque
-from flask import Flask, render_template, session, redirect, url_for, jsonify, request
+from datetime import datetime
+import json
 import logging
+import threading
+import time
+
+# Third-party imports
+from flask import Flask, render_template, session, redirect, url_for, jsonify, request
+
+# Utility imports
+from utils.rate_limiter import RateLimiter
+
+# Local imports
+from config import Config, WEBSOCKETS_AVAILABLE, ensure_directories, ensure_data_files
+from routes.auth import auth_bp
+from routes.clans import init_clans_routes
+from routes.economy import init_economy_routes
+from routes.events import init_events_routes
+from routes.gambling import init_gambling_routes
+from routes.logs import init_logs_routes
+from routes.servers import init_servers_routes
+from routes.user_database import init_user_database_routes
+from routes.users import init_users_routes
+from systems.koth import VanillaKothSystem
+
+# Other imports
+import schedule
+
+
 
 # Debug function to track user_storage
 def debug_user_storage(location, user_storage_obj):
@@ -25,23 +48,10 @@ def debug_user_storage(location, user_storage_obj):
     return user_storage_obj
 
 # Import configuration and utilities
-from config import Config, WEBSOCKETS_AVAILABLE, MONGODB_AVAILABLE, ensure_directories, ensure_data_files
-from utils.rate_limiter import RateLimiter
-from utils.helpers import load_token, format_command, validate_server_id, validate_region
 
 # Import systems
-from systems.koth import VanillaKothSystem
 
 # Import route blueprints - FIXED: Direct imports without try/except
-from routes.auth import auth_bp
-from routes.servers import init_servers_routes
-from routes.events import init_events_routes
-from routes.economy import init_economy_routes
-from routes.gambling import init_gambling_routes
-from routes.clans import init_clans_routes
-from routes.users import init_users_routes
-from routes.user_database import init_user_database_routes
-from routes.logs import init_logs_routes
 
 # Import WebSocket components
 if WEBSOCKETS_AVAILABLE:
@@ -672,11 +682,11 @@ class GustBotEnhanced:
                 return jsonify({'error': f'Failed to retrieve clans: {str(e)}'}), 500
         
         print("[OK] Added all direct routes:")
-        print("   • /health - Health check endpoint")
-        print("   • /api/console/output - Console output")
-        print("   • /api/console/send - Send commands")
-        print("   • /api/console/live/* - Live console endpoints")
-        print("   • /api/clans - Clans data")
+        print("   â€¢ /health - Health check endpoint")
+        print("   â€¢ /api/console/output - Console output")
+        print("   â€¢ /api/console/send - Send commands")
+        print("   â€¢ /api/console/live/* - Live console endpoints")
+        print("   â€¢ /api/clans - Clans data")
         print("[DEBUG]: All blueprint routes registered")
         
         debug_user_storage("After adding direct routes", self.user_storage)

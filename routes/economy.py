@@ -1,8 +1,9 @@
-"""
+﻿"""
 GUST Bot Enhanced - Economy Routes (REFACTORED)
 ==============================================
 Server-specific economy system using user database
 """
+
 
 from flask import Blueprint, request, jsonify
 from datetime import datetime

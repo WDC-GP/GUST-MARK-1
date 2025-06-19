@@ -1,16 +1,26 @@
+﻿"""
+"""
 """
 GUST Bot Enhanced - Authentication Routes
 ========================================
 Routes for user authentication and session management
 """
 
-import requests
-from flask import Blueprint, request, jsonify, session, redirect, url_for, render_template
-from datetime import datetime
-
-from config import Config
-from utils.helpers import save_token
+# Standard library imports
 import logging
+
+# Third-party imports
+from flask import Blueprint, request, jsonify, session, redirect, url_for, render_template
+import requests
+
+# Utility imports
+from utils.helpers import save_token
+
+# Local imports
+from config import Config
+
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,21 +46,21 @@ def login():
             session['logged_in'] = True
             session['username'] = username
             session['demo_mode'] = True
-            logger.info(f"🎭 Demo mode login: {username}")
+            logger.info(f"ðŸŽ­ Demo mode login: {username}")
             return jsonify({'success': True, 'demo_mode': True})
         else:
             # Real G-Portal authentication
-            logger.info(f"🔐 Attempting G-Portal authentication for: {username}")
+            logger.info(f"ðŸ” Attempting G-Portal authentication for: {username}")
             auth_success = authenticate_gportal(username, password)
             
             if auth_success:
                 session['logged_in'] = True
                 session['username'] = username
                 session['demo_mode'] = False
-                logger.info(f"✅ G-Portal authentication successful for: {username}")
+                logger.info(f"âœ… G-Portal authentication successful for: {username}")
                 return jsonify({'success': True, 'demo_mode': False})
             else:
-                logger.warning(f"❌ G-Portal authentication failed for: {username}")
+                logger.warning(f"âŒ G-Portal authentication failed for: {username}")
                 return jsonify({
                     'success': False, 
                     'error': 'G-Portal authentication failed. Check credentials or try your email address as username.'
@@ -67,7 +77,7 @@ def logout():
     # Clean up session
     session.clear()
     
-    logger.info(f"👋 User logged out: {username} ({'demo' if demo_mode else 'live'} mode)")
+    logger.info(f"ðŸ‘‹ User logged out: {username} ({'demo' if demo_mode else 'live'} mode)")
     
     return redirect(url_for('auth.login'))
 
@@ -107,7 +117,7 @@ def token_status():
                 'websockets_available': True  # Will be updated by main app
             })
     except Exception as e:
-        logger.error(f"❌ Error checking token status: {e}")
+        logger.error(f"âŒ Error checking token status: {e}")
         return jsonify({
             'has_token': False,
             'token_valid': False,
@@ -124,12 +134,12 @@ def refresh_token_endpoint():
     try:
         success = refresh_token()
         if success:
-            logger.info("✅ Token refreshed successfully")
+            logger.info("âœ… Token refreshed successfully")
         else:
-            logger.warning("❌ Token refresh failed")
+            logger.warning("âŒ Token refresh failed")
         return jsonify({'success': success})
     except Exception as e:
-        logger.error(f"❌ Error refreshing token: {e}")
+        logger.error(f"âŒ Error refreshing token: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 def authenticate_gportal(username, password):
@@ -152,7 +162,7 @@ def authenticate_gportal(username, password):
     }
     
     try:
-        logger.info(f"🔄 Making authentication request to G-Portal...")
+        logger.info(f"ðŸ”„ Making authentication request to G-Portal...")
         response = requests.post(
             Config.GPORTAL_AUTH_URL,
             data=data,
@@ -163,35 +173,35 @@ def authenticate_gportal(username, password):
             timeout=15
         )
         
-        logger.info(f"📡 G-Portal auth response: {response.status_code}")
+        logger.info(f"ðŸ“¡ G-Portal auth response: {response.status_code}")
         
         if response.status_code == 200:
             tokens = response.json()
             
             # Save tokens using helper function
             if save_token(tokens, username):
-                logger.info(f"✅ Token saved successfully for {username}")
+                logger.info(f"âœ… Token saved successfully for {username}")
                 return True
             else:
-                logger.error(f"❌ Failed to save token for {username}")
+                logger.error(f"âŒ Failed to save token for {username}")
                 return False
         else:
-            logger.warning(f"❌ Authentication failed with status {response.status_code}")
+            logger.warning(f"âŒ Authentication failed with status {response.status_code}")
             try:
                 error_data = response.json()
-                logger.warning(f"❌ Error details: {error_data}")
+                logger.warning(f"âŒ Error details: {error_data}")
             except:
                 pass
             return False
                 
     except requests.exceptions.Timeout:
-        logger.error("❌ Authentication timeout - G-Portal servers may be slow")
+        logger.error("âŒ Authentication timeout - G-Portal servers may be slow")
         return False
     except requests.exceptions.ConnectionError:
-        logger.error("❌ Connection error - check internet connection")
+        logger.error("âŒ Connection error - check internet connection")
         return False
     except Exception as e:
-        logger.error(f"❌ Authentication error: {e}")
+        logger.error(f"âŒ Authentication error: {e}")
         return False
 
 def require_auth(f):

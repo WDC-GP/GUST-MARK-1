@@ -1,12 +1,25 @@
 """
+"""
+"""
 User Database Migration Utilities
 ================================
 Tools for migrating existing data to new user database structure
 """
 
+# Standard library imports
 from datetime import datetime
 import logging
 import random
+
+
+# GUST database optimization imports
+from utils.gust_db_optimization import (
+    get_user_with_cache,
+    get_user_balance_cached,
+    update_user_balance,
+    db_performance_monitor
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +42,7 @@ class UserDatabaseMigration:
     def migrate_existing_data(self, default_server_id='default_server'):
         '''Migrate all existing economy/gambling data to new user structure'''
         try:
-            logger.info('🔄 Starting comprehensive data migration...')
+            logger.info('ðŸ”„ Starting comprehensive data migration...')
             
             # Get existing economy data
             if self.db:
@@ -41,7 +54,7 @@ class UserDatabaseMigration:
                 existing_clans = []
                 gambling_logs = []
             
-            logger.info(f'📊 Found {len(economy_users)} economy users, {len(existing_clans)} clans')
+            logger.info(f'ðŸ“Š Found {len(economy_users)} economy users, {len(existing_clans)} clans')
             
             # Process each user
             for economy_record in economy_users:
@@ -83,7 +96,7 @@ class UserDatabaseMigration:
                         # Check if user already exists in new format
                         existing = self.db.users.find_one({'userId': user_id})
                         if existing:
-                            logger.warning(f'⚠️ User {user_id} already exists in new format, skipping')
+                            logger.warning(f'âš ï¸ User {user_id} already exists in new format, skipping')
                             continue
                         
                         self.db.users.insert_one(user_data)
@@ -91,21 +104,21 @@ class UserDatabaseMigration:
                         self.user_storage[user_id] = user_data
                     
                     self.migration_report['users_migrated'] += 1
-                    logger.info(f'✅ Migrated user: {user_id} (balance: {balance}, clan: {clan_tag})')
+                    logger.info(f'âœ… Migrated user: {user_id} (balance: {balance}, clan: {clan_tag})')
                     
                 except Exception as e:
                     self.migration_report['users_failed'] += 1
                     self.migration_report['errors'].append(f'User {user_id}: {str(e)}')
-                    logger.error(f'❌ Failed to migrate user {user_id}: {str(e)}')
+                    logger.error(f'âŒ Failed to migrate user {user_id}: {str(e)}')
             
             # Process clans for reporting
             self.migration_report['clans_processed'] = len(existing_clans)
             
-            logger.info('✅ Migration completed successfully')
+            logger.info('âœ… Migration completed successfully')
             return self.migration_report
             
         except Exception as e:
-            logger.error(f'❌ Migration failed: {str(e)}')
+            logger.error(f'âŒ Migration failed: {str(e)}')
             self.migration_report['errors'].append(f'Migration failed: {str(e)}')
             return self.migration_report
     
@@ -151,7 +164,7 @@ class UserDatabaseMigration:
     def validate_migration(self):
         '''Validate that migration was successful'''
         try:
-            logger.info('🧪 Validating migration...')
+            logger.info('ðŸ§ª Validating migration...')
             
             if self.db:
                 new_user_count = self.db.users.count_documents({})
@@ -181,11 +194,11 @@ class UserDatabaseMigration:
                     'hasBalance': any(server.get('balance', 0) > 0 for server in user.get('servers', {}).values())
                 })
             
-            logger.info(f'✅ Validation complete: {new_user_count} users migrated')
+            logger.info(f'âœ… Validation complete: {new_user_count} users migrated')
             return validation_report
             
         except Exception as e:
-            logger.error(f'❌ Validation failed: {str(e)}')
+            logger.error(f'âŒ Validation failed: {str(e)}')
             return {'error': str(e)}
     
     def create_migration_backup(self):
@@ -215,9 +228,10 @@ class UserDatabaseMigration:
             with open(backup_file, 'w') as f:
                 json.dump(backup_data, f, indent=2, default=str)
             
-            logger.info(f'✅ Migration backup created: {backup_file}')
+            logger.info(f'âœ… Migration backup created: {backup_file}')
             return backup_file
             
         except Exception as e:
-            logger.error(f'❌ Backup creation failed: {str(e)}')
+            logger.error(f'âŒ Backup creation failed: {str(e)}')
             return None
+

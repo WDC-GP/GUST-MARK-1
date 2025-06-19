@@ -1,8 +1,9 @@
-"""
+﻿"""
 GUST Bot Enhanced - Gambling Routes (REFACTORED)
 ===============================================
 Server-specific gambling system using user database
 """
+
 
 from flask import Blueprint, request, jsonify
 from datetime import datetime
@@ -18,6 +19,14 @@ from utils.user_helpers import (
 )
 import logging
 
+
+# GUST database optimization imports
+from utils.gust_db_optimization import (
+    get_user_with_cache,
+    get_user_balance_cached,
+    update_user_balance,
+    db_performance_monitor
+)
 logger = logging.getLogger(__name__)
 
 gambling_bp = Blueprint('gambling', __name__)
@@ -522,3 +531,4 @@ def get_server_gambling_leaderboard(server_id, db, user_storage, limit=10, perio
     except Exception as e:
         logger.error(f'❌ Error getting gambling leaderboard: {e}')
         return []
+

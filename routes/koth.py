@@ -1,3 +1,5 @@
+﻿"""
+"""
 """
 GUST Bot Enhanced - KOTH Event System
 ====================================
@@ -5,14 +7,20 @@ KOTH system that works with vanilla Rust servers
 Uses only standard console commands available in all Rust servers
 """
 
-import time
-import threading
-import uuid
+# Standard library imports
 from datetime import datetime
-
-from config import Config
-from utils.helpers import get_countdown_announcements
 import logging
+import threading
+import time
+
+# Utility imports
+from utils.helpers import get_countdown_announcements
+
+# Local imports
+from config import Config
+
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +88,7 @@ class VanillaKothSystem:
         # Start the event in a separate thread
         threading.Thread(target=self._run_koth_event_sequence, args=(event_id,), daemon=True).start()
         
-        logger.info(f"🎯 KOTH event {event_id} started for server {server_id}")
+        logger.info(f"ðŸŽ¯ KOTH event {event_id} started for server {server_id}")
         return True
     
     def _run_koth_event_sequence(self, event_id):
@@ -93,7 +101,7 @@ class VanillaKothSystem:
         event = self.active_events[event_id]
         
         try:
-            logger.info(f"🎯 Starting KOTH event sequence: {event_id}")
+            logger.info(f"ðŸŽ¯ Starting KOTH event sequence: {event_id}")
             
             # Phase 1: Announcement and preparation (5 minutes)
             self._announcement_phase(event_id)
@@ -104,10 +112,10 @@ class VanillaKothSystem:
             # Phase 3: End event and rewards
             self._end_phase(event_id)
             
-            logger.info(f"✅ KOTH event completed successfully: {event_id}")
+            logger.info(f"âœ… KOTH event completed successfully: {event_id}")
             
         except Exception as e:
-            logger.error(f"❌ Error in KOTH event {event_id}: {e}")
+            logger.error(f"âŒ Error in KOTH event {event_id}: {e}")
             self._emergency_end_event(event_id)
     
     def _announcement_phase(self, event_id):
@@ -119,7 +127,7 @@ class VanillaKothSystem:
         """
         event = self.active_events[event_id]
         
-        logger.info(f"📢 Starting announcement phase for {event_id}")
+        logger.info(f"ðŸ“¢ Starting announcement phase for {event_id}")
         
         # Initial announcement
         self._send_command(event, 
@@ -157,7 +165,7 @@ class VanillaKothSystem:
                 f'Starting in {message}!"')
         
         event['phase'] = 'active'
-        logger.info(f"⚔️ Announcement phase completed for {event_id}")
+        logger.info(f"âš”ï¸ Announcement phase completed for {event_id}")
     
     def _active_phase(self, event_id):
         """
@@ -168,7 +176,7 @@ class VanillaKothSystem:
         """
         event = self.active_events[event_id]
         
-        logger.info(f"⚔️ Starting active phase for {event_id}")
+        logger.info(f"âš”ï¸ Starting active phase for {event_id}")
         
         # Event starts
         self._send_command(event,
@@ -215,7 +223,7 @@ class VanillaKothSystem:
                     f'{int(remaining_seconds)} seconds remaining!"')
         
         event['phase'] = 'finished'
-        logger.info(f"🏁 Active phase completed for {event_id}")
+        logger.info(f"ðŸ Active phase completed for {event_id}")
     
     def _end_phase(self, event_id):
         """
@@ -226,7 +234,7 @@ class VanillaKothSystem:
         """
         event = self.active_events[event_id]
         
-        logger.info(f"🏆 Starting end phase for {event_id}")
+        logger.info(f"ðŸ† Starting end phase for {event_id}")
         
         self._send_command(event,
             f'global.say "<color=red><size=35>[KOTH EVENT ENDED!]</size></color> '
@@ -246,7 +254,7 @@ class VanillaKothSystem:
         
         # Clean up
         self._cleanup_event(event_id)
-        logger.info(f"✅ End phase completed for {event_id}")
+        logger.info(f"âœ… End phase completed for {event_id}")
     
     def _emergency_end_event(self, event_id):
         """
@@ -255,7 +263,7 @@ class VanillaKothSystem:
         Args:
             event_id (str): Event ID
         """
-        logger.warning(f"🚨 Emergency ending event {event_id}")
+        logger.warning(f"ðŸš¨ Emergency ending event {event_id}")
         
         if event_id in self.active_events:
             event = self.active_events[event_id]
@@ -277,7 +285,7 @@ class VanillaKothSystem:
         if hasattr(self.gust_bot, 'events'):
             self.gust_bot.events = [e for e in self.gust_bot.events if e.get('eventId') != event_id]
         
-        logger.info(f"🧹 Cleaned up event {event_id}")
+        logger.info(f"ðŸ§¹ Cleaned up event {event_id}")
     
     def _send_command(self, event, command):
         """
@@ -294,9 +302,9 @@ class VanillaKothSystem:
                 event['region']
             )
             if not success:
-                logger.warning(f"❌ Failed to send command: {command}")
+                logger.warning(f"âŒ Failed to send command: {command}")
         except Exception as e:
-            logger.error(f"❌ Error sending command '{command}': {e}")
+            logger.error(f"âŒ Error sending command '{command}': {e}")
     
     def get_active_events(self):
         """
@@ -322,7 +330,7 @@ class VanillaKothSystem:
             self._send_command(event,
                 'global.say "<color=red>[KOTH]</color> Event manually stopped by administrator."')
             self._cleanup_event(event_id)
-            logger.info(f"🛑 Manually stopped event {event_id}")
+            logger.info(f"ðŸ›‘ Manually stopped event {event_id}")
             return True
         return False
     

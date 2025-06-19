@@ -1,14 +1,31 @@
+﻿"""
+"""
 """
 GUST Bot Enhanced - Event Management Routes
 ==========================================
 Routes for KOTH and other event management
 """
 
-from flask import Blueprint, request, jsonify, session
+# Standard library imports
 from datetime import datetime
-
-from routes.auth import require_auth
 import logging
+
+# Third-party imports
+from flask import Blueprint, request, jsonify
+
+# Local imports
+from routes.auth import require_auth
+
+
+# GUST database optimization imports
+from utils.gust_db_optimization import (
+    get_user_with_cache,
+    get_user_balance_cached,
+    update_user_balance,
+    db_performance_monitor
+)
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -62,20 +79,20 @@ def init_events_routes(app, db, events_storage, vanilla_koth, console_output):
                 # Add to console output
                 console_output.append({
                     'timestamp': datetime.now().isoformat(),
-                    'message': f"🎯 KOTH Event started on server {event_config['serverId']} at {event_config['arena_location']}",
+                    'message': f"ðŸŽ¯ KOTH Event started on server {event_config['serverId']} at {event_config['arena_location']}",
                     'status': 'event',
                     'source': 'event_system',
                     'type': 'event'
                 })
                 
-                logger.info(f"🎯 KOTH event started: Server {event_config['serverId']}, Duration {event_config['duration']}m, Location {event_config['arena_location']}")
+                logger.info(f"ðŸŽ¯ KOTH event started: Server {event_config['serverId']}, Duration {event_config['duration']}m, Location {event_config['arena_location']}")
             else:
-                logger.error(f"❌ Failed to start KOTH event for server {event_config['serverId']}")
+                logger.error(f"âŒ Failed to start KOTH event for server {event_config['serverId']}")
             
             return jsonify({'success': result})
             
         except Exception as e:
-            logger.error(f"❌ Error starting KOTH event: {e}")
+            logger.error(f"âŒ Error starting KOTH event: {e}")
             return jsonify({'success': False, 'error': 'Failed to start event'}), 500
     
     @events_bp.route('/api/events/koth/stop', methods=['POST'])
@@ -94,17 +111,17 @@ def init_events_routes(app, db, events_storage, vanilla_koth, console_output):
             if result:
                 console_output.append({
                     'timestamp': datetime.now().isoformat(),
-                    'message': f"🛑 KOTH Event {event_id} stopped manually",
+                    'message': f"ðŸ›‘ KOTH Event {event_id} stopped manually",
                     'status': 'event',
                     'source': 'event_system',
                     'type': 'event'
                 })
-                logger.info(f"🛑 KOTH event stopped manually: {event_id}")
+                logger.info(f"ðŸ›‘ KOTH event stopped manually: {event_id}")
             
             return jsonify({'success': result})
             
         except Exception as e:
-            logger.error(f"❌ Error stopping KOTH event: {e}")
+            logger.error(f"âŒ Error stopping KOTH event: {e}")
             return jsonify({'success': False, 'error': 'Failed to stop event'}), 500
     
     @events_bp.route('/api/events')
@@ -134,11 +151,11 @@ def init_events_routes(app, db, events_storage, vanilla_koth, console_output):
                     'phase': koth_event['phase']
                 })
             
-            logger.info(f"📋 Retrieved {len(events)} active events")
+            logger.info(f"ðŸ“‹ Retrieved {len(events)} active events")
             return jsonify(events)
             
         except Exception as e:
-            logger.error(f"❌ Error retrieving events: {e}")
+            logger.error(f"âŒ Error retrieving events: {e}")
             return jsonify({'error': 'Failed to retrieve events'}), 500
     
     @events_bp.route('/api/events/<event_id>')
@@ -163,7 +180,7 @@ def init_events_routes(app, db, events_storage, vanilla_koth, console_output):
             return jsonify(event)
             
         except Exception as e:
-            logger.error(f"❌ Error retrieving event {event_id}: {e}")
+            logger.error(f"âŒ Error retrieving event {event_id}: {e}")
             return jsonify({'error': 'Failed to retrieve event'}), 500
     
     @events_bp.route('/api/events/server/<server_id>')
@@ -197,11 +214,11 @@ def init_events_routes(app, db, events_storage, vanilla_koth, console_output):
                                 if e.get('serverId') == server_id and e.get('status') == 'active']
                 events.extend(storage_events)
             
-            logger.info(f"📋 Retrieved {len(events)} events for server {server_id}")
+            logger.info(f"ðŸ“‹ Retrieved {len(events)} events for server {server_id}")
             return jsonify(events)
             
         except Exception as e:
-            logger.error(f"❌ Error retrieving events for server {server_id}: {e}")
+            logger.error(f"âŒ Error retrieving events for server {server_id}: {e}")
             return jsonify({'error': 'Failed to retrieve server events'}), 500
     
     @events_bp.route('/api/events/stats')
@@ -237,7 +254,7 @@ def init_events_routes(app, db, events_storage, vanilla_koth, console_output):
             return jsonify(stats)
             
         except Exception as e:
-            logger.error(f"❌ Error getting event stats: {e}")
+            logger.error(f"âŒ Error getting event stats: {e}")
             return jsonify({'error': 'Failed to get event statistics'}), 500
     
     @events_bp.route('/api/events/arena-locations')
@@ -298,3 +315,4 @@ def init_events_routes(app, db, events_storage, vanilla_koth, console_output):
         return jsonify(templates)
     
     return events_bp
+

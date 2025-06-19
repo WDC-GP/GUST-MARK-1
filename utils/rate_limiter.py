@@ -1,11 +1,16 @@
 """
+"""
+"""
 GUST Bot Enhanced - Rate Limiter
 ===============================
 Simple rate limiter implementation for G-Portal API
 """
 
-import time
+# Standard library imports
 from collections import defaultdict
+import time
+
+
 
 class RateLimiter:
     """Simple rate limiter implementation for G-Portal API"""

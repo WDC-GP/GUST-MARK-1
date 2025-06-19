@@ -1,12 +1,19 @@
 """
+"""
+"""
 GUST Bot Enhanced - Configuration Settings
 ==========================================
 All configuration settings and dependency checks
 """
 
-import os
+# Standard library imports
 import json
+import os
+
+# Other imports
 import secrets
+
+
 
 # Try to import optional dependencies
 try:
@@ -84,7 +91,7 @@ def check_dependencies():
         missing_deps.append("websockets (for live console)")
     
     if not MONGODB_AVAILABLE:
-        print("ℹ️ MongoDB not available (optional - will use in-memory storage)")
+        print("â„¹ï¸ MongoDB not available (optional - will use in-memory storage)")
     
     return WEBSOCKETS_AVAILABLE, MONGODB_AVAILABLE, missing_deps
 
@@ -109,57 +116,57 @@ def ensure_data_files():
 def print_startup_info(websockets_available, mongodb_available):
     """Print detailed startup information"""
     print("=" * 80)
-    print("🚀 GUST Bot Standalone - Enhanced with Auto Live Console")
+    print("ðŸš€ GUST Bot Standalone - Enhanced with Auto Live Console")
     print("=" * 80)
-    print("✅ FEATURES COMBINED:")
-    print("   • Fixed KOTH system (vanilla Rust compatible)")
-    print("   • Working GraphQL command sending")
-    print("   • Auto live console monitoring (all servers)")
-    print("   • Enhanced web interface with 9 functional tabs")
-    print("   • Message classification and filtering")
-    print("   • Multi-server management")
-    print("   • Economy & gambling systems")
-    print("   • Clan management tools")
-    print("   • User administration & bans")
+    print("âœ… FEATURES COMBINED:")
+    print("   â€¢ Fixed KOTH system (vanilla Rust compatible)")
+    print("   â€¢ Working GraphQL command sending")
+    print("   â€¢ Auto live console monitoring (all servers)")
+    print("   â€¢ Enhanced web interface with 9 functional tabs")
+    print("   â€¢ Message classification and filtering")
+    print("   â€¢ Multi-server management")
+    print("   â€¢ Economy & gambling systems")
+    print("   â€¢ Clan management tools")
+    print("   â€¢ User administration & bans")
     print()
-    print("✅ KOTH EVENTS (FIXED):")
-    print("   • Works with any vanilla Rust server")
-    print("   • 5-minute preparation countdown")
-    print("   • 28+ arena location options")
-    print("   • Automatic combat supply distribution")
-    print("   • Reward distribution to participants")
-    print("   • No plugins required")
+    print("âœ… KOTH EVENTS (FIXED):")
+    print("   â€¢ Works with any vanilla Rust server")
+    print("   â€¢ 5-minute preparation countdown")
+    print("   â€¢ 28+ arena location options")
+    print("   â€¢ Automatic combat supply distribution")
+    print("   â€¢ Reward distribution to participants")
+    print("   â€¢ No plugins required")
     print()
-    print("✅ AUTO LIVE CONSOLE:")
+    print("âœ… AUTO LIVE CONSOLE:")
     if websockets_available:
-        print("   • Automatic connection to all servers ✅")
-        print("   • Real-time message streaming ✅")
-        print("   • Auto-reconnection if disconnected ✅")
-        print("   • Combined console display ✅")
-        print("   • No manual connection needed ✅")
-        print("   • Multi-server monitoring ✅")
+        print("   â€¢ Automatic connection to all servers âœ…")
+        print("   â€¢ Real-time message streaming âœ…")
+        print("   â€¢ Auto-reconnection if disconnected âœ…")
+        print("   â€¢ Combined console display âœ…")
+        print("   â€¢ No manual connection needed âœ…")
+        print("   â€¢ Multi-server monitoring âœ…")
     else:
-        print("   • WebSocket support not available ❌")
-        print("   • Install with: pip install websockets")
-        print("   • Console commands still work normally")
-        print("   • Live monitoring available after install")
+        print("   â€¢ WebSocket support not available âŒ")
+        print("   â€¢ Install with: pip install websockets")
+        print("   â€¢ Console commands still work normally")
+        print("   â€¢ Live monitoring available after install")
     print()
-    print("✅ ADDITIONAL FEATURES:")
-    print("   • MongoDB support (optional)")
-    print("   • Rate limiting for G-Portal API")
-    print("   • Automatic token refresh")
-    print("   • Background task scheduling")
-    print("   • Comprehensive error handling")
-    print("   • Auto-reconnection for live console")
-    print("   • Live console test endpoint")
+    print("âœ… ADDITIONAL FEATURES:")
+    print("   â€¢ MongoDB support (optional)")
+    print("   â€¢ Rate limiting for G-Portal API")
+    print("   â€¢ Automatic token refresh")
+    print("   â€¢ Background task scheduling")
+    print("   â€¢ Comprehensive error handling")
+    print("   â€¢ Auto-reconnection for live console")
+    print("   â€¢ Live console test endpoint")
     print()
-    print(f"🌐 Enhanced Interface: http://{Config.DEFAULT_HOST}:{Config.DEFAULT_PORT}")
+    print(f"ðŸŒ Enhanced Interface: http://{Config.DEFAULT_HOST}:{Config.DEFAULT_PORT}")
     print()
-    print("🔑 Login Options:")
+    print("ðŸ”‘ Login Options:")
     print("   Demo Mode: admin / password (simulated responses)")
     print("   Live Mode: Your G-Portal email / password")
     print()
-    print("🔍 Testing Auto Live Console:")
+    print("ðŸ” Testing Auto Live Console:")
     print("   1. Login and add a server in Server Manager")
     print("   2. Servers auto-connect automatically!")
     print("   3. Go to Console tab to see live messages")
@@ -176,28 +183,28 @@ def print_startup_info(websockets_available, mongodb_available):
             current_time = time.time()
             token_exp = data.get('access_token_exp', 0)
             if token_exp > current_time:
-                print(f"🔐 Valid G-Portal token found - Ready for live features!")
+                print(f"ðŸ” Valid G-Portal token found - Ready for live features!")
             else:
-                print("⚠️ G-Portal token expired - please re-login for live features")
+                print("âš ï¸ G-Portal token expired - please re-login for live features")
         except:
-            print("⚠️ Invalid token file - please re-login")
+            print("âš ï¸ Invalid token file - please re-login")
     else:
-        print("ℹ️ No G-Portal token - login required for live features")
+        print("â„¹ï¸ No G-Portal token - login required for live features")
     
     print()
-    print("📦 Dependencies:")
-    print(f"   • MongoDB: {'Available ✅' if mongodb_available else 'Not Available (optional)'}")
-    print(f"   • WebSockets: {'Available ✅' if websockets_available else 'Not Available (install: pip install websockets)'}")
+    print("ðŸ“¦ Dependencies:")
+    print(f"   â€¢ MongoDB: {'Available âœ…' if mongodb_available else 'Not Available (optional)'}")
+    print(f"   â€¢ WebSockets: {'Available âœ…' if websockets_available else 'Not Available (install: pip install websockets)'}")
     print()
-    print("🔧 AUTO LIVE CONSOLE FEATURES:")
-    print("   • Automatic connection to all servers")
-    print("   • No manual connection process needed")
-    print("   • Auto-reconnection if servers disconnect")
-    print("   • Combined console output (commands + live messages)")
-    print("   • Enhanced message display with proper formatting")
-    print("   • Real-time monitoring of all managed servers")
+    print("ðŸ”§ AUTO LIVE CONSOLE FEATURES:")
+    print("   â€¢ Automatic connection to all servers")
+    print("   â€¢ No manual connection process needed")
+    print("   â€¢ Auto-reconnection if servers disconnect")
+    print("   â€¢ Combined console output (commands + live messages)")
+    print("   â€¢ Enhanced message display with proper formatting")
+    print("   â€¢ Real-time monitoring of all managed servers")
     print()
-    print("🚀 Starting enhanced GUST bot...")
+    print("ðŸš€ Starting enhanced GUST bot...")
     print("Press Ctrl+C to stop the server")
     print("=" * 80)
 

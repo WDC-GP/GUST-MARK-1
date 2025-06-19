@@ -4,30 +4,25 @@ GUST Bot Enhanced - Clan Management Routes (ENHANCED)
 Integrated clan system with user database for server-specific clans
 """
 
+
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 import uuid
 import logging
-import secrets
 
 from routes.auth import require_auth
 from utils.user_helpers import (
-    get_user_profile,
-    get_users_on_server,
-    create_user_if_not_exists,
-    get_user_data,
-    update_user_data
-)
+    get_user_profile, get_users_on_server, 
 
 # GUST database optimization imports
 from utils.gust_db_optimization import (
     get_user_with_cache,
     get_user_balance_cached,
     update_user_balance,
-    db_performance_monitor,
-    adjust_server_balance,
-    get_server_balance
+    db_performance_monitor
 )
+)
+    adjust_server_balance, get_server_balance
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +184,7 @@ def init_clans_routes(app, db, clans_storage, user_storage):
                 if db:
                     db.clans.update_one(
                         {'clanId': clan['clanId']},
-                        {'$set': {
+                        {'': {
                             'members': clan['members'],
                             'memberCount': clan['memberCount'],
                             'lastUpdated': clan['lastUpdated'],
@@ -274,7 +269,7 @@ def init_clans_routes(app, db, clans_storage, user_storage):
                 if db:
                     db.clans.update_one(
                         {'clanId': clan['clanId']},
-                        {'$set': {
+                        {'': {
                             'members': clan['members'],
                             'memberCount': clan['memberCount'],
                             'leader': clan['leader'],
@@ -416,7 +411,7 @@ def ensure_user_on_server(user_id, server_id, db, user_storage):
                 }
                 db.users.update_one(
                     {'userId': user_id},
-                    {'$set': {f'servers.{server_id}': server_data}}
+                    {'': {f'servers.{server_id}': server_data}}
                 )
         else:
             user = user_storage.get(user_id)
@@ -451,7 +446,7 @@ def set_user_clan_tag(user_id, server_id, clan_tag, db, user_storage):
         if db:
             db.users.update_one(
                 {'userId': user_id},
-                {'$set': {f'servers.{server_id}.clanTag': clan_tag}}
+                {'': {f'servers.{server_id}.clanTag': clan_tag}}
             )
         else:
             user = user_storage.get(user_id)
@@ -498,4 +493,7 @@ def update_clan_stats(clan, server_id, db, user_storage):
 
 def generate_internal_id():
     '''Generate unique internal ID'''
+    import secrets
     return secrets.randbelow(999999999) + 1
+
+

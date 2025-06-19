@@ -1,16 +1,32 @@
+﻿"""
+"""
 """
 GUST Bot Enhanced - User Database Routes - COMPLETE FIX
 =======================================================
 Fixed all issues: MongoDB syntax, user_storage access, error handling
 """
 
-from flask import Blueprint, request, jsonify
+# Standard library imports
 from datetime import datetime
-import secrets
+import logging
 import random
 
+# Third-party imports
+from flask import Blueprint, request, jsonify
+
+# Local imports
 from routes.auth import require_auth
-import logging
+
+
+# GUST database optimization imports
+from utils.gust_db_optimization import (
+    get_user_with_cache,
+    get_user_balance_cached,
+    update_user_balance,
+    db_performance_monitor
+)
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -447,3 +463,4 @@ def adjust_server_balance(user_id, server_id, change, db, user_storage):
         return set_server_balance(user_id, server_id, new_balance, db, user_storage)
     except:
         return False
+

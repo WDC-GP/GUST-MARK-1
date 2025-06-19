@@ -1,18 +1,29 @@
+﻿"""
+"""
 """
 GUST Bot Enhanced - WebSocket Client
 ===================================
 WebSocket client for G-Portal live console monitoring
 """
 
-import json
-import time
-import asyncio
-import logging
-from datetime import datetime
+# Standard library imports
 from collections import deque
+from datetime import datetime
+import json
+import logging
+import time
 
-from config import Config, WEBSOCKETS_AVAILABLE
+# Utility imports
 from utils.helpers import classify_message
+
+# Local imports
+from config import Config, WEBSOCKETS_AVAILABLE
+
+# Other imports
+import asyncio
+
+
+
 
 if WEBSOCKETS_AVAILABLE:
     import websockets
@@ -60,7 +71,7 @@ class GPortalWebSocketClient:
         try:
             uri = Config.WEBSOCKET_URI
             
-            logger.info(f"🔄 Connecting to WebSocket for server {self.server_id} ({self.region})")
+            logger.info(f"ðŸ”„ Connecting to WebSocket for server {self.server_id} ({self.region})")
             
             # Try different connection methods for compatibility
             try:
@@ -71,17 +82,17 @@ class GPortalWebSocketClient:
                     ping_interval=Config.WEBSOCKET_PING_INTERVAL,
                     ping_timeout=Config.WEBSOCKET_PING_TIMEOUT
                 )
-                logger.info(f"✅ WebSocket connected using method 1 for server {self.server_id}")
+                logger.info(f"âœ… WebSocket connected using method 1 for server {self.server_id}")
                 
             except Exception as e1:
-                logger.warning(f"⚠️ Method 1 failed: {e1}")
+                logger.warning(f"âš ï¸ Method 1 failed: {e1}")
                 try:
                     # Method 2: Basic connection without extra parameters
                     self.ws = await websockets.connect(uri)
-                    logger.info(f"✅ WebSocket connected using method 2 for server {self.server_id}")
+                    logger.info(f"âœ… WebSocket connected using method 2 for server {self.server_id}")
                     
                 except Exception as e2:
-                    logger.error(f"❌ All connection methods failed: {e1}, {e2}")
+                    logger.error(f"âŒ All connection methods failed: {e1}, {e2}")
                     raise e2
             
             # Initialize connection with authentication
@@ -93,24 +104,24 @@ class GPortalWebSocketClient:
             }
             
             await self.ws.send(json.dumps(init_message))
-            logger.info(f"📤 Sent connection_init for server {self.server_id}")
+            logger.info(f"ðŸ“¤ Sent connection_init for server {self.server_id}")
             
             # Wait for connection acknowledgment
             ack_received = False
             timeout = Config.WEBSOCKET_CONNECTION_TIMEOUT
             start_time = time.time()
             
-            logger.info(f"⏳ Waiting for connection acknowledgment for server {self.server_id}...")
+            logger.info(f"â³ Waiting for connection acknowledgment for server {self.server_id}...")
             
             while not ack_received and (time.time() - start_time) < timeout:
                 try:
                     message = await asyncio.wait_for(self.ws.recv(), timeout=2.0)
                     data = json.loads(message)
-                    logger.info(f"📨 Received message: {data}")
+                    logger.info(f"ðŸ“¨ Received message: {data}")
                     
                     if data.get("type") == "connection_ack":
                         ack_received = True
-                        logger.info(f"✅ WebSocket connection acknowledged for server {self.server_id}")
+                        logger.info(f"âœ… WebSocket connection acknowledged for server {self.server_id}")
                         
                         # Subscribe to console messages
                         await self.subscribe_to_console()
@@ -119,13 +130,13 @@ class GPortalWebSocketClient:
                         break
                         
                 except asyncio.TimeoutError:
-                    logger.debug(f"⏳ Still waiting for ack for server {self.server_id}...")
+                    logger.debug(f"â³ Still waiting for ack for server {self.server_id}...")
                     continue
                 except json.JSONDecodeError as e:
-                    logger.error(f"❌ JSON decode error: {e}")
+                    logger.error(f"âŒ JSON decode error: {e}")
                     continue
                 except Exception as e:
-                    logger.error(f"❌ Error during connection ack: {e}")
+                    logger.error(f"âŒ Error during connection ack: {e}")
                     break
             
             if not ack_received:
@@ -134,7 +145,7 @@ class GPortalWebSocketClient:
             return True
             
         except Exception as e:
-            logger.error(f"❌ WebSocket connection failed for server {self.server_id}: {e}")
+            logger.error(f"âŒ WebSocket connection failed for server {self.server_id}: {e}")
             self.connected = False
             return False
     
@@ -163,9 +174,9 @@ class GPortalWebSocketClient:
         
         try:
             await self.ws.send(json.dumps(subscription_payload))
-            logger.info(f"📡 Subscribed to console messages for server {self.server_id}")
+            logger.info(f"ðŸ“¡ Subscribed to console messages for server {self.server_id}")
         except Exception as e:
-            logger.error(f"❌ Failed to subscribe to console for server {self.server_id}: {e}")
+            logger.error(f"âŒ Failed to subscribe to console for server {self.server_id}: {e}")
             raise e
     
     def _is_connection_open(self):
@@ -190,7 +201,7 @@ class GPortalWebSocketClient:
     async def listen_for_messages(self):
         """Main message listening loop"""
         self.running = True
-        logger.info(f"👂 Starting message listener for server {self.server_id}")
+        logger.info(f"ðŸ‘‚ Starting message listener for server {self.server_id}")
         
         try:
             while self.running and self.connected:
@@ -204,29 +215,29 @@ class GPortalWebSocketClient:
                     if self.ws and self._is_connection_open():
                         try:
                             await self.ws.ping()
-                            logger.debug(f"📡 Ping sent to server {self.server_id}")
+                            logger.debug(f"ðŸ“¡ Ping sent to server {self.server_id}")
                         except Exception as ping_error:
-                            logger.warning(f"⚠️ Ping failed for server {self.server_id}: {ping_error}")
+                            logger.warning(f"âš ï¸ Ping failed for server {self.server_id}: {ping_error}")
                     continue
                     
                 except websockets.exceptions.ConnectionClosed as e:
-                    logger.warning(f"⚠️ WebSocket connection closed for server {self.server_id}: {e}")
+                    logger.warning(f"âš ï¸ WebSocket connection closed for server {self.server_id}: {e}")
                     self.connected = False
                     break
                 except websockets.exceptions.WebSocketException as e:
-                    logger.error(f"❌ WebSocket error for server {self.server_id}: {e}")
+                    logger.error(f"âŒ WebSocket error for server {self.server_id}: {e}")
                     self.connected = False
                     break
                 except Exception as e:
-                    logger.error(f"❌ Error processing message for server {self.server_id}: {e}")
+                    logger.error(f"âŒ Error processing message for server {self.server_id}: {e}")
                     continue
                     
         except Exception as e:
-            logger.error(f"❌ Fatal error in message listener for server {self.server_id}: {e}")
+            logger.error(f"âŒ Fatal error in message listener for server {self.server_id}: {e}")
         finally:
             self.connected = False
             self.running = False
-            logger.info(f"🔌 Message listener stopped for server {self.server_id}")
+            logger.info(f"ðŸ”Œ Message listener stopped for server {self.server_id}")
     
     async def process_message(self, message):
         """Process incoming WebSocket message"""
@@ -265,24 +276,24 @@ class GPortalWebSocketClient:
                                 try:
                                     await self.message_callback(processed_message)
                                 except Exception as callback_error:
-                                    logger.error(f"❌ Callback error for server {self.server_id}: {callback_error}")
+                                    logger.error(f"âŒ Callback error for server {self.server_id}: {callback_error}")
                             
-                            logger.info(f"📨 Live console message from {self.server_id}: {message_text[:100]}...")
+                            logger.info(f"ðŸ“¨ Live console message from {self.server_id}: {message_text[:100]}...")
             
             elif data.get("type") == "error":
-                logger.error(f"❌ WebSocket error for server {self.server_id}: {data}")
+                logger.error(f"âŒ WebSocket error for server {self.server_id}: {data}")
                 
             elif data.get("type") == "complete":
-                logger.info(f"✅ Subscription completed for server {self.server_id}")
+                logger.info(f"âœ… Subscription completed for server {self.server_id}")
                 
         except json.JSONDecodeError:
-            logger.error(f"❌ Invalid JSON message from server {self.server_id}: {message[:100]}...")
+            logger.error(f"âŒ Invalid JSON message from server {self.server_id}: {message[:100]}...")
         except Exception as e:
-            logger.error(f"❌ Error processing message from server {self.server_id}: {e}")
+            logger.error(f"âŒ Error processing message from server {self.server_id}: {e}")
     
     async def disconnect(self):
         """Cleanly disconnect WebSocket"""
-        logger.info(f"🔌 Disconnecting WebSocket for server {self.server_id}")
+        logger.info(f"ðŸ”Œ Disconnecting WebSocket for server {self.server_id}")
         
         self.running = False
         self.connected = False
@@ -298,10 +309,10 @@ class GPortalWebSocketClient:
                 
                 # Close connection
                 await self.ws.close()
-                logger.info(f"✅ WebSocket disconnected cleanly for server {self.server_id}")
+                logger.info(f"âœ… WebSocket disconnected cleanly for server {self.server_id}")
                 
             except Exception as e:
-                logger.warning(f"⚠️ Error during disconnect for server {self.server_id}: {e}")
+                logger.warning(f"âš ï¸ Error during disconnect for server {self.server_id}: {e}")
     
     def get_recent_messages(self, limit=50, message_type=None):
         """

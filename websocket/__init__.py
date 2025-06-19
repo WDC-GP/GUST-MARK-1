@@ -1,4 +1,4 @@
-"""
+﻿"""
 GUST Bot Enhanced - WebSocket Package
 ====================================
 WebSocket client and manager for live console monitoring
@@ -7,6 +7,7 @@ This package provides real-time WebSocket connections to G-Portal servers
 for live console monitoring. Components are conditionally imported based
 on websockets package availability.
 """
+
 
 from config import WEBSOCKETS_AVAILABLE
 

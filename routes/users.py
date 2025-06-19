@@ -1,15 +1,32 @@
+﻿"""
+"""
 """
 GUST Bot Enhanced - User Management Routes
 ==========================================
 Routes for user administration, bans, and item management
 """
 
-from flask import Blueprint, request, jsonify, session
+# Standard library imports
 from datetime import datetime, timedelta
+import logging
 import uuid
 
+# Third-party imports
+from flask import Blueprint, request, jsonify, session
+
+# Local imports
 from routes.auth import require_auth
-import logging
+
+
+# GUST database optimization imports
+from utils.gust_db_optimization import (
+    get_user_with_cache,
+    get_user_balance_cached,
+    update_user_balance,
+    db_performance_monitor
+)
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,13 +91,13 @@ def init_users_routes(app, gust_bot, db, console_output):
                 # Add to console output
                 console_output.append({
                     'timestamp': datetime.now().isoformat(),
-                    'message': f"⚠️ Player {user_id} banned for {duration} minutes on server {server_id}. Reason: {reason}",
+                    'message': f"âš ï¸ Player {user_id} banned for {duration} minutes on server {server_id}. Reason: {reason}",
                     'status': 'ban',
                     'source': 'ban_system',
                     'type': 'ban'
                 })
                 
-                logger.info(f"🚫 User {user_id} banned on server {server_id} for {duration}m: {reason}")
+                logger.info(f"ðŸš« User {user_id} banned on server {server_id} for {duration}m: {reason}")
                 
                 # Schedule unban (in a real implementation, you'd need a background task)
                 # For now, just record that it needs to be unbanned
@@ -93,7 +110,7 @@ def init_users_routes(app, gust_bot, db, console_output):
                 return jsonify({'success': False, 'error': 'Failed to execute ban command'})
             
         except Exception as e:
-            logger.error(f"❌ Error in temp ban: {e}")
+            logger.error(f"âŒ Error in temp ban: {e}")
             return jsonify({'success': False, 'error': 'Ban operation failed'}), 500
     
     @users_bp.route('/api/bans/permanent', methods=['POST'])
@@ -135,13 +152,13 @@ def init_users_routes(app, gust_bot, db, console_output):
                 # Add to console output
                 console_output.append({
                     'timestamp': datetime.now().isoformat(),
-                    'message': f"🚫 Player {user_id} permanently banned on server {server_id}. Reason: {reason}",
+                    'message': f"ðŸš« Player {user_id} permanently banned on server {server_id}. Reason: {reason}",
                     'status': 'ban',
                     'source': 'ban_system',
                     'type': 'ban'
                 })
                 
-                logger.info(f"🚫 User {user_id} permanently banned on server {server_id}: {reason}")
+                logger.info(f"ðŸš« User {user_id} permanently banned on server {server_id}: {reason}")
                 
                 return jsonify({
                     'success': True,
@@ -151,7 +168,7 @@ def init_users_routes(app, gust_bot, db, console_output):
                 return jsonify({'success': False, 'error': 'Failed to execute ban command'})
             
         except Exception as e:
-            logger.error(f"❌ Error in permanent ban: {e}")
+            logger.error(f"âŒ Error in permanent ban: {e}")
             return jsonify({'success': False, 'error': 'Ban operation failed'}), 500
     
     @users_bp.route('/api/bans/unban', methods=['POST'])
@@ -188,20 +205,20 @@ def init_users_routes(app, gust_bot, db, console_output):
                 # Add to console output
                 console_output.append({
                     'timestamp': datetime.now().isoformat(),
-                    'message': f"✅ Player {user_id} unbanned on server {server_id}",
+                    'message': f"âœ… Player {user_id} unbanned on server {server_id}",
                     'status': 'unban',
                     'source': 'ban_system',
                     'type': 'ban'
                 })
                 
-                logger.info(f"✅ User {user_id} unbanned on server {server_id}")
+                logger.info(f"âœ… User {user_id} unbanned on server {server_id}")
                 
                 return jsonify({'success': True})
             else:
                 return jsonify({'success': False, 'error': 'Failed to execute unban command'})
             
         except Exception as e:
-            logger.error(f"❌ Error in unban: {e}")
+            logger.error(f"âŒ Error in unban: {e}")
             return jsonify({'success': False, 'error': 'Unban operation failed'}), 500
     
     @users_bp.route('/api/items/give', methods=['POST'])
@@ -246,20 +263,20 @@ def init_users_routes(app, gust_bot, db, console_output):
                 # Add to console output
                 console_output.append({
                     'timestamp': datetime.now().isoformat(),
-                    'message': f"🎁 Gave {amount}x {item} to player {player_id} on server {server_id}",
+                    'message': f"ðŸŽ Gave {amount}x {item} to player {player_id} on server {server_id}",
                     'status': 'item_give',
                     'source': 'item_system',
                     'type': 'system'
                 })
                 
-                logger.info(f"🎁 Gave {amount}x {item} to {player_id} on server {server_id}")
+                logger.info(f"ðŸŽ Gave {amount}x {item} to {player_id} on server {server_id}")
                 
                 return jsonify({'success': True, 'giveId': give_record['giveId']})
             else:
                 return jsonify({'success': False, 'error': 'Failed to execute give command'})
             
         except Exception as e:
-            logger.error(f"❌ Error giving item: {e}")
+            logger.error(f"âŒ Error giving item: {e}")
             return jsonify({'success': False, 'error': 'Give item operation failed'}), 500
     
     @users_bp.route('/api/users/kick', methods=['POST'])
@@ -286,20 +303,20 @@ def init_users_routes(app, gust_bot, db, console_output):
                 # Add to console output
                 console_output.append({
                     'timestamp': datetime.now().isoformat(),
-                    'message': f"👢 Player {user_id} kicked from server {server_id}. Reason: {reason}",
+                    'message': f"ðŸ‘¢ Player {user_id} kicked from server {server_id}. Reason: {reason}",
                     'status': 'kick',
                     'source': 'moderation_system',
                     'type': 'system'
                 })
                 
-                logger.info(f"👢 User {user_id} kicked from server {server_id}: {reason}")
+                logger.info(f"ðŸ‘¢ User {user_id} kicked from server {server_id}: {reason}")
                 
                 return jsonify({'success': True})
             else:
                 return jsonify({'success': False, 'error': 'Failed to execute kick command'})
             
         except Exception as e:
-            logger.error(f"❌ Error kicking user: {e}")
+            logger.error(f"âŒ Error kicking user: {e}")
             return jsonify({'success': False, 'error': 'Kick operation failed'}), 500
     
     @users_bp.route('/api/users/teleport', methods=['POST'])
@@ -328,20 +345,20 @@ def init_users_routes(app, gust_bot, db, console_output):
                 # Add to console output
                 console_output.append({
                     'timestamp': datetime.now().isoformat(),
-                    'message': f"🌀 Player {user_id} teleported to ({x}, {y}, {z}) on server {server_id}",
+                    'message': f"ðŸŒ€ Player {user_id} teleported to ({x}, {y}, {z}) on server {server_id}",
                     'status': 'teleport',
                     'source': 'admin_system',
                     'type': 'system'
                 })
                 
-                logger.info(f"🌀 User {user_id} teleported to ({x}, {y}, {z}) on server {server_id}")
+                logger.info(f"ðŸŒ€ User {user_id} teleported to ({x}, {y}, {z}) on server {server_id}")
                 
                 return jsonify({'success': True})
             else:
                 return jsonify({'success': False, 'error': 'Failed to execute teleport command'})
             
         except Exception as e:
-            logger.error(f"❌ Error teleporting user: {e}")
+            logger.error(f"âŒ Error teleporting user: {e}")
             return jsonify({'success': False, 'error': 'Teleport operation failed'}), 500
     
     @users_bp.route('/api/bans')
@@ -361,11 +378,11 @@ def init_users_routes(app, gust_bot, db, console_output):
                 cursor = db.bans.find(query, {'_id': 0}).sort('bannedAt', -1).limit(limit)
                 bans = list(cursor)
             
-            logger.info(f"📋 Retrieved {len(bans)} active bans")
+            logger.info(f"ðŸ“‹ Retrieved {len(bans)} active bans")
             return jsonify(bans)
             
         except Exception as e:
-            logger.error(f"❌ Error retrieving bans: {e}")
+            logger.error(f"âŒ Error retrieving bans: {e}")
             return jsonify({'error': 'Failed to retrieve bans'}), 500
     
     @users_bp.route('/api/users/<user_id>/history')
@@ -391,11 +408,11 @@ def init_users_routes(app, gust_bot, db, console_output):
                 history.sort(key=lambda x: x.get('bannedAt') or x.get('givenAt'), reverse=True)
                 history = history[:limit]
             
-            logger.info(f"📋 Retrieved {len(history)} history entries for user {user_id}")
+            logger.info(f"ðŸ“‹ Retrieved {len(history)} history entries for user {user_id}")
             return jsonify(history)
             
         except Exception as e:
-            logger.error(f"❌ Error retrieving user history for {user_id}: {e}")
+            logger.error(f"âŒ Error retrieving user history for {user_id}: {e}")
             return jsonify({'error': 'Failed to retrieve user history'}), 500
     
     @users_bp.route('/api/users/search')
@@ -421,11 +438,11 @@ def init_users_routes(app, gust_bot, db, console_output):
                 all_users = list(set(ban_users + give_users))
                 users = [{'userId': user_id} for user_id in all_users[:limit]]
             
-            logger.info(f"🔍 User search for '{query}' returned {len(users)} results")
+            logger.info(f"ðŸ” User search for '{query}' returned {len(users)} results")
             return jsonify({'users': users})
             
         except Exception as e:
-            logger.error(f"❌ Error searching users: {e}")
+            logger.error(f"âŒ Error searching users: {e}")
             return jsonify({'error': 'Failed to search users'}), 500
     
     @users_bp.route('/api/users/stats')
@@ -473,7 +490,8 @@ def init_users_routes(app, gust_bot, db, console_output):
             return jsonify(stats)
             
         except Exception as e:
-            logger.error(f"❌ Error getting user stats: {e}")
+            logger.error(f"âŒ Error getting user stats: {e}")
             return jsonify({'error': 'Failed to get user statistics'}), 500
     
     return users_bp
+

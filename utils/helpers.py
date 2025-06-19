@@ -1,15 +1,21 @@
 """
+"""
+"""
 GUST Bot Enhanced - Helper Functions
 ===================================
 Common utility functions used across the application
 """
 
-import json
-import time
-import os
-import logging
+# Standard library imports
 from datetime import datetime
+import json
+import logging
+import time
+
+# Local imports
 from config import Config
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -172,19 +178,19 @@ def get_type_icon(message_type):
         str: Emoji icon
     """
     icons = {
-        'chat': '💬',
-        'auth': '🔐',
-        'save': '💾',
-        'kill': '⚔️',
-        'error': '❌',
-        'warning': '⚠️',
-        'command': '🔧',
-        'player': '👥',
-        'system': '🖥️',
-        'event': '🎯',
-        'ban': '🚫'
+        'chat': 'ðŸ’¬',
+        'auth': 'ðŸ”',
+        'save': 'ðŸ’¾',
+        'kill': 'âš”ï¸',
+        'error': 'âŒ',
+        'warning': 'âš ï¸',
+        'command': 'ðŸ”§',
+        'player': 'ðŸ‘¥',
+        'system': 'ðŸ–¥ï¸',
+        'event': 'ðŸŽ¯',
+        'ban': 'ðŸš«'
     }
-    return icons.get(message_type, '📋')
+    return icons.get(message_type, 'ðŸ“‹')
 
 def format_console_message(message_data):
     """
@@ -387,8 +393,8 @@ def get_status_text(status):
         str: Display text with emoji
     """
     status_texts = {
-        'online': '🟢 Online',
-        'offline': '🔴 Offline',
-        'unknown': '⚪ Unknown'
+        'online': 'ðŸŸ¢ Online',
+        'offline': 'ðŸ”´ Offline',
+        'unknown': 'âšª Unknown'
     }
-    return status_texts.get(status, '⚪ Unknown')
+    return status_texts.get(status, 'âšª Unknown')

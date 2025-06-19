@@ -1,16 +1,24 @@
+﻿"""
+"""
 """
 GUST Bot Enhanced - WebSocket Manager
 ====================================
 Manages multiple WebSocket connections for live console monitoring
 """
 
-import asyncio
-import threading
+# Standard library imports
 import logging
-from datetime import datetime
+import threading
 
+# Local imports
 from config import WEBSOCKETS_AVAILABLE
+
+# Other imports
 from .client import GPortalWebSocketClient
+import asyncio
+
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +43,9 @@ class WebSocketManager:
             self.running = True
             thread = threading.Thread(target=self._run_loop, daemon=True)
             thread.start()
-            logger.info("🚀 WebSocket manager started")
+            logger.info("ðŸš€ WebSocket manager started")
         elif not WEBSOCKETS_AVAILABLE:
-            logger.warning("⚠️ WebSocket manager not started - websockets package not available")
+            logger.warning("âš ï¸ WebSocket manager not started - websockets package not available")
     
     def _run_loop(self):
         """Run the asyncio event loop"""
@@ -47,7 +55,7 @@ class WebSocketManager:
         try:
             self.loop.run_forever()
         except Exception as e:
-            logger.error(f"❌ WebSocket manager loop error: {e}")
+            logger.error(f"âŒ WebSocket manager loop error: {e}")
         finally:
             self.loop.close()
     
@@ -64,7 +72,7 @@ class WebSocketManager:
             Future: Asyncio future for the connection task
         """
         if not WEBSOCKETS_AVAILABLE:
-            logger.warning("⚠️ Cannot add WebSocket connection - websockets package not available")
+            logger.warning("âš ï¸ Cannot add WebSocket connection - websockets package not available")
             return None
             
         if not self.running:
@@ -109,9 +117,9 @@ class WebSocketManager:
             if await client.connect():
                 await client.listen_for_messages()
             else:
-                logger.error(f"❌ Failed to connect WebSocket for server {client.server_id}")
+                logger.error(f"âŒ Failed to connect WebSocket for server {client.server_id}")
         except Exception as e:
-            logger.error(f"❌ Error in connect_and_listen for server {client.server_id}: {e}")
+            logger.error(f"âŒ Error in connect_and_listen for server {client.server_id}: {e}")
             client.connected = False
     
     async def _message_callback(self, message):
@@ -121,7 +129,7 @@ class WebSocketManager:
         Args:
             message (dict): Message data from WebSocket
         """
-        logger.info(f"📨 WebSocket callback received: {message['message'][:100]}...")
+        logger.info(f"ðŸ“¨ WebSocket callback received: {message['message'][:100]}...")
         
         # Process special message types
         await self._process_special_messages(message)
@@ -138,19 +146,19 @@ class WebSocketManager:
         
         # Process VIP/Auth updates
         if msg_type == "auth" and any(keyword in msg_text for keyword in ["VIP", "Admin", "Moderator"]):
-            logger.info(f"🔐 Auth levels update detected for server {message['server_id']}")
+            logger.info(f"ðŸ” Auth levels update detected for server {message['server_id']}")
         
         # Process chat messages
         elif msg_type == "chat":
-            logger.info(f"💬 Chat message detected: {msg_text[:50]}...")
+            logger.info(f"ðŸ’¬ Chat message detected: {msg_text[:50]}...")
         
         # Process save events
         elif msg_type == "save":
-            logger.info(f"💾 Server save event for server {message['server_id']}")
+            logger.info(f"ðŸ’¾ Server save event for server {message['server_id']}")
         
         # Process errors
         elif msg_type == "error":
-            logger.warning(f"⚠️ Server error detected: {msg_text[:100]}...")
+            logger.warning(f"âš ï¸ Server error detected: {msg_text[:100]}...")
     
     def remove_connection(self, server_id):
         """
@@ -170,9 +178,9 @@ class WebSocketManager:
                     self.loop
                 )
             del self.connections[storage_key]
-            logger.info(f"🔌 Removed WebSocket connection for server {storage_key}")
+            logger.info(f"ðŸ”Œ Removed WebSocket connection for server {storage_key}")
         else:
-            logger.warning(f"⚠️ No connection found for server {storage_key}")
+            logger.warning(f"âš ï¸ No connection found for server {storage_key}")
     
     def get_connection_status(self):
         """
@@ -205,11 +213,11 @@ class WebSocketManager:
         Returns:
             list: List of messages
         """
-        logger.info(f"🔍 get_messages called: server_id={server_id}, limit={limit}, type={message_type}")
+        logger.info(f"ðŸ” get_messages called: server_id={server_id}, limit={limit}, type={message_type}")
         
         if server_id and server_id in self.connections:
             messages = self.connections[server_id].get_recent_messages(limit, message_type)
-            logger.info(f"📋 Server {server_id} returned {len(messages)} messages")
+            logger.info(f"ðŸ“‹ Server {server_id} returned {len(messages)} messages")
             return messages
         else:
             # Get messages from all servers
@@ -217,12 +225,12 @@ class WebSocketManager:
             for server_key, client in self.connections.items():
                 client_messages = client.get_recent_messages(limit, message_type)
                 all_messages.extend(client_messages)
-                logger.info(f"📋 Server {server_key} contributed {len(client_messages)} messages")
+                logger.info(f"ðŸ“‹ Server {server_key} contributed {len(client_messages)} messages")
             
             # Sort by timestamp and return most recent
             all_messages.sort(key=lambda x: x["timestamp"])
             final_messages = all_messages[-limit:] if limit else all_messages
-            logger.info(f"📋 Total combined messages: {len(final_messages)}")
+            logger.info(f"ðŸ“‹ Total combined messages: {len(final_messages)}")
             return final_messages
     
     def get_connection(self, server_id):
@@ -279,7 +287,7 @@ class WebSocketManager:
         for server_id in list(self.connections.keys()):
             self.remove_connection(server_id)
         
-        logger.info("🔌 All WebSocket connections disconnected")
+        logger.info("ðŸ”Œ All WebSocket connections disconnected")
     
     def stop(self):
         """Stop the WebSocket manager"""
@@ -290,4 +298,4 @@ class WebSocketManager:
             if self.loop and not self.loop.is_closed():
                 self.loop.call_soon_threadsafe(self.loop.stop)
             
-            logger.info("🛑 WebSocket manager stopped")
+            logger.info("ðŸ›‘ WebSocket manager stopped")
