@@ -3,7 +3,6 @@ Server Health Backend Routes for WDC-GP/GUST-MARK-1
 Layout-focused endpoints: Commands for right column, health data for left side charts
 Integrates with verified existing systems and utils/server_health_storage.py
 UPDATED: Now integrates with real logs data for accurate metrics
-FIXED: Trends endpoint now uses real logs data instead of returning 0 values
 """
 
 from flask import Blueprint, jsonify, request, current_app
@@ -29,12 +28,13 @@ except ImportError:
     def perform_optimization_health_check():
         return {"status": "healthy", "statistics": {}, "response_time": 45}
 
-# Import the working API client for real data (NO GLOBAL INSTANCE)
+# Import the working API client for real data
 try:
     from utils.api_client import APIClient
+    api_client = APIClient()
     REAL_DATA_AVAILABLE = True
 except ImportError:
-    APIClient = None
+    api_client = None
     REAL_DATA_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
@@ -337,120 +337,13 @@ def get_health_status(server_id):
         return get_fallback_health_status(server_id)
 
 
-# ===== PERFORMANCE TRENDS & AVERAGES API (FIXED TO USE REAL LOGS DATA) =====
-
-@server_health_bp.route('/api/server_health/trends/<server_id>')
-@require_auth
-def get_performance_trends(server_id):
-    """FIXED: API for performance trends - NOW USES REAL LOGS DATA (not 0 values)"""
-    try:
-        logger.info(f"[Server Health API] Getting performance trends for server {server_id} (FIXED VERSION)")
-        
-        # ✅ FIX: Get REAL current data from logs (same as status endpoint)
-        real_player_data = get_real_player_data_from_logs(server_id)
-        
-        if real_player_data:
-            # Extract real current values from logs
-            current_players = real_player_data['current']
-            max_players = real_player_data['max']
-            
-            # ✅ FIX: Calculate REAL current metrics from player load
-            current_response_time = 25 + (current_players * 1.5)
-            current_memory_usage = 1600 + (current_players * 35)
-            current_fps = max(25, 68 - (current_players * 0.6))
-            
-            logger.info(f"[Server Health] ✅ REAL TRENDS DATA: {current_players} players, {current_response_time}ms response, {current_memory_usage}MB memory")
-            
-        else:
-            # ✅ FIX: Fallback to realistic values (not 0)
-            current_players = 5  # Default fallback
-            current_response_time = 35
-            current_memory_usage = 1800
-            current_fps = 60
-            
-            logger.warning(f"[Server Health] ⚠️ Using fallback trends data (logs unavailable)")
-        
-        # ✅ FIX: Get averages from storage (or calculate realistic fallbacks)
-        try:
-            if _server_health_storage:
-                averages_24h = _server_health_storage.calculate_averages(server_id, 24)
-                averages_7d = _server_health_storage.calculate_averages(server_id, 168)
-            else:
-                averages_24h = {
-                    'response_time': current_response_time + 5,
-                    'memory_usage': current_memory_usage + 200,
-                    'fps': current_fps - 5,
-                    'player_count': max(current_players - 2, 0)
-                }
-                averages_7d = {
-                    'response_time': current_response_time + 8,
-                    'memory_usage': current_memory_usage + 300,
-                    'fps': current_fps - 8,
-                    'player_count': max(current_players - 3, 0)
-                }
-        except Exception as e:
-            logger.error(f"[Server Health] Error calculating averages: {e}")
-            # Fallback averages
-            averages_24h = {
-                'response_time': current_response_time + 5,
-                'memory_usage': current_memory_usage + 200,
-                'fps': current_fps - 5,
-                'player_count': max(current_players - 2, 0)
-            }
-            averages_7d = averages_24h.copy()
-        
-        # ✅ FIX: Build trends response with REAL current values
-        trends_data = {
-            'response_time': {
-                'current': int(current_response_time),  # ✅ REAL VALUE
-                'avg_24h': int(averages_24h.get('response_time', current_response_time)),
-                'trend': '📈' if current_response_time < averages_24h.get('response_time', current_response_time) else '📉'
-            },
-            'memory_usage': {
-                'current': int(current_memory_usage),   # ✅ REAL VALUE
-                'avg_24h': int(averages_24h.get('memory_usage', current_memory_usage)),
-                'trend': '📈' if current_memory_usage > averages_24h.get('memory_usage', current_memory_usage) else '📉'
-            },
-            'fps': {
-                'current': int(current_fps),            # ✅ REAL VALUE
-                'avg_24h': int(averages_24h.get('fps', current_fps)),
-                'trend': '📈' if current_fps > averages_24h.get('fps', current_fps) else '📉'
-            },
-            'player_count': {
-                'current': current_players,             # ✅ REAL VALUE
-                'avg_24h': int(averages_24h.get('player_count', current_players)),
-                'trend': '📈' if current_players > averages_24h.get('player_count', current_players) else '📉'
-            }
-        }
-        
-        logger.info(f"[Server Health API] ✅ FIXED trends response: Response {trends_data['response_time']['current']}ms, Memory {trends_data['memory_usage']['current']}MB, Players {trends_data['player_count']['current']}")
-        
-        return jsonify({
-            'success': True,
-            'trends': trends_data,                     # ✅ REAL DATA STRUCTURE
-            'calculated_at': datetime.utcnow().isoformat(),
-            'server_id': server_id,
-            'data_source': 'real_logs_data' if real_player_data else 'fallback_data'
-        })
-        
-    except Exception as e:
-        logger.error(f"[Server Health API] Get performance trends error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
 # ===== REAL DATA INTEGRATION FUNCTIONS =====
 
 def get_real_player_data_from_logs(server_id):
     """Get real player data using the same logs system that's working"""
     try:
-        if not REAL_DATA_AVAILABLE or not APIClient:
+        if not REAL_DATA_AVAILABLE or not api_client:
             return None
-        
-        # ✅ FIX: Create local APIClient instance (not global)
-        api_client = APIClient()
         
         # Get server region (needed for logs API)
         region = 'us'  # default
@@ -522,6 +415,107 @@ def get_fallback_health_status(server_id):
         'server_id': server_id,
         'checked_at': datetime.utcnow().isoformat()
     })
+
+
+# ===== PERFORMANCE TRENDS & AVERAGES API (NEW FEATURE) =====
+
+@server_health_bp.route('/api/server_health/trends/<server_id>')
+@require_auth
+def get_performance_trends(server_id):
+    """API for performance trends with averages and current info - Enhanced feature"""
+    try:
+        if not _server_health_storage:
+            return jsonify({
+                'success': False,
+                'error': 'Server health storage not initialized'
+            }), 503
+        
+        # Get period from query parameter (24h or 7d)
+        period = request.args.get('period', '24h')
+        hours = 24 if period == '24h' else 168  # 7 days = 168 hours
+        
+        # Get current metrics
+        current_metrics = _server_health_storage.get_current_metrics(server_id)
+        
+        # Get averages for comparison
+        averages_24h = _server_health_storage.calculate_averages(server_id, hours=24)
+        averages_7d = _server_health_storage.calculate_averages(server_id, hours=168)
+        
+        # Get comprehensive trend summary
+        trends_summary = _server_health_storage.get_performance_trends_summary(server_id)
+        
+        # Calculate percentage changes
+        def calculate_change_percentage(current, average):
+            if average == 0:
+                return 0
+            return round(((current - average) / average) * 100, 1)
+        
+        # Enhanced trend analysis
+        trend_analysis = {
+            'response_time': {
+                'current': current_metrics.get('response_time', 0),
+                'avg_24h': averages_24h.get('response_time', 0),
+                'avg_7d': averages_7d.get('response_time', 0),
+                'change_24h': calculate_change_percentage(
+                    current_metrics.get('response_time', 0), 
+                    averages_24h.get('response_time', 0)
+                ),
+                'trend_indicator': trends_summary.get('trends', {}).get('response_time', '➡️')
+            },
+            'memory_usage': {
+                'current': current_metrics.get('memory_usage', 0),
+                'avg_24h': averages_24h.get('memory_usage', 0),
+                'avg_7d': averages_7d.get('memory_usage', 0),
+                'change_24h': calculate_change_percentage(
+                    current_metrics.get('memory_usage', 0), 
+                    averages_24h.get('memory_usage', 0)
+                ),
+                'trend_indicator': trends_summary.get('trends', {}).get('memory_usage', '➡️')
+            },
+            'fps': {
+                'current': current_metrics.get('fps', 0),
+                'avg_24h': averages_24h.get('fps', 0),
+                'avg_7d': averages_7d.get('fps', 0),
+                'change_24h': calculate_change_percentage(
+                    current_metrics.get('fps', 0), 
+                    averages_24h.get('fps', 0)
+                ),
+                'trend_indicator': trends_summary.get('trends', {}).get('fps', '➡️')
+            },
+            'player_count': {
+                'current': current_metrics.get('player_count', 0),
+                'avg_24h': averages_24h.get('player_count', 0),
+                'avg_7d': averages_7d.get('player_count', 0),
+                'change_24h': calculate_change_percentage(
+                    current_metrics.get('player_count', 0), 
+                    averages_24h.get('player_count', 0)
+                ),
+                'trend_indicator': trends_summary.get('trends', {}).get('player_count', '➡️')
+            }
+        }
+        
+        logger.info(f"[Server Health API] Performance trends calculated for server {server_id} ({period})")
+        
+        return jsonify({
+            'success': True,
+            'current': current_metrics,            # Current real-time values
+            'averages': {
+                '24h': averages_24h,               # 24-hour averages
+                '7d': averages_7d                  # 7-day averages
+            },
+            'trends': trend_analysis,              # Enhanced trend analysis with % changes
+            'summary': trends_summary,             # Comprehensive summary
+            'period': period,
+            'server_id': server_id,
+            'calculated_at': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"[Server Health API] Get performance trends error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 # ===== COMMAND EXECUTION TRACKING API =====
@@ -668,11 +662,11 @@ def get_blueprint_info():
             '/api/server_health/commands/<server_id>',           # Right column commands
             '/api/server_health/charts/<server_id>',             # Left side charts  
             '/api/server_health/status/<server_id>',             # Left side status cards
-            '/api/server_health/trends/<server_id>',             # Performance trends (FIXED)
+            '/api/server_health/trends/<server_id>',             # Performance trends
             '/api/server_health/command/track',                  # Command tracking
             '/api/server_health/heartbeat'                       # Health check
         ]
     }
 
 
-logger.info("[✅ OK] Server Health routes loaded - FIXED: No global APIClient conflicts")
+logger.info("[✅ OK] Server Health routes loaded - NOW WITH REAL DATA INTEGRATION")
