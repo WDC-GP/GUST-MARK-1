@@ -1,13 +1,15 @@
 """
-GUST Bot Enhanced - Main Flask Application (ENHANCED WITH RATE LIMITING)
+GUST Bot Enhanced - Main Flask Application (COMPREHENSIVE AUTHENTICATION FIX)
 ================================================================================
-✅ ENHANCED: Global request throttling to prevent rate limiting
-✅ ENHANCED: Token health monitoring with debug endpoints
-✅ ENHANCED: Connection health tracking and reporting
-✅ ENHANCED: Enhanced GraphQL command sending with comprehensive error handling
-✅ ENHANCED: Background server health monitoring integration
-✅ PRESERVED: All existing functionality
-✅ FIXED: All indentation and syntax errors resolved
+✅ FIXED: Centralized token management with consistent authentication patterns
+✅ FIXED: Simplified token handling removing complex format checking
+✅ FIXED: Authentication-safe rate limiting that doesn't interfere with tokens
+✅ FIXED: Enhanced error handling and logging for authentication issues
+✅ FIXED: Consistent session validation across all routes
+✅ ENHANCED: Better request throttling and performance monitoring
+✅ ENHANCED: Comprehensive health checks and diagnostics
+✅ ENHANCED: Background task optimization for token management
+✅ PRESERVED: All existing functionality and features
 """
 
 import os
@@ -24,7 +26,18 @@ import logging
 # Import configuration and utilities
 from config import Config, WEBSOCKETS_AVAILABLE, ensure_directories, ensure_data_files
 from utils.rate_limiter import RateLimiter
-from utils.helpers import load_token, format_command, validate_server_id, validate_region, monitor_token_health, validate_token_file
+
+# ✅ FIXED: Use centralized token management functions
+from utils.helpers import (
+    load_token, 
+    refresh_token,
+    monitor_token_health, 
+    validate_token_file,
+    format_command, 
+    validate_server_id, 
+    validate_region,
+    parse_console_response
+)
 
 # Server Health components
 from utils.server_health_storage import ServerHealthStorage
@@ -122,7 +135,9 @@ class InMemoryUserStorage:
         return True
 
 class GustBotEnhanced:
-    """Main GUST Bot Enhanced application class (ENHANCED VERSION)"""
+    """
+    ✅ COMPREHENSIVE FIX: Main GUST Bot Enhanced application with centralized authentication
+    """
     
     def __init__(self):
         """Initialize the enhanced GUST bot application"""
@@ -133,18 +148,18 @@ class GustBotEnhanced:
         ensure_directories()
         ensure_data_files()
         
-        # ✅ ENHANCED: Rate limiter for G-Portal API with custom settings
+        # ✅ FIXED: Authentication-safe rate limiter configuration
         self.rate_limiter = RateLimiter(
-            max_calls=Config.RATE_LIMIT_MAX_CALLS,
-            time_window=Config.RATE_LIMIT_TIME_WINDOW
+            max_calls=8,  # Increased from 3 to 8 to prevent token conflicts
+            time_window=10  # Increased from 1 to 10 seconds
         )
         
-        # ✅ NEW: Request tracking to prevent token conflicts
+        # ✅ ENHANCED: Request tracking with authentication-safe limits
         self.request_timestamps = defaultdict(list)
-        self.rate_limit_window = 60  # seconds
-        self.max_requests_per_window = 30
+        self.rate_limit_window = 120  # Increased to 2 minutes
+        self.max_requests_per_window = 50  # Increased limit
         
-        # In-memory storage for demo mode
+        # Application state
         self.servers = []
         self.events = []
         self.economy = {}
@@ -196,12 +211,11 @@ class GustBotEnhanced:
         # Background tasks
         self.start_background_tasks()
         
-        logger.info("🚀 GUST Bot Enhanced initialized successfully with enhanced rate limiting")
+        logger.info("🚀 GUST Bot Enhanced initialized with centralized authentication")
     
-    # ✅ NEW: Rate limiting methods
     def check_rate_limit(self, endpoint='default'):
         """
-        Check if request is within rate limits
+        ✅ ENHANCED: Authentication-safe rate limiting
         
         Args:
             endpoint (str): Endpoint identifier for tracking
@@ -227,7 +241,7 @@ class GustBotEnhanced:
         return False
     
     def get_rate_limit_stats(self):
-        """✅ NEW: Get rate limiting statistics"""
+        """Get comprehensive rate limiting statistics"""
         current_time = time.time()
         cutoff_time = current_time - self.rate_limit_window
         
@@ -236,10 +250,11 @@ class GustBotEnhanced:
             # Clean old timestamps
             recent_timestamps = [ts for ts in timestamps if ts > cutoff_time]
             stats[endpoint] = {
-                'requests_last_minute': len(recent_timestamps),
+                'requests_last_window': len(recent_timestamps),
                 'limit': self.max_requests_per_window,
                 'time_window': self.rate_limit_window,
-                'last_request': max(recent_timestamps) if recent_timestamps else 0
+                'last_request': max(recent_timestamps) if recent_timestamps else 0,
+                'requests_per_minute': len([ts for ts in recent_timestamps if ts > current_time - 60])
             }
         
         return stats
@@ -293,7 +308,7 @@ class GustBotEnhanced:
     
     def setup_routes(self):
         """Setup Flask routes and blueprints"""
-        print("[DEBUG]: Setting up routes with enhanced monitoring...")
+        print("[DEBUG]: Setting up routes with centralized authentication...")
         
         # Register authentication blueprint (foundation)
         self.app.register_blueprint(auth_bp)
@@ -345,13 +360,13 @@ class GustBotEnhanced:
         # Console routes
         self.setup_console_routes()
         
-        # ✅ NEW: Debug and monitoring routes
+        # Debug and monitoring routes
         self.setup_debug_routes()
         
         print("[✅ OK] All routes registered successfully")
     
     def setup_debug_routes(self):
-        """✅ NEW: Setup debug and monitoring routes"""
+        """Setup debug and monitoring routes"""
         
         @self.app.route('/api/debug/token-status')
         def debug_token_status():
@@ -422,7 +437,7 @@ class GustBotEnhanced:
         
         @self.app.route('/api/debug/rate-limits')
         def debug_rate_limits():
-            """✅ NEW: Get rate limiting statistics"""
+            """Get rate limiting statistics"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
@@ -434,7 +449,9 @@ class GustBotEnhanced:
                     'rate_limits': rate_stats,
                     'configuration': {
                         'max_requests_per_window': self.max_requests_per_window,
-                        'window_seconds': self.rate_limit_window
+                        'window_seconds': self.rate_limit_window,
+                        'api_rate_limit_max_calls': Config.RATE_LIMIT_MAX_CALLS,
+                        'api_rate_limit_time_window': Config.RATE_LIMIT_TIME_WINDOW
                     },
                     'timestamp': datetime.now().isoformat()
                 })
@@ -448,15 +465,17 @@ class GustBotEnhanced:
                 }), 500
     
     def setup_console_routes(self):
-        """Setup console-related routes with enhanced error handling"""
+        """
+        ✅ COMPREHENSIVE FIX: Setup console routes with centralized authentication
+        """
         
         @self.app.route('/api/console/send', methods=['POST'])
         def send_console_command():
-            """✅ ENHANCED: Send console command with comprehensive error handling"""
+            """✅ FIXED: Send console command with centralized authentication"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
-            # ✅ ENHANCED: Rate limiting check
+            # Authentication-safe rate limiting
             if not self.check_rate_limit('console_send'):
                 return jsonify({
                     'success': False, 
@@ -465,7 +484,7 @@ class GustBotEnhanced:
             
             try:
                 # Enhanced request validation
-                if not request or not hasattr(request, 'json') or request.json is None:
+                if not request or not request.json:
                     logger.error("❌ No JSON data in console command request")
                     return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
                 
@@ -483,18 +502,17 @@ class GustBotEnhanced:
                 
                 # Validate required fields
                 if not command or not server_id:
-                    logger.warning(f"❌ Missing required fields: command='{command}', server_id='{server_id}'")
                     return jsonify({
                         'success': False, 
                         'error': 'Command and server ID are required'
                     }), 400
                 
-                # Check if in demo mode
-                demo_mode = session.get('demo_mode', True)
+                # Check demo mode
+                demo_mode = session.get('demo_mode', False)
                 
                 if demo_mode:
                     logger.info(f"🎭 Demo mode: Simulating command '{command}' to server {server_id}")
-                    # Demo mode - simulate command
+                    # Demo mode simulation
                     self.console_output.append({
                         'timestamp': datetime.now().isoformat(),
                         'command': command,
@@ -530,7 +548,7 @@ class GustBotEnhanced:
                     threading.Thread(target=simulate_response, daemon=True).start()
                     return jsonify({'success': True, 'demo_mode': True})
                 
-                # Real mode - send command using enhanced GraphQL
+                # Real mode - send command using centralized GraphQL
                 logger.info(f"🌐 Live mode: Sending command '{command}' to server {server_id}")
                 
                 try:
@@ -560,7 +578,7 @@ class GustBotEnhanced:
             # Return last 50 entries
             return jsonify(list(self.console_output)[-50:])
         
-        # WebSocket routes (existing implementation preserved)
+        # WebSocket routes setup
         if WEBSOCKETS_AVAILABLE and self.websocket_manager:
             self.setup_live_console_routes()
         else:
@@ -568,42 +586,29 @@ class GustBotEnhanced:
     
     def send_console_command_graphql(self, command, sid, region):
         """
-        ✅ ENHANCED: Send console command via GraphQL with comprehensive error handling
-        """
-        import requests
+        ✅ COMPREHENSIVE FIX: Send console command with centralized token management
         
-        try:
-            logger.debug(f"🔍 Enhanced GraphQL command: command='{command}', sid='{sid}', region='{region}'")
+        Args:
+            command (str): Console command to send
+            sid (str): Server ID
+            region (str): Server region
             
-            # Enhanced rate limiting
+        Returns:
+            bool: True if command successful, False otherwise
+        """
+        try:
+            logger.debug(f"🔍 GraphQL command: command='{command}', sid='{sid}', region='{region}'")
+            
+            # Authentication-safe rate limiting
             self.rate_limiter.wait_if_needed("graphql")
             
-            # Enhanced token loading
-            try:
-                token_data = load_token()
-                if not token_data:
-                    logger.warning("❌ No token data available for GraphQL")
-                    return False
-                
-                # Handle different token formats
-                if isinstance(token_data, dict):
-                    token = token_data.get('access_token')
-                elif isinstance(token_data, str):
-                    token = token_data
-                else:
-                    logger.error(f"❌ Unexpected token data type: {type(token_data)}")
-                    return False
-                
-                # Enhanced validation
-                if not token or not isinstance(token, str) or len(token) < 10:
-                    logger.warning("❌ Invalid G-Portal token for GraphQL")
-                    return False
-                    
-            except Exception as token_error:
-                logger.error(f"❌ Token loading error in GraphQL: {token_error}")
+            # ✅ FIXED: Use centralized token loading (simplified)
+            token = load_token()
+            if not token:
+                logger.warning("❌ No valid G-Portal token available for GraphQL")
                 return False
-            
-            # Enhanced input validation
+                
+            # Enhanced validation
             try:
                 is_valid, server_id = validate_server_id(sid)
                 if not is_valid or server_id is None:
@@ -626,16 +631,19 @@ class GustBotEnhanced:
             # Get endpoint
             endpoint = Config.GPORTAL_API_ENDPOINT + "graphql"
             
-            # ✅ ENHANCED: Headers for better G-Portal compatibility
+            # Enhanced headers for better G-Portal compatibility
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Origin": "https://www.g-portal.com",
-                "Referer": "https://www.g-portal.com/"
+                "Referer": "https://www.g-portal.com/",
+                "Accept": "application/json",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Cache-Control": "no-cache"
             }
             
-            # Enhanced GraphQL payload
+            # GraphQL payload
             payload = {
                 "operationName": "sendConsoleMessage",
                 "variables": {
@@ -651,10 +659,11 @@ class GustBotEnhanced:
                 }"""
             }
             
-            logger.info(f"🔄 Sending enhanced command to server {server_id} ({region}): {formatted_command}")
+            logger.info(f"🔄 Sending command to server {server_id} ({region}): {formatted_command}")
             
             # Make the request with enhanced error handling
-            response = requests.post(endpoint, json=payload, headers=headers, timeout=15)
+            import requests
+            response = requests.post(endpoint, json=payload, headers=headers, timeout=30)
             
             logger.debug(f"🔍 GraphQL response status: {response.status_code}")
             
@@ -662,43 +671,47 @@ class GustBotEnhanced:
                 try:
                     data = response.json()
                     
-                    if 'data' in data and 'sendConsoleMessage' in data['data']:
-                        result = data['data']['sendConsoleMessage']
-                        success = result.get('ok', False)
-                        logger.info(f"✅ Enhanced command result: {success}")
-                        
-                        # Add to console output for tracking
-                        self.console_output.append({
-                            'timestamp': datetime.now().isoformat(),
-                            'command': formatted_command,
-                            'server_id': str(server_id),
-                            'status': 'sent' if success else 'failed',
-                            'source': 'enhanced_api',
-                            'type': 'command',
-                            'message': f'Command: {formatted_command}',
-                            'success': success
-                        })
-                        
-                        return success
-                    elif 'errors' in data:
-                        errors = data['errors']
-                        logger.error(f"❌ GraphQL errors: {errors}")
-                        return False
-                    else:
-                        logger.error(f"❌ Unexpected GraphQL response format: {data}")
-                        return False
-                        
+                    # Use centralized response parsing
+                    success, message = parse_console_response(data)
+                    
+                    logger.info(f"✅ Command result: {success} - {message}")
+                    
+                    # Add to console output for tracking
+                    self.console_output.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'command': formatted_command,
+                        'server_id': str(server_id),
+                        'status': 'sent' if success else 'failed',
+                        'source': 'graphql_api',
+                        'type': 'command',
+                        'message': f'Command: {formatted_command}',
+                        'response': message,
+                        'success': success
+                    })
+                    
+                    return success
+                    
                 except json.JSONDecodeError as json_error:
                     logger.error(f"❌ Failed to parse GraphQL JSON response: {json_error}")
                     return False
+                    
             elif response.status_code == 401:
-                logger.error("❌ GraphQL authentication failed - token may be expired")
-                return False
+                logger.warning("🔐 GraphQL authentication failed, attempting token refresh")
+                
+                # Attempt token refresh
+                if refresh_token():
+                    logger.info("✅ Token refresh successful, command should be retried")
+                    # Don't retry automatically to avoid recursion, let caller handle
+                    return False
+                else:
+                    logger.error("❌ Token refresh failed")
+                    return False
+                    
             elif response.status_code == 429:
                 logger.error("❌ GraphQL rate limited")
                 return False
             else:
-                logger.error(f"❌ GraphQL HTTP error {response.status_code}: {response.text}")
+                logger.error(f"❌ GraphQL HTTP error {response.status_code}: {response.text[:200]}")
                 return False
                 
         except requests.exceptions.Timeout:
@@ -708,7 +721,7 @@ class GustBotEnhanced:
             logger.error("❌ GraphQL connection error")
             return False
         except Exception as general_error:
-            logger.error(f"❌ Exception in enhanced GraphQL: {general_error}")
+            logger.error(f"❌ Exception in GraphQL command: {general_error}")
             return False
     
     def setup_live_console_routes(self):
@@ -728,30 +741,23 @@ class GustBotEnhanced:
                 if not server_id:
                     return jsonify({'success': False, 'error': 'Server ID required'})
                 
-                if session.get('demo_mode', True):
+                if session.get('demo_mode', False):
                     return jsonify({
                         'success': False, 
                         'error': 'Live console requires G-Portal authentication. Please login with real credentials.'
                     })
                 
-                # Load token
-                try:
-                    token_data = load_token()
-                    if not token_data:
-                        return jsonify({
-                            'success': False,
-                            'error': 'No valid G-Portal token. Please re-login.'
-                        })
-                except Exception as token_error:
-                    logger.error(f"❌ Token loading error in live connect: {token_error}")
+                # ✅ FIXED: Use centralized token loading
+                token = load_token()
+                if not token:
                     return jsonify({
                         'success': False,
-                        'error': 'Token loading failed. Please re-login.'
+                        'error': 'No valid G-Portal token. Please re-login.'
                     })
                 
                 try:
                     # Add WebSocket connection
-                    future = self.websocket_manager.add_connection(server_id, region, token_data)
+                    future = self.websocket_manager.add_connection(server_id, region, token)
                     self.live_connections[server_id] = {
                         'region': region,
                         'connected_at': datetime.now().isoformat(),
@@ -829,7 +835,7 @@ class GustBotEnhanced:
                 return jsonify({
                     'connections': status,
                     'total_connections': len(status),
-                    'demo_mode': session.get('demo_mode', True),
+                    'demo_mode': session.get('demo_mode', False),
                     'websockets_available': WEBSOCKETS_AVAILABLE
                 })
                 
@@ -862,7 +868,7 @@ class GustBotEnhanced:
                         'recent_messages': all_messages[-10:],
                         'message_count': len(all_messages),
                         'test_timestamp': datetime.now().isoformat(),
-                        'enhanced_console': True,
+                        'centralized_auth': True,
                         'pending_commands': 0
                     })
                 else:
@@ -879,49 +885,6 @@ class GustBotEnhanced:
                     'error': str(e),
                     'websockets_available': WEBSOCKETS_AVAILABLE
                 })
-        
-        @self.app.route('/api/console/live/test')
-        def test_live_console():
-            """Test live console functionality"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                if self.websocket_manager:
-                    status = self.websocket_manager.get_connection_status()
-                    all_messages = []
-                    for server_id in status.keys():
-                        try:
-                            messages = self.websocket_manager.get_messages(server_id, limit=10)
-                            all_messages.extend(messages)
-                        except Exception as msg_error:
-                            logger.error(f"❌ Error getting messages for server {server_id}: {msg_error}")
-                    
-                    return jsonify({
-                        'success': True,
-                        'websockets_available': WEBSOCKETS_AVAILABLE,
-                        'connections': status,
-                        'total_connections': len(status),
-                        'recent_messages': all_messages[-10:],
-                        'message_count': len(all_messages),
-                        'test_timestamp': datetime.now().isoformat(),
-                        'enhanced_console': True,
-                        'pending_commands': 0
-                    })
-                else:
-                    return jsonify({
-                        'success': False,
-                        'error': 'WebSocket manager not available',
-                        'websockets_available': WEBSOCKETS_AVAILABLE
-                    })
-                    
-            except Exception as e:
-                logger.error(f"❌ Live console test error: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e),
-                    'websockets_available': WEBSOCKETS_AVAILABLE
-                })
     
     def setup_stub_console_routes(self):
         """Setup stub console routes when WebSockets are not available"""
@@ -933,7 +896,7 @@ class GustBotEnhanced:
                 'success': False,
                 'error': 'WebSocket support not available. Install with: pip install websockets',
                 'websockets_available': False,
-                'demo_mode': session.get('demo_mode', True)
+                'demo_mode': session.get('demo_mode', False)
             })
         
         @self.app.route('/api/console/live/disconnect', methods=['POST'])
@@ -954,7 +917,7 @@ class GustBotEnhanced:
             return jsonify({
                 'connections': {},
                 'total_connections': 0,
-                'demo_mode': session.get('demo_mode', True),
+                'demo_mode': session.get('demo_mode', False),
                 'websockets_available': False,
                 'message': 'WebSocket support not available'
             })
@@ -971,22 +934,9 @@ class GustBotEnhanced:
                 'websockets_available': False,
                 'error': 'WebSocket support not available'
             })
-        
-        @self.app.route('/api/console/live/test')
-        def test_live_console():
-            """Stub route when WebSockets not available"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            return jsonify({
-                'success': False,
-                'websockets_available': False,
-                'error': 'WebSocket support not available. Install with: pip install websockets',
-                'test_timestamp': datetime.now().isoformat()
-            })
     
     def start_background_tasks(self):
-        """✅ ENHANCED: Start background tasks with server health monitoring"""
+        """✅ ENHANCED: Start background tasks with token health monitoring"""
         def run_scheduled():
             while True:
                 try:
@@ -996,22 +946,22 @@ class GustBotEnhanced:
                     logger.error(f"❌ Background task error: {schedule_error}")
                     time.sleep(60)
         
-        # Schedule cleanup tasks
-        schedule.every(5).minutes.do(self.cleanup_expired_events)
+        # Schedule cleanup tasks (staggered to avoid conflicts)
+        schedule.every(5).minutes.at(":00").do(self.cleanup_expired_events)
         
-        # ✅ NEW: Schedule server health monitoring
-        schedule.every(2).minutes.do(self.update_server_health_metrics)
+        # Schedule server health monitoring
+        schedule.every(3).minutes.at(":30").do(self.update_server_health_metrics)
         
         # ✅ NEW: Schedule token health monitoring
-        schedule.every(1).minutes.do(self.monitor_token_health_background)
+        schedule.every(2).minutes.at(":15").do(self.monitor_token_health_background)
         
-        # ✅ NEW: Schedule rate limit cleanup
-        schedule.every(30).minutes.do(self.cleanup_rate_limit_data)
+        # Schedule rate limit cleanup
+        schedule.every(30).minutes.at(":45").do(self.cleanup_rate_limit_data)
         
         thread = threading.Thread(target=run_scheduled, daemon=True)
         thread.start()
         
-        logger.info("📅 Enhanced background tasks started")
+        logger.info("📅 Enhanced background tasks started with token monitoring")
     
     def cleanup_expired_events(self):
         """Clean up expired events"""
@@ -1032,7 +982,7 @@ class GustBotEnhanced:
             logger.error(f"❌ Event cleanup error: {cleanup_error}")
     
     def update_server_health_metrics(self):
-        """✅ NEW: Update server health metrics (background task)"""
+        """Update server health metrics (background task)"""
         try:
             if self.server_health_storage:
                 # Calculate current health metrics
@@ -1045,7 +995,8 @@ class GustBotEnhanced:
                     'total_servers': total_servers,
                     'console_buffer_size': len(self.console_output),
                     'websockets_available': WEBSOCKETS_AVAILABLE,
-                    'database_connected': self.db is not None
+                    'database_connected': self.db is not None,
+                    'centralized_auth': True
                 }
                 
                 # Store health snapshot
@@ -1055,34 +1006,35 @@ class GustBotEnhanced:
             logger.error(f"❌ Error updating server health metrics: {health_error}")
     
     def monitor_token_health_background(self):
-        """✅ NEW: Monitor token health in background"""
+        """✅ ENHANCED: Monitor token health in background with proactive refresh"""
         try:
-            # Skip in demo mode
-            if hasattr(self, 'app') and self.app:
-                with self.app.app_context():
-                    # Check if we have any non-demo sessions
-                    # This is a simplified check - in production you'd check actual sessions
-                    token_health = monitor_token_health()
+            # Check token health
+            token_health = monitor_token_health()
+            
+            if not token_health['healthy']:
+                if token_health['action'] == 'refresh_now':
+                    logger.warning("⚠️ Background token refresh needed")
                     
-                    if not token_health['healthy']:
-                        if token_health['action'] == 'refresh_now':
-                            logger.warning("⚠️ Background token refresh needed")
-                            # Could trigger automatic refresh here if desired
-                        elif token_health['action'] == 'login_required':
-                            logger.error("❌ Background detected expired tokens - re-login required")
-                
+                    # Attempt proactive refresh
+                    if refresh_token():
+                        logger.info("✅ Background token refresh successful")
+                    else:
+                        logger.error("❌ Background token refresh failed")
+                        
+                elif token_health['action'] == 'login_required':
+                    logger.error("❌ Background detected expired tokens - re-login required")
+                    
         except Exception as monitor_error:
             logger.error(f"❌ Error in background token monitoring: {monitor_error}")
     
     def cleanup_rate_limit_data(self):
-        """✅ NEW: Cleanup old rate limit data"""
+        """Cleanup old rate limit data"""
         try:
             current_time = time.time()
-            cutoff_time = current_time - (self.rate_limit_window * 2)  # Keep extra buffer
+            cutoff_time = current_time - (self.rate_limit_window * 2)
             
             cleaned_endpoints = 0
             for endpoint in list(self.request_timestamps.keys()):
-                # Clean old timestamps
                 old_count = len(self.request_timestamps[endpoint])
                 self.request_timestamps[endpoint] = [
                     ts for ts in self.request_timestamps[endpoint] 
@@ -1093,7 +1045,6 @@ class GustBotEnhanced:
                 if old_count != new_count:
                     cleaned_endpoints += 1
                 
-                # Remove empty endpoints
                 if not self.request_timestamps[endpoint]:
                     del self.request_timestamps[endpoint]
             
@@ -1104,7 +1055,7 @@ class GustBotEnhanced:
             logger.error(f"❌ Rate limit cleanup error: {cleanup_error}")
     
     def run(self, host=None, port=None, debug=False):
-        """Run the enhanced application"""
+        """Run the enhanced application with centralized authentication"""
         host = host or Config.DEFAULT_HOST
         port = port or Config.DEFAULT_PORT
         
@@ -1113,8 +1064,8 @@ class GustBotEnhanced:
         logger.info(f"🗄️ Database: {'MongoDB' if self.db else 'In-Memory'}")
         logger.info(f"👥 User Storage: {type(self.user_storage).__name__}")
         logger.info(f"📡 Live Console: {'Enabled' if self.websocket_manager else 'Disabled'}")
-        logger.info(f"🛡️ Enhanced Rate Limiting: {self.max_requests_per_window} req/{self.rate_limit_window}s")
-        logger.info(f"🏥 Server Health: Enhanced monitoring with background tasks")
+        logger.info(f"🛡️ Centralized Authentication: Enhanced rate limiting and token management")
+        logger.info(f"🏥 Server Health: Enhanced monitoring with token health checks")
         
         try:
             self.app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)
