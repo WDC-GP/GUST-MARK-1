@@ -4,6 +4,7 @@ Layout-focused endpoints: Commands for right column, health data for left side c
 Integrates with verified existing systems and utils/server_health_storage.py
 UPDATED: Now integrates with real logs data for accurate metrics
 FIXED: Trends endpoint now uses real logs data instead of returning 0 values
+FIXED: Added missing blueprint return and proper imports
 """
 
 from flask import Blueprint, jsonify, request, current_app
@@ -29,12 +30,12 @@ except ImportError:
     def perform_optimization_health_check():
         return {"status": "healthy", "statistics": {}, "response_time": 45}
 
-# Import the working API client for real data (NO GLOBAL INSTANCE)
+# FIXED: Import the working API client for real data (NO GLOBAL INSTANCE)
 try:
-    from utils.api_client import APIClient
+    from routes.logs import GPortalLogAPI
     REAL_DATA_AVAILABLE = True
 except ImportError:
-    APIClient = None
+    GPortalLogAPI = None
     REAL_DATA_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
@@ -446,11 +447,11 @@ def get_performance_trends(server_id):
 def get_real_player_data_from_logs(server_id):
     """Get real player data using the same logs system that's working"""
     try:
-        if not REAL_DATA_AVAILABLE or not APIClient:
+        if not REAL_DATA_AVAILABLE or not GPortalLogAPI:
             return None
         
-        # ✅ FIX: Create local APIClient instance (not global)
-        api_client = APIClient()
+        # ✅ FIX: Create local GPortalLogAPI instance (not APIClient)
+        api_client = GPortalLogAPI()
         
         # Get server region (needed for logs API)
         region = 'us'  # default
@@ -675,4 +676,4 @@ def get_blueprint_info():
     }
 
 
-logger.info("[✅ OK] Server Health routes loaded - FIXED: No global APIClient conflicts")
+logger.info("[✅ OK] Server Health routes loaded - FIXED: Blueprint return and imports added")

@@ -9,10 +9,6 @@ GUST Bot Enhanced - Main Flask Application (COMPLETE SERVER HEALTH INTEGRATION)
 ✅ COMPLETE: Server Health monitoring system with 75/25 layout
 ✅ Updated route initialization for consistency
 ✅ Enhanced health checks with comprehensive monitoring
-✅ FIXED: GraphQL structure corrected for console commands
-✅ FIXED: Improved token loading error handling
-✅ FIXED: Proper None value handling in console route
-✅ FIXED: Correct GraphQL rsid structure for G-Portal API
 """
 
 import os
@@ -349,87 +345,62 @@ class GustBotEnhanced:
         
         @self.app.route('/api/console/send', methods=['POST'])
         def send_console_command():
-            """Send console command to server - FIXED VERSION WITH PROPER ERROR HANDLING"""
+            """Send console command to server - WORKING VERSION"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
+            data = request.json
+            command = data.get('command', '')
+            server_id = data.get('serverId', '')
+            region = data.get('region', 'US')
+            
+            if not command or not server_id:
+                return jsonify({'success': False, 'error': 'Command and server ID required'})
+            
+            # Check if in demo mode
+            if session.get('demo_mode', True):
+                # Demo mode - simulate command
+                self.console_output.append({
+                    'timestamp': datetime.now().isoformat(),
+                    'command': command,
+                    'server_id': server_id,
+                    'status': 'sent',
+                    'source': 'demo',
+                    'type': 'command',
+                    'message': f'Demo command: {command}'
+                })
+                
+                # Simulate response in separate thread
+                def simulate_response():
+                    time.sleep(1)
+                    responses = [
+                        f"[DEMO] Server {server_id}: Command '{command}' executed successfully",
+                        f"[DEMO] {server_id}: Players online: 23/100",
+                        f"[DEMO] {server_id}: Server FPS: 60",
+                        f"[DEMO] {server_id}: Uptime: 2d 14h 32m"
+                    ]
+                    
+                    for response_msg in responses[:2]:  # Send 2 responses
+                        self.console_output.append({
+                            'timestamp': datetime.now().isoformat(),
+                            'message': response_msg,
+                            'status': 'server_response',
+                            'server_id': server_id,
+                            'source': 'demo_simulation',
+                            'type': 'system'
+                        })
+                        time.sleep(0.5)
+                
+                threading.Thread(target=simulate_response, daemon=True).start()
+                return jsonify({'success': True, 'demo_mode': True})
+            
+            # Real mode - send command using WORKING GraphQL
             try:
-                # FIXED: Better request handling
-                if not request.json:
-                    logger.error("❌ No JSON data in request")
-                    return jsonify({'success': False, 'error': 'No JSON data provided'})
-                
-                data = request.json
-                
-                # FIXED: Safer data extraction with proper defaults
-                command = data.get('command', '') if data.get('command') is not None else ''
-                server_id = data.get('serverId', '') if data.get('serverId') is not None else ''
-                region = data.get('region', 'US') if data.get('region') is not None else 'US'
-                
-                logger.debug(f"🔍 Console command request: command='{command}', server_id='{server_id}', region='{region}'")
-                
-                # Validate required fields
-                if not command or not server_id:
-                    logger.warning(f"❌ Missing required fields: command='{command}', server_id='{server_id}'")
-                    return jsonify({'success': False, 'error': 'Command and server ID required'})
-                
-                # Check if in demo mode
-                demo_mode = session.get('demo_mode', True)
-                
-                if demo_mode:
-                    logger.info(f"🎭 Demo mode: Simulating command '{command}' to server {server_id}")
-                    # Demo mode - simulate command
-                    self.console_output.append({
-                        'timestamp': datetime.now().isoformat(),
-                        'command': command,
-                        'server_id': server_id,
-                        'status': 'sent',
-                        'source': 'demo',
-                        'type': 'command',
-                        'message': f'Demo command: {command}'
-                    })
-                    
-                    # Simulate response in separate thread
-                    def simulate_response():
-                        time.sleep(1)
-                        responses = [
-                            f"[DEMO] Server {server_id}: Command '{command}' executed successfully",
-                            f"[DEMO] {server_id}: Players online: 23/100",
-                            f"[DEMO] {server_id}: Server FPS: 60",
-                            f"[DEMO] {server_id}: Uptime: 2d 14h 32m"
-                        ]
-                        
-                        for response_msg in responses[:2]:  # Send 2 responses
-                            self.console_output.append({
-                                'timestamp': datetime.now().isoformat(),
-                                'message': response_msg,
-                                'status': 'server_response',
-                                'server_id': server_id,
-                                'source': 'demo_simulation',
-                                'type': 'system'
-                            })
-                            time.sleep(0.5)
-                    
-                    threading.Thread(target=simulate_response, daemon=True).start()
-                    return jsonify({'success': True, 'demo_mode': True})
-                
-                # Real mode - send command using WORKING GraphQL
-                logger.info(f"🌐 Live mode: Sending real command '{command}' to server {server_id} in region {region}")
-                
-                try:
-                    result = self.send_console_command_graphql(command, server_id, region)
-                    return jsonify({'success': result, 'demo_mode': False})
-                except Exception as e:
-                    logger.error(f"❌ GraphQL command error: {e}")
-                    import traceback
-                    logger.error(f"❌ Full traceback: {traceback.format_exc()}")
-                    return jsonify({'success': False, 'error': str(e), 'demo_mode': False})
-                    
-            except Exception as outer_e:
-                logger.error(f"❌ Outer exception in console send route: {outer_e}")
-                import traceback
-                logger.error(f"❌ Full outer traceback: {traceback.format_exc()}")
-                return jsonify({'success': False, 'error': f'Request processing error: {str(outer_e)}'})
+                result = self.send_console_command_graphql(command, server_id, region)
+                return jsonify({'success': result, 'demo_mode': False})
+            except Exception as e:
+                logger.error(f"❌ Console command error: {e}")
+                return jsonify({'success': False, 'error': str(e), 'demo_mode': False})
         
         @self.app.route('/api/console/output')
         def get_console_output():
@@ -468,19 +439,11 @@ class GustBotEnhanced:
                     'error': 'Live console requires G-Portal authentication. Please login with real credentials.'
                 })
             
-            # FIXED: Improved token loading
-            try:
-                token = load_token()
-                if not token or token == '':
-                    return jsonify({
-                        'success': False,
-                        'error': 'No valid G-Portal token. Please re-login.'
-                    })
-            except Exception as e:
-                logger.error(f"❌ Token loading error: {e}")
+            token = load_token()
+            if not token:
                 return jsonify({
                     'success': False,
-                    'error': 'Token loading failed. Please re-login.'
+                    'error': 'No valid G-Portal token. Please re-login.'
                 })
             
             try:
@@ -761,50 +724,38 @@ class GustBotEnhanced:
         def token_status():
             """Get authentication token status"""
             try:
-                # FIXED: Improved token loading with error handling
-                try:
-                    token_data = load_token()
-                    demo_mode = session.get('demo_mode', True)
-                    
-                    if demo_mode:
-                        return jsonify({
-                            'has_token': False,
-                            'token_valid': False,
-                            'demo_mode': True,
-                            'websockets_available': WEBSOCKETS_AVAILABLE,
-                            'time_left': 0
-                        })
-                    
-                    if token_data:
-                        # Check if token is still valid (simplified check)
-                        expires_at = token_data.get('access_token_exp', 0)
-                        current_time = int(time.time())
-                        time_left = expires_at - current_time
-                        
-                        return jsonify({
-                            'has_token': True,
-                            'token_valid': time_left > 0,
-                            'demo_mode': False,
-                            'websockets_available': WEBSOCKETS_AVAILABLE,
-                            'time_left': max(0, time_left)
-                        })
-                    else:
-                        return jsonify({
-                            'has_token': False,
-                            'token_valid': False,
-                            'demo_mode': False,
-                            'websockets_available': WEBSOCKETS_AVAILABLE,
-                            'time_left': 0
-                        })
-                except Exception as token_error:
-                    logger.error(f"❌ Token loading error: {token_error}")
+                token_data = load_token()
+                demo_mode = session.get('demo_mode', True)
+                
+                if demo_mode:
                     return jsonify({
                         'has_token': False,
                         'token_valid': False,
                         'demo_mode': True,
                         'websockets_available': WEBSOCKETS_AVAILABLE,
-                        'time_left': 0,
-                        'error': 'Token loading failed'
+                        'time_left': 0
+                    })
+                
+                if token_data:
+                    # Check if token is still valid (simplified check)
+                    expires_at = token_data.get('access_token_exp', 0)
+                    current_time = int(time.time())
+                    time_left = expires_at - current_time
+                    
+                    return jsonify({
+                        'has_token': True,
+                        'token_valid': time_left > 0,
+                        'demo_mode': False,
+                        'websockets_available': WEBSOCKETS_AVAILABLE,
+                        'time_left': max(0, time_left)
+                    })
+                else:
+                    return jsonify({
+                        'has_token': False,
+                        'token_valid': False,
+                        'demo_mode': False,
+                        'websockets_available': WEBSOCKETS_AVAILABLE,
+                        'time_left': 0
                     })
                     
             except Exception as e:
@@ -877,92 +828,62 @@ class GustBotEnhanced:
     
     def send_console_command_graphql(self, command, sid, region):
         """
-        Send console command via GraphQL - COMPLETELY FIXED VERSION
-        ✅ CORRECT GraphQL structure with rsid wrapper for G-Portal API
-        ✅ Better error handling and logging
-        ✅ Improved None value handling
+        Send console command via GraphQL with WORKING implementation
+        ✅ CORRECT GraphQL structure for G-Portal API
         """
         import requests
         
+        self.rate_limiter.wait_if_needed("graphql")
+        
+        token = load_token()
+        if not token:
+            logger.warning("❌ No G-Portal token available")
+            return False
+        
+        # Validate inputs
+        is_valid, server_id = validate_server_id(sid)
+        if not is_valid:
+            logger.error(f"❌ Invalid server ID: {sid}")
+            return False
+        
+        if not validate_region(region):
+            logger.error(f"❌ Invalid region: {region}")
+            return False
+        
+        endpoint = Config.GPORTAL_API_ENDPOINT
+        
+        # Format command properly
+        formatted_command = format_command(command)
+        
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "User-Agent": "GUST-Bot/1.0"
+        }
+        
+        # ✅ CORRECT GraphQL payload structure for G-Portal API
+        payload = {
+            "operationName": "sendConsoleMessage",
+            "variables": {
+                "sid": server_id,
+                "region": region.upper(),
+                "message": formatted_command
+            },
+            "query": """mutation sendConsoleMessage($sid: Int!, $region: REGION!, $message: String!) {
+              sendConsoleMessage(rsid: {id: $sid, region: $region}, message: $message) {
+                ok
+                __typename
+              }
+            }"""
+        }
+        
         try:
-            logger.debug(f"🔍 GraphQL command input: command='{command}', sid='{sid}', region='{region}'")
-            
-            self.rate_limiter.wait_if_needed("graphql")
-            
-            # FIXED: Improved token loading with error handling
-            try:
-                token = load_token()
-                if not token or token == '':
-                    logger.warning("❌ No valid G-Portal token available")
-                    return False
-            except Exception as e:
-                logger.error(f"❌ Token loading error in GraphQL: {e}")
-                return False
-            
-            # FIXED: Validate inputs with better error handling
-            try:
-                is_valid, server_id = validate_server_id(sid)
-                if not is_valid or server_id is None:
-                    logger.error(f"❌ Invalid server ID: {sid}")
-                    return False
-            except Exception as e:
-                logger.error(f"❌ Server ID validation error: {e}")
-                return False
-            
-            try:
-                if not validate_region(region):
-                    logger.error(f"❌ Invalid region: {region}")
-                    return False
-            except Exception as e:
-                logger.error(f"❌ Region validation error: {e}")
-                return False
-            
-            # FIXED: Format command with error handling
-            try:
-                formatted_command = format_command(command)
-                if not formatted_command:
-                    logger.error(f"❌ Command formatting failed for: {command}")
-                    return False
-            except Exception as e:
-                logger.error(f"❌ Command formatting error: {e}")
-                return False
-            
-            endpoint = Config.GPORTAL_API_ENDPOINT
-            
-            headers = {
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-                "User-Agent": "GUST-Bot/1.0"
-            }
-            
-            # ✅ COMPLETELY FIXED: CORRECT GraphQL payload structure with rsid wrapper
-            payload = {
-                "operationName": "sendConsoleMessage",
-                "variables": {
-                    "sid": server_id,
-                    "region": region.upper(),
-                    "message": formatted_command
-                },
-                "query": """mutation sendConsoleMessage($sid: Int!, $region: REGION!, $message: String!) {
-                  sendConsoleMessage(rsid: {id: $sid, region: $region}, message: $message) {
-                    ok
-                    __typename
-                  }
-                }"""
-            }
-            
-            logger.debug(f"🔍 GraphQL payload: {payload}")
             logger.info(f"🔄 Sending command to server {server_id} ({region}): {formatted_command}")
-            
             response = requests.post(endpoint, json=payload, headers=headers, timeout=15)
-            
-            logger.debug(f"🔍 Response status: {response.status_code}")
             
             if response.status_code == 200:
                 try:
                     data = response.json()
-                    logger.debug(f"🔍 Response JSON: {data}")
-                    
                     if 'data' in data and 'sendConsoleMessage' in data['data']:
                         result = data['data']['sendConsoleMessage']
                         success = result.get('ok', False)
@@ -985,21 +906,17 @@ class GustBotEnhanced:
                         logger.error(f"❌ GraphQL errors: {data['errors']}")
                         return False
                     else:
-                        logger.error(f"❌ Unexpected response format: {data}")
+                        logger.error(f"❌ Unexpected response format")
                         return False
-                        
                 except json.JSONDecodeError as e:
                     logger.error(f"❌ Failed to parse JSON response: {e}")
-                    logger.error(f"❌ Raw response: {response.text}")
                     return False
             else:
-                logger.error(f"❌ HTTP error {response.status_code}: {response.text}")
+                logger.error(f"❌ HTTP error {response.status_code}")
                 return False
                 
         except Exception as e:
-            logger.error(f"❌ Exception in send_console_command_graphql: {e}")
-            import traceback
-            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+            logger.error(f"❌ Unexpected error: {e}")
             return False
     
     def start_background_tasks(self):

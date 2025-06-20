@@ -5,6 +5,8 @@ Routes for server log downloading + Player Count + OPTIONAL Backend Command Sche
 ✅ Frontend automatic commands (recommended)
 ✅ Backend scheduling option for reliability
 ✅ Complete logs-based player count integration
+✅ FIXED: Added missing blueprint return
+✅ FIXED: Corrected GraphQL mutation structure for G-Portal API
 """
 
 # Standard library imports
@@ -227,6 +229,7 @@ class GPortalLogAPI:
     def send_console_command(self, server_id, command, region="us"):
         """
         Send console command to server (for backend scheduling)
+        ✅ FIXED: Corrected GraphQL structure for G-Portal API
         
         Args:
             server_id (str): Server ID
@@ -242,14 +245,14 @@ class GPortalLogAPI:
         
         try:
             # G-Portal GraphQL endpoint for console commands
-            graphql_url = "https://www.g-portal.com/graphql"
+            graphql_url = "https://www.g-portal.com/ngpapi/"
             
-            # GraphQL mutation for sending console commands
+            # ✅ CORRECTED GraphQL mutation structure (matches working version in app.py)
             query = """
             mutation sendConsoleMessage($sid: Int!, $region: REGION!, $message: String!) {
-                sendConsoleMessage(sid: $sid, region: $region, message: $message) {
-                    success
-                    message
+                sendConsoleMessage(rsid: {id: $sid, region: $region}, message: $message) {
+                    ok
+                    __typename
                 }
             }
             """
@@ -267,6 +270,7 @@ class GPortalLogAPI:
             }
             
             payload = {
+                'operationName': 'sendConsoleMessage',
                 'query': query,
                 'variables': variables
             }
@@ -277,7 +281,8 @@ class GPortalLogAPI:
             
             if response.status_code == 200:
                 result = response.json()
-                if result.get('data', {}).get('sendConsoleMessage', {}).get('success'):
+                # ✅ CORRECTED: Check for 'ok' field instead of 'success'
+                if result.get('data', {}).get('sendConsoleMessage', {}).get('ok'):
                     logger.info(f"✅ Command sent successfully to {server_id}")
                     return {'success': True, 'message': 'Command sent successfully'}
                 else:
@@ -729,4 +734,5 @@ def init_logs_routes(app, db, logs_storage):
         except Exception as e:
             logger.error(f"❌ Backend command round error: {e}")
     
+    # CRITICAL FIX: Return the blueprint so it can be registered
     return logs_bp

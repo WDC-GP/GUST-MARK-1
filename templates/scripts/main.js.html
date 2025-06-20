@@ -426,7 +426,7 @@
         });
     }
 
-    // ENHANCED: Server dropdown updates with Server Health support
+    // FIXED: Server dropdown updates with Logs tab support
     function updateAllServerDropdowns() {
         // Complete list of all server dropdown IDs in the application
         const serverDropdowns = [
@@ -437,7 +437,8 @@
             'giveItemServerSelect',
             'liveTargetServer',
             'serverFilter',
-            'server-health-selector' // Server Health dropdown
+            'server-health-selector', // Server Health dropdown
+            'server-select' // FIXED: Added Logs tab dropdown
         ];
         
         serverDropdowns.forEach(dropdownId => {
