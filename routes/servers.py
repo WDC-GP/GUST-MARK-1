@@ -1,5 +1,5 @@
 """
-GUST Bot Enhanced - Server Management Routes
+GUST Bot Enhanced - Server Management Routes (FIXED)
 ===========================================
 Routes for server management operations
 """
@@ -17,7 +17,6 @@ from utils.helpers import create_server_data, validate_server_id, validate_regio
 # Local imports
 from routes.auth import require_auth
 
-
 # GUST database optimization imports
 from utils.gust_db_optimization import (
     get_user_with_cache,
@@ -25,8 +24,6 @@ from utils.gust_db_optimization import (
     update_user_balance,
     db_performance_monitor
 )
-
-
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +49,10 @@ def init_servers_routes(app, db, servers_storage):
             else:
                 servers = servers_storage
             
-            logger.info(f"ðŸ“‹ Retrieved {len(servers)} servers")
+            logger.info(f"📋 Retrieved {len(servers)} servers")
             return jsonify(servers)
         except Exception as e:
-            logger.error(f"âŒ Error retrieving servers: {e}")
+            logger.error(f"❌ Error retrieving servers: {e}")
             return jsonify({'error': 'Failed to retrieve servers'}), 500
     
     @servers_bp.route('/api/servers/add', methods=['POST'])
@@ -78,8 +75,17 @@ def init_servers_routes(app, db, servers_storage):
             if not validate_region(data.get('serverRegion', 'US')):
                 return jsonify({'success': False, 'error': 'Invalid server region'})
             
-            # Create server data
-            server_data = create_server_data(data)
+            # ✅ FIXED: Correct create_server_data() call with individual parameters
+            server_data = create_server_data(
+                server_id=data['serverId'],
+                name=data['serverName'],
+                region=data.get('serverRegion', 'US'),
+                server_type=data.get('serverType', 'Standard')
+            )
+            
+            # Add optional fields
+            if data.get('description'):
+                server_data['description'] = data['description']
             
             # Check if server already exists
             existing_server = None
@@ -94,15 +100,15 @@ def init_servers_routes(app, db, servers_storage):
             # Add server
             if db:
                 db.servers.insert_one(server_data)
-                logger.info(f"âœ… Server added to database: {data['serverName']} ({data['serverId']})")
+                logger.info(f"✅ Server added to database: {data['serverName']} ({data['serverId']})")
             else:
                 servers_storage.append(server_data)
-                logger.info(f"âœ… Server added to memory: {data['serverName']} ({data['serverId']})")
+                logger.info(f"✅ Server added to memory: {data['serverName']} ({data['serverId']})")
                 
             return jsonify({'success': True})
             
         except Exception as e:
-            logger.error(f"âŒ Error adding server: {e}")
+            logger.error(f"❌ Error adding server: {e}")
             return jsonify({'success': False, 'error': 'Failed to add server'}), 500
     
     @servers_bp.route('/api/servers/update/<server_id>', methods=['POST'])
@@ -144,14 +150,14 @@ def init_servers_routes(app, db, servers_storage):
                     success = False
             
             if success:
-                logger.info(f"âœ… Server updated: {server_id}")
+                logger.info(f"✅ Server updated: {server_id}")
             else:
-                logger.warning(f"âš ï¸ Server not found for update: {server_id}")
+                logger.warning(f"⚠️ Server not found for update: {server_id}")
             
             return jsonify({'success': success})
             
         except Exception as e:
-            logger.error(f"âŒ Error updating server {server_id}: {e}")
+            logger.error(f"❌ Error updating server {server_id}: {e}")
             return jsonify({'success': False, 'error': 'Failed to update server'}), 500
     
     @servers_bp.route('/api/servers/delete/<server_id>', methods=['DELETE'])
@@ -180,14 +186,14 @@ def init_servers_routes(app, db, servers_storage):
                 success = len(servers_storage) < original_count
             
             if success:
-                logger.info(f"ðŸ—‘ï¸ Server deleted: {server_name} ({server_id})")
+                logger.info(f"🗑️ Server deleted: {server_name} ({server_id})")
             else:
-                logger.warning(f"âš ï¸ Server not found for deletion: {server_id}")
+                logger.warning(f"⚠️ Server not found for deletion: {server_id}")
             
             return jsonify({'success': success})
             
         except Exception as e:
-            logger.error(f"âŒ Error deleting server {server_id}: {e}")
+            logger.error(f"❌ Error deleting server {server_id}: {e}")
             return jsonify({'success': False, 'error': 'Failed to delete server'}), 500
     
     @servers_bp.route('/api/servers/ping/<server_id>', methods=['POST'])
@@ -233,12 +239,12 @@ def init_servers_routes(app, db, servers_storage):
                 if server:
                     server.update(status_data)
             
-            logger.info(f"ðŸ“¡ Server ping: {server.get('serverName', server_id)} - {status_data['status']}")
+            logger.info(f"📡 Server ping: {server.get('serverName', server_id)} - {status_data['status']}")
             
             return jsonify({'success': True, 'status': status_data['status']})
             
         except Exception as e:
-            logger.error(f"âŒ Error pinging server {server_id}: {e}")
+            logger.error(f"❌ Error pinging server {server_id}: {e}")
             return jsonify({'success': False, 'error': 'Failed to ping server'})
     
     @servers_bp.route('/api/servers/bulk-action', methods=['POST'])
@@ -293,16 +299,16 @@ def init_servers_routes(app, db, servers_storage):
                     results[server_id] = success
                     
                 except Exception as e:
-                    logger.error(f"âŒ Bulk action error for server {server_id}: {e}")
+                    logger.error(f"❌ Bulk action error for server {server_id}: {e}")
                     results[server_id] = False
             
             successful_count = sum(1 for success in results.values() if success)
-            logger.info(f"ðŸ“Š Bulk action '{action}': {successful_count}/{len(server_ids)} successful")
+            logger.info(f"📊 Bulk action '{action}': {successful_count}/{len(server_ids)} successful")
             
             return jsonify({'success': True, 'results': results})
             
         except Exception as e:
-            logger.error(f"âŒ Error in bulk server action: {e}")
+            logger.error(f"❌ Error in bulk server action: {e}")
             return jsonify({'success': False, 'error': 'Bulk action failed'}), 500
     
     @servers_bp.route('/api/servers/<server_id>')
@@ -322,7 +328,7 @@ def init_servers_routes(app, db, servers_storage):
             return jsonify(server)
             
         except Exception as e:
-            logger.error(f"âŒ Error retrieving server {server_id}: {e}")
+            logger.error(f"❌ Error retrieving server {server_id}: {e}")
             return jsonify({'error': 'Failed to retrieve server'}), 500
     
     @servers_bp.route('/api/servers/stats')
@@ -349,8 +355,7 @@ def init_servers_routes(app, db, servers_storage):
             return jsonify(stats)
             
         except Exception as e:
-            logger.error(f"âŒ Error getting server stats: {e}")
+            logger.error(f"❌ Error getting server stats: {e}")
             return jsonify({'error': 'Failed to get server stats'}), 500
     
     return servers_bp
-
