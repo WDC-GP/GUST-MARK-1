@@ -1,16 +1,16 @@
 """
-GUST Bot Enhanced - Helper Functions (COMPREHENSIVE AUTHENTICATION FIX)
-========================================================================
-✅ FIXED: Consistent 180-second buffer time to prevent premature expiration
-✅ FIXED: Comprehensive token validation with robust length and format checks
-✅ FIXED: Enhanced refresh token with proper retry logic and error handling
-✅ FIXED: Thread-safe file operations with improved cross-platform locking
-✅ FIXED: Comprehensive token health monitoring and validation
+GUST Bot Enhanced - Helper Functions (COMPREHENSIVE AUTHENTICATION FIX - FINAL VERSION)
+========================================================================================
+✅ FIXED: Consistent token return format - always returns string, never dict
+✅ FIXED: Simplified load_token() to eliminate format confusion 
+✅ FIXED: Enhanced JWT validation with proper character support
+✅ FIXED: Robust refresh_token() with comprehensive error handling
+✅ FIXED: Thread-safe file operations with improved locking
+✅ FIXED: 180-second buffer time to prevent premature expiration
 ✅ ENHANCED: Better error messages and detailed logging throughout
 ✅ ENHANCED: Proper request headers and G-Portal API compatibility
 ✅ ENHANCED: Atomic file operations with cleanup and rollback
 ✅ PRESERVED: All existing utility functions and features
-✅ NEW: Advanced token diagnostics and health monitoring functions
 """
 
 import os
@@ -19,6 +19,7 @@ import time
 import logging
 import random
 import string
+import re
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Union, Tuple, Any
 import requests
@@ -44,20 +45,10 @@ except ImportError:
 # ================================================================
 
 def acquire_file_lock(file_handle, timeout=5):
-    """
-    Enhanced cross-platform file locking with timeout
-    
-    Args:
-        file_handle: Open file handle
-        timeout (int): Maximum seconds to wait for lock
-        
-    Returns:
-        bool: True if lock acquired, False otherwise
-    """
+    """Enhanced cross-platform file locking with timeout"""
     if not FILE_LOCKING_AVAILABLE:
         return False
     
-    import time
     start_time = time.time()
     
     while time.time() - start_time < timeout:
@@ -95,22 +86,22 @@ def release_file_lock(file_handle):
         logger.debug(f"⚠️ Error releasing file lock: {e}")
 
 # ================================================================
-# COMPREHENSIVE TOKEN MANAGEMENT FUNCTIONS
+# COMPREHENSIVE TOKEN MANAGEMENT FUNCTIONS (FINAL FIX)
 # ================================================================
 
 def load_token():
     """
-    ✅ COMPREHENSIVE FIX: Load and refresh G-Portal token with enhanced reliability
+    ✅ FINAL FIX: Load and return ONLY the access token as string
     
-    CRITICAL FIXES:
-    - Increased buffer time to 180 seconds to prevent premature expiration
-    - Enhanced token validation with length, format, and content checks
-    - Improved refresh logic with better error handling
-    - Thread-safe operations with proper file locking
-    - Comprehensive logging for debugging authentication issues
+    CRITICAL CHANGES:
+    - ALWAYS returns string (access token) or empty string
+    - NEVER returns dict to eliminate format confusion
+    - Enhanced JWT validation for OAuth/Bearer tokens
+    - 180-second buffer time to prevent premature expiration
+    - Comprehensive error handling and logging
     
     Returns:
-        str: Valid access token or empty string if unavailable
+        str: Valid access token string or empty string if unavailable
     """
     try:
         token_file = 'gp-session.json'
@@ -138,8 +129,7 @@ def load_token():
             logger.error(f"❌ Invalid token expiration format: {token_exp}")
             return ''
             
-        # ✅ CRITICAL FIX: Increased buffer time from 60s to 180s (3 minutes)
-        # This prevents the "random expiration" issues you were experiencing
+        # ✅ CRITICAL FIX: 180-second buffer time
         buffer_time = 180
         time_until_expiry = token_exp - current_time
         
@@ -149,16 +139,9 @@ def load_token():
             # Token is still valid with buffer
             access_token = data.get('access_token', '')
             
-            # ✅ FIXED: Proper token validation for OAuth/JWT tokens
-            def is_valid_token(token):
-                if not token or len(token.strip()) < 10:
-                    return False
-                # Allow alphanumeric plus common OAuth/JWT characters: . - _ + / =
-                allowed_chars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_+/=')
-                return all(c in allowed_chars for c in token.strip())
-            
-            if is_valid_token(access_token):
-                logger.debug("✅ Returning valid access token")
+            # ✅ ENHANCED: JWT-compatible token validation
+            if is_valid_jwt_token(access_token):
+                logger.debug(f"✅ Returning valid access token (length: {len(access_token.strip())})")
                 return access_token.strip()
             else:
                 logger.error(f"❌ Access token validation failed: length={len(access_token.strip()) if access_token else 0}")
@@ -168,7 +151,7 @@ def load_token():
             logger.info(f"🔄 Token expires in {time_until_expiry:.1f}s, attempting refresh...")
             
             if refresh_token():
-                # Refresh successful, reload and validate new token
+                # Refresh successful, reload and return new token
                 try:
                     with open(token_file, 'r', encoding='utf-8') as f:
                         refreshed_data = json.load(f)
@@ -176,12 +159,11 @@ def load_token():
                     new_token = refreshed_data.get('access_token', '')
                     
                     # Validate refreshed token
-                    if is_valid_token(new_token):
+                    if is_valid_jwt_token(new_token):
                         logger.info("✅ Token refresh successful, returning new token")
                         return new_token.strip()
                     else:
                         logger.error(f"❌ Refreshed token failed validation: length={len(new_token)}")
-                        logger.debug(f"❌ Refreshed token sample: {new_token[:20]}...")
                         
                 except Exception as e:
                     logger.error(f"❌ Error reading refreshed token: {e}")
@@ -199,17 +181,42 @@ def load_token():
         logger.error(f"❌ Unexpected error loading token: {e}")
         return ''
 
+def is_valid_jwt_token(token):
+    """
+    ✅ ENHANCED: JWT-compatible token validation
+    
+    Args:
+        token (str): Token to validate
+        
+    Returns:
+        bool: True if token format is valid for JWT/OAuth
+    """
+    if not token or not isinstance(token, str):
+        return False
+    
+    token = token.strip()
+    
+    # Minimum length check (JWT tokens are typically much longer)
+    if len(token) < 20:
+        return False
+    
+    # JWT tokens can contain: letters, numbers, dots, hyphens, underscores, plus, slash, equals
+    # This covers all standard JWT and OAuth token formats
+    allowed_chars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_+/=')
+    
+    # Check if all characters are allowed
+    if not all(c in allowed_chars for c in token):
+        return False
+    
+    # JWT tokens typically have dots (.) separating header, payload, signature
+    # OAuth bearer tokens may not have dots but should still be valid
+    # Both patterns are acceptable
+    
+    return True
+
 def refresh_token():
     """
     ✅ COMPREHENSIVE FIX: Enhanced token refresh with robust error handling
-    
-    CRITICAL FIXES:
-    - Improved file locking with timeout and retry logic
-    - Enhanced request headers for better G-Portal compatibility
-    - Comprehensive error handling for all HTTP status codes
-    - Atomic file operations with rollback on failure
-    - Single attempt with proper error classification
-    - Enhanced token validation before and after refresh
     
     Returns:
         bool: True if refresh successful, False otherwise
@@ -243,15 +250,8 @@ def refresh_token():
             
             refresh_token_value = tokens.get('refresh_token', '').strip()
             
-            # ✅ FIXED: Proper OAuth/JWT token validation
-            def is_valid_token(token):
-                if not token or len(token) < 10:
-                    return False
-                # Allow alphanumeric plus common OAuth/JWT characters: . - _ + / =
-                allowed_chars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_+/=')
-                return all(c in allowed_chars for c in token)
-            
-            if not is_valid_token(refresh_token_value):
+            # Enhanced JWT token validation for refresh token
+            if not is_valid_jwt_token(refresh_token_value):
                 logger.error(f"❌ Invalid refresh token: length={len(refresh_token_value)}")
                 return False
             
@@ -269,7 +269,7 @@ def refresh_token():
                 'client_id': 'website'
             }
             
-            # ✅ ENHANCED: Improved headers for better G-Portal compatibility
+            # Enhanced headers for better G-Portal compatibility
             headers = {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -285,13 +285,12 @@ def refresh_token():
             
             logger.info("🔄 Attempting enhanced token refresh...")
             
-            # ✅ ENHANCED: Single attempt with comprehensive error handling
             try:
                 response = requests.post(
                     gportal_auth_url,
                     data=data,
                     headers=headers,
-                    timeout=30,  # Increased timeout
+                    timeout=30,
                     allow_redirects=False
                 )
                 
@@ -313,17 +312,9 @@ def refresh_token():
                     
                     new_access_token = new_tokens['access_token'].strip()
                     
-                    # ✅ FIXED: Proper token validation for OAuth/JWT tokens  
-                    def is_valid_token(token):
-                        if not token or len(token) < 10:
-                            return False
-                        # Allow alphanumeric plus common OAuth/JWT characters: . - _ + / =
-                        allowed_chars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_+/=')
-                        return all(c in allowed_chars for c in token)
-                    
-                    if not is_valid_token(new_access_token):
+                    # Validate new token with JWT support
+                    if not is_valid_jwt_token(new_access_token):
                         logger.error(f"❌ New access token failed validation: length={len(new_access_token)}")
-                        logger.debug(f"❌ Token sample: {new_access_token[:20]}...")
                         return False
                     
                     # Calculate expiration times with better defaults
@@ -331,8 +322,8 @@ def refresh_token():
                     refresh_expires_in = new_tokens.get('refresh_expires_in', 86400)
                     
                     try:
-                        expires_in = max(300, int(float(expires_in)))  # Minimum 5 minutes
-                        refresh_expires_in = max(3600, int(float(refresh_expires_in)))  # Minimum 1 hour
+                        expires_in = max(300, int(float(expires_in)))
+                        refresh_expires_in = max(3600, int(float(refresh_expires_in)))
                     except (ValueError, TypeError):
                         logger.warning("⚠️ Invalid expiration times, using safe defaults")
                         expires_in = 300
@@ -351,7 +342,7 @@ def refresh_token():
                         'refresh_expires_in': refresh_expires_in
                     })
                     
-                    # ✅ ENHANCED: Atomic file write with rollback capability
+                    # Atomic file write with rollback capability
                     temp_file = token_file + '.tmp'
                     backup_file = token_file + '.backup'
                     
@@ -383,7 +374,6 @@ def refresh_token():
                             os.remove(backup_file)
                         
                         logger.info("✅ Enhanced token refresh successful")
-                        logger.debug(f"📅 New token expires: {datetime.fromtimestamp(tokens['access_token_exp'])}")
                         return True
                         
                     except Exception as write_error:
@@ -445,7 +435,7 @@ def refresh_token():
 
 def save_token(tokens, username='unknown'):
     """
-    ✅ ENHANCED: Save tokens with comprehensive validation and atomic operations
+    ✅ ENHANCED: Save tokens with comprehensive validation
     
     Args:
         tokens (dict): Token data from G-Portal API
@@ -473,22 +463,12 @@ def save_token(tokens, username='unknown'):
                 logger.error("❌ Missing required tokens")
                 return False
             
-            # ✅ FIXED: Proper token validation for OAuth/JWT tokens
             access_token = tokens['access_token'].strip()
             refresh_token = tokens['refresh_token'].strip()
             
-            # Validate token length and basic format (allow OAuth/JWT special characters)
-            def is_valid_token(token):
-                if len(token) < 10:  # Minimum reasonable length
-                    return False
-                # Allow alphanumeric plus common OAuth/JWT characters: . - _ + / =
-                allowed_chars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_+/=')
-                return all(c in allowed_chars for c in token)
-            
-            if not is_valid_token(access_token) or not is_valid_token(refresh_token):
+            # Validate tokens with JWT support
+            if not is_valid_jwt_token(access_token) or not is_valid_jwt_token(refresh_token):
                 logger.error(f"❌ Token validation failed: access_len={len(access_token)}, refresh_len={len(refresh_token)}")
-                logger.debug(f"❌ Access token sample: {access_token[:20]}...")
-                logger.debug(f"❌ Refresh token sample: {refresh_token[:20]}...")
                 return False
             
             # Calculate expiration times
@@ -505,7 +485,7 @@ def save_token(tokens, username='unknown'):
                 'expires_in': expires_in,
                 'refresh_expires_in': refresh_expires_in,
                 'saved_at': datetime.now().isoformat(),
-                'token_version': '2.0'
+                'token_version': '2.1'
             }
         
         # Atomic file write with backup
@@ -540,7 +520,6 @@ def save_token(tokens, username='unknown'):
                 os.remove(backup_file)
             
             logger.info(f"✅ Token saved successfully for {username}")
-            logger.debug(f"📅 Token expires: {datetime.fromtimestamp(session_data['access_token_exp'])}")
             return True
             
         except Exception as e:
@@ -559,16 +538,11 @@ def save_token(tokens, username='unknown'):
         return False
 
 # ================================================================
-# COMPREHENSIVE TOKEN HEALTH MONITORING
+# TOKEN HEALTH MONITORING
 # ================================================================
 
 def monitor_token_health():
-    """
-    ✅ ENHANCED: Comprehensive token health monitoring with detailed diagnostics
-    
-    Returns:
-        dict: Complete token health assessment with actionable recommendations
-    """
+    """Comprehensive token health monitoring"""
     try:
         token_file = 'gp-session.json'
         current_time = time.time()
@@ -589,7 +563,7 @@ def monitor_token_health():
                 'action': 'login_required',
                 'message': 'No token file found - login required',
                 'details': {'file_exists': False},
-                'recommendations': ['Login with G-Portal credentials', 'Ensure write permissions in directory']
+                'recommendations': ['Login with G-Portal credentials']
             })
             return health_status
         
@@ -602,7 +576,7 @@ def monitor_token_health():
                 'action': 'login_required',
                 'message': f'Token file corrupted: {e}',
                 'details': {'file_exists': True, 'valid_json': False},
-                'recommendations': ['Delete corrupted token file', 'Login again', 'Check file permissions']
+                'recommendations': ['Delete corrupted token file', 'Login again']
             })
             return health_status
         
@@ -626,16 +600,9 @@ def monitor_token_health():
         access_time_left = max(0, access_exp - current_time) if access_exp else 0
         refresh_time_left = max(0, refresh_exp - current_time) if refresh_exp else 0
         
-        # Enhanced validation with proper OAuth/JWT token support
-        def is_valid_token(token):
-            if not token or len(token.strip()) < 10:
-                return False
-            # Allow alphanumeric plus common OAuth/JWT characters: . - _ + / =
-            allowed_chars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_+/=')
-            return all(c in allowed_chars for c in token.strip())
-        
-        access_valid = (access_token and is_valid_token(access_token))
-        refresh_valid = (refresh_token and is_valid_token(refresh_token))
+        # Enhanced validation with JWT token support
+        access_valid = is_valid_jwt_token(access_token)
+        refresh_valid = is_valid_jwt_token(refresh_token)
         
         details = {
             'file_exists': True,
@@ -648,13 +615,10 @@ def monitor_token_health():
             'access_time_left_seconds': access_time_left,
             'refresh_time_left_seconds': refresh_time_left,
             'access_expires_at': datetime.fromtimestamp(access_exp).isoformat() if access_exp else None,
-            'refresh_expires_at': datetime.fromtimestamp(refresh_exp).isoformat() if refresh_exp else None,
-            'token_version': data.get('token_version', '1.0'),
-            'last_refresh': data.get('last_refresh', 'never'),
-            'refresh_count': data.get('refresh_count', 0)
+            'refresh_expires_at': datetime.fromtimestamp(refresh_exp).isoformat() if refresh_exp else None
         }
         
-        # Determine health status with enhanced logic
+        # Determine health status
         recommendations = []
         
         if not access_valid:
@@ -682,10 +646,10 @@ def monitor_token_health():
                 'message': 'Refresh token has expired - re-login required',
                 'details': details
             })
-            recommendations.extend(['Login with G-Portal credentials', 'All tokens have expired'])
+            recommendations.extend(['Login with G-Portal credentials'])
             
         elif access_time_left <= 0:
-            if refresh_time_left > 600:  # 10 minutes buffer
+            if refresh_time_left > 600:
                 health_status.update({
                     'healthy': False,
                     'status': 'expired_refreshable',
@@ -693,7 +657,7 @@ def monitor_token_health():
                     'message': 'Access token expired but refresh possible',
                     'details': details
                 })
-                recommendations.extend(['Refresh access token immediately', 'Monitor refresh token expiration'])
+                recommendations.extend(['Refresh access token immediately'])
             else:
                 health_status.update({
                     'status': 'refresh_expiring_soon',
@@ -701,9 +665,9 @@ def monitor_token_health():
                     'message': 'Both tokens expiring soon - re-login recommended',
                     'details': details
                 })
-                recommendations.extend(['Login again before tokens expire', 'Set up automatic refresh'])
+                recommendations.extend(['Login again before tokens expire'])
                 
-        elif access_time_left < 600:  # 10 minutes
+        elif access_time_left < 600:
             health_status.update({
                 'healthy': False,
                 'status': 'expiring_soon',
@@ -711,7 +675,7 @@ def monitor_token_health():
                 'message': f'Access token expires in {int(access_time_left/60)} minutes',
                 'details': details
             })
-            recommendations.extend(['Refresh token soon', 'Monitor token expiration'])
+            recommendations.extend(['Refresh token soon'])
             
         else:
             health_status.update({
@@ -721,9 +685,6 @@ def monitor_token_health():
                 'message': f'Tokens healthy - {int(access_time_left/60)} minutes remaining',
                 'details': details
             })
-            
-            if access_time_left < 3600:  # Less than 1 hour
-                recommendations.append('Consider refreshing token proactively')
         
         health_status['recommendations'] = recommendations
         return health_status
@@ -736,17 +697,12 @@ def monitor_token_health():
             'action': 'check_system',
             'message': f'Error checking token health: {e}',
             'details': {},
-            'recommendations': ['Check logs for errors', 'Verify file permissions'],
+            'recommendations': ['Check logs for errors'],
             'timestamp': datetime.now().isoformat()
         }
 
 def validate_token_file():
-    """
-    ✅ ENHANCED: Comprehensive token file validation with detailed diagnostics
-    
-    Returns:
-        dict: Detailed validation results with status and time information
-    """
+    """Comprehensive token file validation"""
     token_file = 'gp-session.json'
     
     result = {
@@ -762,9 +718,7 @@ def validate_token_file():
         'refresh_time_left': 0,
         'issues': [],
         'expires_at': None,
-        'refresh_expires_at': None,
-        'file_size': 0,
-        'last_modified': None
+        'refresh_expires_at': None
     }
     
     try:
@@ -773,14 +727,6 @@ def validate_token_file():
             return result
             
         result['exists'] = True
-        
-        # Get file info
-        try:
-            stat = os.stat(token_file)
-            result['file_size'] = stat.st_size
-            result['last_modified'] = datetime.fromtimestamp(stat.st_mtime).isoformat()
-        except:
-            pass
         
         with open(token_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -796,15 +742,7 @@ def validate_token_file():
         if access_token:
             result['has_access_token'] = True
             
-            # ✅ FIXED: Proper OAuth/JWT token format validation
-            def is_valid_token_format(token):
-                if not token or len(token.strip()) < 10:
-                    return False
-                # Allow alphanumeric plus common OAuth/JWT characters: . - _ + / =
-                allowed_chars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_+/=')
-                return all(c in allowed_chars for c in token.strip())
-            
-            if is_valid_token_format(access_token):
+            if is_valid_jwt_token(access_token):
                 result['access_token_format_valid'] = True
             else:
                 result['issues'].append('Access token format invalid')
@@ -817,7 +755,7 @@ def validate_token_file():
                     time_left = token_exp - current_time
                     result['time_left'] = max(0, time_left)
                     result['expires_at'] = datetime.fromtimestamp(token_exp).isoformat()
-                    result['access_token_valid'] = time_left > 60  # 1 minute buffer
+                    result['access_token_valid'] = time_left > 60
                 except (ValueError, TypeError):
                     result['issues'].append('Invalid access token expiration format')
             else:
@@ -830,8 +768,7 @@ def validate_token_file():
         if refresh_token:
             result['has_refresh_token'] = True
             
-            # ✅ FIXED: Proper OAuth/JWT token format validation
-            if is_valid_token_format(refresh_token):
+            if is_valid_jwt_token(refresh_token):
                 result['refresh_token_format_valid'] = True
             else:
                 result['issues'].append('Refresh token format invalid')
@@ -844,7 +781,7 @@ def validate_token_file():
                     refresh_time_left = refresh_exp - current_time
                     result['refresh_time_left'] = max(0, refresh_time_left)
                     result['refresh_expires_at'] = datetime.fromtimestamp(refresh_exp).isoformat()
-                    result['refresh_token_valid'] = refresh_time_left > 300  # 5 minute buffer
+                    result['refresh_token_valid'] = refresh_time_left > 300
                 except (ValueError, TypeError):
                     result['issues'].append('Invalid refresh token expiration format')
             else:
@@ -852,7 +789,7 @@ def validate_token_file():
         else:
             result['issues'].append('No refresh token in file')
             
-        # Overall validity with enhanced checks
+        # Overall validity
         result['valid'] = (
             result['has_access_token'] and 
             result['has_refresh_token'] and
@@ -875,16 +812,7 @@ def validate_token_file():
 # ================================================================
 
 def parse_console_response(response_data):
-    """
-    Parse G-Portal GraphQL response for console commands
-    ✅ ENHANCED: Better error handling and response validation
-    
-    Args:
-        response_data (dict): Response from G-Portal API
-        
-    Returns:
-        tuple: (success, message)
-    """
+    """Parse G-Portal GraphQL response for console commands"""
     logger.debug(f"parse_console_response called with: {response_data}")
     
     if not response_data or not isinstance(response_data, dict):
@@ -918,7 +846,6 @@ def classify_message(message):
     
     msg_lower = message.lower()
     
-    # Enhanced classification patterns
     if any(word in msg_lower for word in ['joined', 'connected', 'spawned']):
         return 'join'
     elif any(word in msg_lower for word in ['left', 'disconnected', 'timeout']):
@@ -967,16 +894,28 @@ def format_console_message(message, timestamp=None):
     else:
         return f"{icon} {message}"
 
+def format_command(command):
+    """Enhanced command formatting for G-Portal console"""
+    if not command:
+        return ''
+    
+    command = command.strip()
+    
+    # Handle 'say' commands with proper quoting
+    if command.startswith('say ') and not command.startswith('global.say'):
+        message = command[4:].strip()
+        return f'global.say "{message}"'
+    
+    return command
+
 def validate_server_id(server_id):
     """Enhanced server ID validation"""
     if not server_id:
         return False, None
     
     try:
-        # Handle string server IDs and extract numeric part
         clean_id = str(server_id).split('_')[0].strip()
         
-        # Allow alphanumeric server IDs
         if clean_id.isdigit():
             server_int = int(clean_id)
             if server_int > 0:
@@ -997,50 +936,8 @@ def validate_region(region):
     valid_regions = ['US', 'EU', 'AS', 'AU', 'us', 'eu', 'as', 'au']
     return str(region).strip() in valid_regions
 
-def format_command(command):
-    """
-    Enhanced command formatting for G-Portal console
-    
-    Args:
-        command (str): Raw command input
-        
-    Returns:
-        str: Properly formatted command
-    """
-    if not command:
-        return ''
-    
-    command = command.strip()
-    
-    # Handle 'say' commands with proper quoting
-    if command.startswith('say ') and not command.startswith('global.say'):
-        message = command[4:].strip()
-        return f'global.say "{message}"'
-    
-    # Handle other special commands
-    if command == 'serverinfo':
-        return 'serverinfo'
-    elif command.startswith('kick '):
-        return command
-    elif command.startswith('ban '):
-        return command
-    
-    # Return command as-is for most cases
-    return command
-
 def create_server_data(server_id, name, region='US', server_type='Standard'):
-    """
-    Enhanced server data structure creation
-    
-    Args:
-        server_id: Server ID (string or int)
-        name (str): Server name
-        region (str): Server region
-        server_type (str): Server type
-        
-    Returns:
-        dict: Standardized server data structure
-    """
+    """Enhanced server data structure creation"""
     return {
         'serverId': str(server_id),
         'serverName': str(name),
@@ -1095,10 +992,8 @@ def safe_int(value, default=0):
         if isinstance(value, (int, float)):
             return int(value)
         elif isinstance(value, str):
-            # Handle empty strings
             if not value.strip():
                 return default
-            # Remove common non-numeric characters
             cleaned = value.strip().replace(',', '').replace(' ', '')
             return int(float(cleaned))
         else:
@@ -1197,3 +1092,114 @@ def sanitize_filename(filename):
     # Limit length and ensure not empty
     filename = filename.strip()[:100]
     return filename if filename else 'unknown'
+
+def generate_random_string(length=10):
+    """Generate random string for IDs"""
+    chars = string.ascii_letters + string.digits
+    return ''.join(random.choice(chars) for _ in range(length))
+
+def truncate_string(text, max_length=100, suffix='...'):
+    """Truncate string with suffix"""
+    if not text or len(text) <= max_length:
+        return text
+    return text[:max_length - len(suffix)] + suffix
+
+def deep_get(data, keys, default=None):
+    """Safely get nested dictionary values"""
+    try:
+        for key in keys:
+            data = data[key]
+        return data
+    except (KeyError, TypeError, IndexError):
+        return default
+
+def flatten_dict(data, separator='_', prefix=''):
+    """Flatten nested dictionary"""
+    items = []
+    for key, value in data.items():
+        new_key = f"{prefix}{separator}{key}" if prefix else key
+        if isinstance(value, dict):
+            items.extend(flatten_dict(value, separator, new_key).items())
+        else:
+            items.append((new_key, value))
+    return dict(items)
+
+def chunk_list(lst, chunk_size):
+    """Split list into chunks"""
+    for i in range(0, len(lst), chunk_size):
+        yield lst[i:i + chunk_size]
+
+def remove_duplicates(lst, key=None):
+    """Remove duplicates from list, optionally by key"""
+    if key is None:
+        return list(dict.fromkeys(lst))
+    
+    seen = set()
+    result = []
+    for item in lst:
+        k = key(item) if callable(key) else item.get(key)
+        if k not in seen:
+            seen.add(k)
+            result.append(item)
+    return result
+
+def merge_dicts(*dicts):
+    """Merge multiple dictionaries"""
+    result = {}
+    for d in dicts:
+        if isinstance(d, dict):
+            result.update(d)
+    return result
+
+def validate_email(email):
+    """Basic email validation"""
+    if not email or not isinstance(email, str):
+        return False
+    
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email.strip()))
+
+def validate_url(url):
+    """Basic URL validation"""
+    if not url or not isinstance(url, str):
+        return False
+    
+    url = url.strip()
+    return url.startswith(('http://', 'https://')) and len(url) > 10
+
+def calculate_percentage(part, whole, decimal_places=1):
+    """Calculate percentage safely"""
+    try:
+        if whole == 0:
+            return 0.0
+        return round((part / whole) * 100, decimal_places)
+    except (TypeError, ZeroDivisionError):
+        return 0.0
+
+def format_bytes(bytes_val):
+    """Format bytes to human readable format"""
+    try:
+        bytes_val = float(bytes_val)
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if bytes_val < 1024.0:
+                return f"{bytes_val:.1f} {unit}"
+            bytes_val /= 1024.0
+        return f"{bytes_val:.1f} PB"
+    except (TypeError, ValueError):
+        return "0 B"
+
+def format_duration(seconds):
+    """Format seconds to human readable duration"""
+    try:
+        seconds = int(seconds)
+        if seconds < 60:
+            return f"{seconds}s"
+        elif seconds < 3600:
+            return f"{seconds // 60}m {seconds % 60}s"
+        else:
+            hours = seconds // 3600
+            minutes = (seconds % 3600) // 60
+            secs = seconds % 60
+            return f"{hours}h {minutes}m {secs}s"
+    except (TypeError, ValueError):
+        return "0s"

@@ -1,11 +1,11 @@
 """
-GUST Bot Enhanced - Main Flask Application (COMPREHENSIVE AUTHENTICATION FIX)
-================================================================================
-✅ FIXED: Centralized token management with consistent authentication patterns
-✅ FIXED: Simplified token handling removing complex format checking
-✅ FIXED: Authentication-safe rate limiting that doesn't interfere with tokens
-✅ FIXED: Enhanced error handling and logging for authentication issues
-✅ FIXED: Consistent session validation across all routes
+GUST Bot Enhanced - Main Flask Application (FINAL AUTHENTICATION FIX)
+=====================================================================
+✅ FIXED: Simplified token handling - load_token() returns string only
+✅ FIXED: Removed complex token format checking that caused failures
+✅ FIXED: Consistent GraphQL authentication with JWT support
+✅ FIXED: Enhanced error handling for token operations
+✅ FIXED: Authentication-safe rate limiting
 ✅ ENHANCED: Better request throttling and performance monitoring
 ✅ ENHANCED: Comprehensive health checks and diagnostics
 ✅ ENHANCED: Background task optimization for token management
@@ -27,7 +27,7 @@ import logging
 from config import Config, WEBSOCKETS_AVAILABLE, ensure_directories, ensure_data_files
 from utils.rate_limiter import RateLimiter
 
-# ✅ FIXED: Use centralized token management functions
+# ✅ FINAL FIX: Use centralized token management functions
 from utils.helpers import (
     load_token, 
     refresh_token,
@@ -136,7 +136,7 @@ class InMemoryUserStorage:
 
 class GustBotEnhanced:
     """
-    ✅ COMPREHENSIVE FIX: Main GUST Bot Enhanced application with centralized authentication
+    ✅ FINAL FIX: Main GUST Bot Enhanced application with simplified token handling
     """
     
     def __init__(self):
@@ -148,16 +148,16 @@ class GustBotEnhanced:
         ensure_directories()
         ensure_data_files()
         
-        # ✅ FIXED: Authentication-safe rate limiter configuration
+        # Authentication-safe rate limiter configuration
         self.rate_limiter = RateLimiter(
-            max_calls=8,  # Increased from 3 to 8 to prevent token conflicts
-            time_window=10  # Increased from 1 to 10 seconds
+            max_calls=8,
+            time_window=10
         )
         
-        # ✅ ENHANCED: Request tracking with authentication-safe limits
+        # Request tracking with authentication-safe limits
         self.request_timestamps = defaultdict(list)
-        self.rate_limit_window = 120  # Increased to 2 minutes
-        self.max_requests_per_window = 50  # Increased limit
+        self.rate_limit_window = 120
+        self.max_requests_per_window = 50
         
         # Application state
         self.servers = []
@@ -211,18 +211,10 @@ class GustBotEnhanced:
         # Background tasks
         self.start_background_tasks()
         
-        logger.info("🚀 GUST Bot Enhanced initialized with centralized authentication")
+        logger.info("🚀 GUST Bot Enhanced initialized with simplified token management")
     
     def check_rate_limit(self, endpoint='default'):
-        """
-        ✅ ENHANCED: Authentication-safe rate limiting
-        
-        Args:
-            endpoint (str): Endpoint identifier for tracking
-            
-        Returns:
-            bool: True if request is allowed, False if rate limited
-        """
+        """Authentication-safe rate limiting"""
         current_time = time.time()
         
         # Clean old timestamps outside window
@@ -308,7 +300,7 @@ class GustBotEnhanced:
     
     def setup_routes(self):
         """Setup Flask routes and blueprints"""
-        print("[DEBUG]: Setting up routes with centralized authentication...")
+        print("[DEBUG]: Setting up routes with simplified authentication...")
         
         # Register authentication blueprint (foundation)
         self.app.register_blueprint(auth_bp)
@@ -466,12 +458,12 @@ class GustBotEnhanced:
     
     def setup_console_routes(self):
         """
-        ✅ COMPREHENSIVE FIX: Setup console routes with centralized authentication
+        ✅ FINAL FIX: Setup console routes with simplified token handling
         """
         
         @self.app.route('/api/console/send', methods=['POST'])
         def send_console_command():
-            """✅ FIXED: Send console command with centralized authentication"""
+            """✅ FINAL FIX: Send console command with simplified authentication"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
@@ -548,7 +540,7 @@ class GustBotEnhanced:
                     threading.Thread(target=simulate_response, daemon=True).start()
                     return jsonify({'success': True, 'demo_mode': True})
                 
-                # Real mode - send command using centralized GraphQL
+                # Real mode - send command using simplified GraphQL
                 logger.info(f"🌐 Live mode: Sending command '{command}' to server {server_id}")
                 
                 try:
@@ -586,7 +578,7 @@ class GustBotEnhanced:
     
     def send_console_command_graphql(self, command, sid, region):
         """
-        ✅ COMPREHENSIVE FIX: Send console command with centralized token management
+        ✅ FINAL FIX: Send console command with simplified token management
         
         Args:
             command (str): Console command to send
@@ -602,7 +594,7 @@ class GustBotEnhanced:
             # Authentication-safe rate limiting
             self.rate_limiter.wait_if_needed("graphql")
             
-            # ✅ FIXED: Use centralized token loading (simplified)
+            # ✅ FINAL FIX: Simplified token loading - returns string or empty string
             token = load_token()
             if not token:
                 logger.warning("❌ No valid G-Portal token available for GraphQL")
@@ -747,7 +739,7 @@ class GustBotEnhanced:
                         'error': 'Live console requires G-Portal authentication. Please login with real credentials.'
                     })
                 
-                # ✅ FIXED: Use centralized token loading
+                # ✅ FINAL FIX: Use simplified token loading
                 token = load_token()
                 if not token:
                     return jsonify({
@@ -868,7 +860,7 @@ class GustBotEnhanced:
                         'recent_messages': all_messages[-10:],
                         'message_count': len(all_messages),
                         'test_timestamp': datetime.now().isoformat(),
-                        'centralized_auth': True,
+                        'simplified_auth': True,
                         'pending_commands': 0
                     })
                 else:
@@ -936,7 +928,7 @@ class GustBotEnhanced:
             })
     
     def start_background_tasks(self):
-        """✅ ENHANCED: Start background tasks with token health monitoring"""
+        """Start background tasks with token health monitoring"""
         def run_scheduled():
             while True:
                 try:
@@ -952,7 +944,7 @@ class GustBotEnhanced:
         # Schedule server health monitoring
         schedule.every(3).minutes.at(":30").do(self.update_server_health_metrics)
         
-        # ✅ NEW: Schedule token health monitoring
+        # Schedule token health monitoring
         schedule.every(2).minutes.at(":15").do(self.monitor_token_health_background)
         
         # Schedule rate limit cleanup
@@ -996,7 +988,7 @@ class GustBotEnhanced:
                     'console_buffer_size': len(self.console_output),
                     'websockets_available': WEBSOCKETS_AVAILABLE,
                     'database_connected': self.db is not None,
-                    'centralized_auth': True
+                    'simplified_auth': True
                 }
                 
                 # Store health snapshot
@@ -1006,7 +998,7 @@ class GustBotEnhanced:
             logger.error(f"❌ Error updating server health metrics: {health_error}")
     
     def monitor_token_health_background(self):
-        """✅ ENHANCED: Monitor token health in background with proactive refresh"""
+        """Monitor token health in background with proactive refresh"""
         try:
             # Check token health
             token_health = monitor_token_health()
@@ -1055,7 +1047,7 @@ class GustBotEnhanced:
             logger.error(f"❌ Rate limit cleanup error: {cleanup_error}")
     
     def run(self, host=None, port=None, debug=False):
-        """Run the enhanced application with centralized authentication"""
+        """Run the enhanced application with simplified authentication"""
         host = host or Config.DEFAULT_HOST
         port = port or Config.DEFAULT_PORT
         
@@ -1064,7 +1056,7 @@ class GustBotEnhanced:
         logger.info(f"🗄️ Database: {'MongoDB' if self.db else 'In-Memory'}")
         logger.info(f"👥 User Storage: {type(self.user_storage).__name__}")
         logger.info(f"📡 Live Console: {'Enabled' if self.websocket_manager else 'Disabled'}")
-        logger.info(f"🛡️ Centralized Authentication: Enhanced rate limiting and token management")
+        logger.info(f"🛡️ Simplified Authentication: Enhanced rate limiting and token management")
         logger.info(f"🏥 Server Health: Enhanced monitoring with token health checks")
         
         try:

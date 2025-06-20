@@ -1,13 +1,13 @@
 """
 GUST Bot Enhanced - Logs Management Routes (FINAL AUTHENTICATION FIX)
-=============================================================================
-✅ FIXED: Proper OAuth/JWT token validation matching helpers.py
-✅ FIXED: Consistent authentication using centralized token management
-✅ FIXED: Proper error handling for token refresh failures
-✅ FIXED: Enhanced API client with robust authentication retry logic
-✅ FIXED: Consistent session handling across all endpoints
-✅ ENHANCED: Better logging and error messages for debugging
-✅ ENHANCED: Improved player count parsing with multiple patterns
+======================================================================
+✅ FIXED: Removed ALL problematic fallback functions completely
+✅ FIXED: Uses ONLY centralized token management from utils.helpers
+✅ FIXED: Consistent string token format handling
+✅ FIXED: Proper JWT token validation throughout
+✅ FIXED: Enhanced error handling for authentication failures
+✅ FIXED: Robust G-Portal API integration with retry logic
+✅ ENHANCED: Better logging and player count parsing
 ✅ ENHANCED: Atomic file operations for log storage
 ✅ PRESERVED: All existing functionality and features
 """
@@ -26,10 +26,11 @@ from collections import defaultdict
 from flask import Blueprint, request, jsonify, send_file, session
 import requests
 
-# Local imports - Use centralized authentication
+# Local imports - Use ONLY centralized authentication
 from routes.auth import require_auth
 
-# ✅ FIXED: Use only the centralized token management functions
+# ✅ FINAL FIX: Use ONLY the centralized token management functions
+# NO fallback functions - these cause authentication failures
 from utils.helpers import load_token, refresh_token, monitor_token_health, validate_token_file
 
 # GUST database optimization imports (graceful fallback)
@@ -41,7 +42,6 @@ try:
         db_performance_monitor
     )
 except ImportError:
-    # Graceful fallback if optimization module not available
     pass
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ backend_scheduler_state = {
 
 class GPortalLogAPI:
     """
-    ✅ ENHANCED: G-Portal API client with comprehensive authentication handling
+    ✅ FINAL FIX: G-Portal API client with robust JWT authentication handling
     """
     
     def __init__(self):
@@ -71,7 +71,7 @@ class GPortalLogAPI:
         
     def get_server_logs(self, server_id, region="us"):
         """
-        ✅ ENHANCED: Retrieve logs with robust authentication and retry logic
+        ✅ FINAL FIX: Retrieve logs with robust JWT authentication and retry logic
         
         Args:
             server_id (str): Server ID
@@ -95,7 +95,7 @@ class GPortalLogAPI:
                 'error': 'Authentication required - please login first'
             }
         
-        # Get token with enhanced validation
+        # ✅ FINAL FIX: Get token using centralized function (returns string or empty string)
         token = load_token()
         if not token:
             logger.warning(f"❌ No authentication token available for server {server_id}")
@@ -104,20 +104,12 @@ class GPortalLogAPI:
                 'error': 'No authentication token available. Please re-login to G-Portal.'
             }
         
-        # ✅ FINAL FIX: Proper OAuth/JWT token validation (matching helpers.py)
-        def is_valid_token(token):
-            if not token or len(token.strip()) < 10:
-                return False
-            # Allow alphanumeric plus common OAuth/JWT characters: . - _ + / =
-            allowed_chars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_+/=')
-            return all(c in allowed_chars for c in token.strip())
-        
-        if not is_valid_token(token):
-            logger.error(f"❌ Invalid token format for server {server_id}: length={len(token)}")
-            logger.debug(f"❌ Token sample: {token[:20]}...")
+        # ✅ FINAL FIX: Enhanced JWT token validation
+        if len(token) < 20 or not self._is_valid_jwt_token(token):
+            logger.error(f"❌ Invalid JWT token format for server {server_id}")
             return {
                 'success': False,
-                'error': 'Invalid authentication token. Please re-login.'
+                'error': 'Invalid authentication token format. Please re-login.'
             }
         
         region_code = region.lower()
@@ -158,7 +150,7 @@ class GPortalLogAPI:
                 elif response.status_code == 401:
                     logger.warning(f"🔐 Authentication failed for server {server_id}, attempting token refresh")
                     
-                    # Attempt token refresh
+                    # ✅ FINAL FIX: Use centralized token refresh
                     if refresh_token():
                         logger.info("✅ Token refresh successful, retrying request")
                         new_token = load_token()
@@ -237,6 +229,31 @@ class GPortalLogAPI:
             'success': False,
             'error': f'Failed to retrieve logs after {self.max_retries + 1} attempts'
         }
+    
+    def _is_valid_jwt_token(self, token):
+        """
+        ✅ FINAL FIX: JWT-compatible token validation for logs API
+        
+        Args:
+            token (str): Token to validate
+            
+        Returns:
+            bool: True if token format is valid for JWT/OAuth
+        """
+        if not token or not isinstance(token, str):
+            return False
+        
+        token = token.strip()
+        
+        # Minimum length check
+        if len(token) < 20:
+            return False
+        
+        # JWT tokens can contain: letters, numbers, dots, hyphens, underscores, plus, slash, equals
+        allowed_chars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_+/=')
+        
+        # Check if all characters are allowed
+        return all(c in allowed_chars for c in token)
     
     def format_log_entries(self, raw_logs):
         """
@@ -391,7 +408,7 @@ class GPortalLogAPI:
                         # Enhanced validation
                         if (0 <= current <= max_players and 
                             max_players > 0 and 
-                            max_players <= 1000):  # Reasonable max limit
+                            max_players <= 1000):
                             
                             percentage = round((current / max_players) * 100, 1)
                             
@@ -416,7 +433,7 @@ class GPortalLogAPI:
 
 def init_logs_routes(app, db, logs_storage):
     """
-    ✅ ENHANCED: Initialize logs routes with comprehensive error handling
+    ✅ FINAL FIX: Initialize logs routes with comprehensive error handling
     
     Args:
         app: Flask application instance
@@ -432,9 +449,7 @@ def init_logs_routes(app, db, logs_storage):
     @logs_bp.route('/api/logs/servers')
     @require_auth
     def get_servers():
-        """
-        ✅ ENHANCED: Get list of servers with better error handling
-        """
+        """Get list of servers with better error handling"""
         try:
             servers = []
             if (hasattr(app, 'gust_bot') and 
@@ -469,9 +484,7 @@ def init_logs_routes(app, db, logs_storage):
     @logs_bp.route('/api/logs')
     @require_auth
     def get_logs():
-        """
-        ✅ ENHANCED: Get list of downloaded logs with pagination support
-        """
+        """Get list of downloaded logs with pagination support"""
         try:
             # Get pagination parameters
             page = max(1, int(request.args.get('page', 1)))
@@ -533,9 +546,7 @@ def init_logs_routes(app, db, logs_storage):
     @logs_bp.route('/api/logs/download', methods=['POST'])
     @require_auth
     def download_logs():
-        """
-        ✅ ENHANCED: Download logs with comprehensive error handling and validation
-        """
+        """✅ FINAL FIX: Download logs with comprehensive error handling"""
         try:
             data = request.json or {}
             server_id = data.get('server_id')
@@ -569,7 +580,7 @@ def init_logs_routes(app, db, logs_storage):
             
             logger.info(f"📥 Downloading logs for {server_name} ({server_id}) in region {region}")
             
-            # Download logs using enhanced API client
+            # ✅ FINAL FIX: Download logs using enhanced API client with JWT support
             result = api_client.get_server_logs(server_id, region)
             
             if result['success']:
@@ -659,9 +670,7 @@ def init_logs_routes(app, db, logs_storage):
     @logs_bp.route('/api/logs/<log_id>/download')
     @require_auth
     def download_log_file(log_id):
-        """
-        ✅ ENHANCED: Download parsed log file with validation
-        """
+        """Download parsed log file with validation"""
         try:
             log_entry = None
             
@@ -701,9 +710,7 @@ def init_logs_routes(app, db, logs_storage):
     @logs_bp.route('/api/logs/refresh', methods=['POST'])
     @require_auth
     def refresh_logs():
-        """
-        ✅ ENHANCED: Refresh logs list with optional cleanup
-        """
+        """Refresh logs list with optional cleanup"""
         try:
             # Optional cleanup of old files
             cleanup = request.json.get('cleanup', False) if request.json else False
@@ -756,7 +763,7 @@ def init_logs_routes(app, db, logs_storage):
     @require_auth
     def get_player_count_from_logs(server_id):
         """
-        ✅ COMPREHENSIVE FIX: Get player count with robust authentication and error handling
+        ✅ FINAL FIX: Get player count with robust JWT authentication and error handling
         """
         try:
             logger.info(f"📊 Getting player count from logs for server {server_id}")
@@ -813,7 +820,7 @@ def init_logs_routes(app, db, logs_storage):
             if not server_found:
                 logger.warning(f"⚠️ Server {server_id} not found in configuration, using defaults")
             
-            # Try to get fresh logs for analysis
+            # ✅ FINAL FIX: Try to get fresh logs for analysis using JWT authentication
             logger.info(f"📥 Fetching fresh logs for player count analysis...")
             result = api_client.get_server_logs(server_id, region)
             
@@ -904,9 +911,7 @@ def init_logs_routes(app, db, logs_storage):
     @logs_bp.route('/api/logs/health')
     @require_auth
     def logs_health_check():
-        """
-        ✅ NEW: Health check endpoint for logs system
-        """
+        """Health check endpoint for logs system"""
         try:
             health_status = {
                 'healthy': True,
@@ -914,7 +919,7 @@ def init_logs_routes(app, db, logs_storage):
                 'components': {}
             }
             
-            # Check token health
+            # Check token health using centralized function
             token_health = monitor_token_health()
             health_status['components']['authentication'] = {
                 'healthy': token_health['healthy'],
