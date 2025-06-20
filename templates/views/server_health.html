@@ -1,6 +1,7 @@
 <!-- 
 Server Health HTML Template for WDC-GP/GUST-MARK-1
-FIXED VERSION - Added missing 'view' class to resolve visibility issue
+✅ FIXED VERSION - Added missing player count DOM elements
+✅ FIXED: Added player-status, player-bar, player-source elements
 75% left (charts/health) / 25% right (commands)
 -->
 
@@ -10,7 +11,7 @@ FIXED VERSION - Added missing 'view' class to resolve visibility issue
         <!-- LEFT SIDE: 75% width on desktop - Charts & Health Data -->
         <div class="flex-1 lg:w-3/4 space-y-4">
             
-            <!-- Server Selection Dropdown (verified pattern) -->
+            <!-- Server Selection Dropdown -->
             <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
                 <div class="flex items-center gap-3">
                     <span class="text-white font-semibold">🏥 Server Health Monitor</span>
@@ -23,8 +24,42 @@ FIXED VERSION - Added missing 'view' class to resolve visibility issue
                     </button>
                 </div>
             </div>
+
+            <!-- ✅ FIXED: Added Player Count Display Section for Server Health Context -->
+            <div id="server-health-player-display" class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                <h3 class="text-white font-semibold mb-3 flex items-center gap-2">
+                    👥 Server Population
+                </h3>
+                <div id="selected-server-player-count" class="hidden">
+                    <!-- This will be populated when a server is selected -->
+                    <div class="player-count-container p-3 bg-gray-700 rounded border border-gray-600" id="health-player-count-container">
+                        <div class="flex items-center justify-between text-sm">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-cyan-400">👥</span>
+                                <span class="player-count-text text-gray-300">
+                                    Players: <span class="player-count-value font-medium text-green-400" id="health-player-current">--</span> / <span class="player-max-value text-purple-400" id="health-player-max">--</span>
+                                </span>
+                            </div>
+                            <span class="player-count-status text-xs px-2 py-1 rounded bg-gray-700 text-yellow-400" id="health-player-status">
+                                ⏳ Select Server...
+                            </span>
+                        </div>
+                        <div class="player-count-bar mt-1 bg-gray-600 rounded-full h-1.5">
+                            <div class="player-count-fill bg-gradient-to-r from-green-400 to-cyan-400 rounded-full h-full transition-all duration-500" 
+                                 style="width: 0%" id="health-player-bar"></div>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            Source: <span id="health-player-source">Server Health Monitor</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="no-server-selected-message" class="text-center text-gray-400 py-4">
+                    <div class="text-2xl mb-2">🎯</div>
+                    <p>Select a server above to view population data</p>
+                </div>
+            </div>
             
-            <!-- Health Status Cards (top row) - FIXED IDs -->
+            <!-- Health Status Cards (top row) -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 
                 <!-- Overall Health Card -->
@@ -75,7 +110,7 @@ FIXED VERSION - Added missing 'view' class to resolve visibility issue
                     </div>
                 </div>
                 
-                <!-- CPU Usage Card - ADDED (was missing) -->
+                <!-- CPU Usage Card -->
                 <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
                     <div class="flex items-center gap-2 mb-3">
                         <span class="text-green-400">🖥️</span>
@@ -143,7 +178,7 @@ FIXED VERSION - Added missing 'view' class to resolve visibility issue
                 
             </div>
             
-            <!-- Performance Trends Section - UPDATED IDs -->
+            <!-- Performance Trends Section -->
             <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-white font-semibold flex items-center gap-2">
@@ -159,10 +194,10 @@ FIXED VERSION - Added missing 'view' class to resolve visibility issue
                     </div>
                 </div>
                 
-                <!-- Performance Metrics Grid - UPDATED IDs to match JavaScript expectations -->
+                <!-- Performance Metrics Grid -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     
-                    <!-- Response Time Trend - FIXED TO MATCH ORIGINAL TEMPLATE -->
+                    <!-- Response Time Trend -->
                     <div class="bg-gray-700 rounded p-3">
                         <div class="flex justify-between items-center">
                             <span class="text-gray-400 text-sm">Response Time:</span>
@@ -176,7 +211,7 @@ FIXED VERSION - Added missing 'view' class to resolve visibility issue
                         </div>
                     </div>
                     
-                    <!-- Memory Trend - FIXED TO MATCH ORIGINAL TEMPLATE -->
+                    <!-- Memory Trend -->
                     <div class="bg-gray-700 rounded p-3">
                         <div class="flex justify-between items-center">
                             <span class="text-gray-400 text-sm">Memory Usage:</span>
@@ -190,7 +225,7 @@ FIXED VERSION - Added missing 'view' class to resolve visibility issue
                         </div>
                     </div>
                     
-                    <!-- CPU Trend - FIXED TO MATCH ORIGINAL TEMPLATE -->
+                    <!-- CPU Trend -->
                     <div class="bg-gray-700 rounded p-3">
                         <div class="flex justify-between items-center">
                             <span class="text-gray-400 text-sm">CPU Usage:</span>
@@ -204,7 +239,7 @@ FIXED VERSION - Added missing 'view' class to resolve visibility issue
                         </div>
                     </div>
                     
-                    <!-- Players Trend - FIXED TO MATCH ORIGINAL TEMPLATE -->
+                    <!-- Players Trend -->
                     <div class="bg-gray-700 rounded p-3">
                         <div class="flex justify-between items-center">
                             <span class="text-gray-400 text-sm">Player Count:</span>
@@ -320,16 +355,6 @@ FIXED VERSION - Added missing 'view' class to resolve visibility issue
                     <p class="text-xs mt-1">Commands will appear here when executed</p>
                 </div>
                 
-                <!-- Command entries will be populated by JavaScript -->
-                <!-- Example format:
-                <div class="command-entry text-xs p-2 bg-gray-700 rounded mb-2" data-command-type="admin">
-                    <div class="flex justify-between items-start">
-                        <span class="text-green-400">[15:30:22] save</span>
-                        <span class="text-purple-400 text-xs">✓ Admin</span>
-                    </div>
-                </div>
-                -->
-                
             </div>
             
             <!-- Command Feed Footer -->
@@ -344,6 +369,17 @@ FIXED VERSION - Added missing 'view' class to resolve visibility issue
             
         </div>
         
+    </div>
+    
+    <!-- ✅ FIXED: Hidden DOM elements for player count compatibility -->
+    <div style="display: none;" id="server-health-hidden-elements">
+        <!-- These elements will be dynamically populated when a server is selected -->
+        <!-- They are hidden but provide compatibility with the existing player count system -->
+        <div id="server-health-player-elements">
+            <span id="player-status-placeholder">⏳ Loading...</span>
+            <div id="player-bar-placeholder" style="width: 0%;"></div>
+            <span id="player-source-placeholder">Server Health</span>
+        </div>
     </div>
     
     <!-- Loading Overlay for Server Health -->

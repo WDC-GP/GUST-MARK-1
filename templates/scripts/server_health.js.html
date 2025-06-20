@@ -1,15 +1,15 @@
 <!-- ============================================================================
-     GUST Bot Enhanced - Server Health JavaScript Module (FIXED VERSION WITH TRENDS)
+     GUST Bot Enhanced - Server Health JavaScript Module (FIXED + CONTEXT-AWARE)
      ============================================================================
-     PURPOSE: Frontend functionality for Server Health monitoring system
-     FEATURES: 75/25 layout, Chart.js integration, command feed, status cards, TRENDS
-     LAYOUT: Left side charts + Right side command feed
-     INTEGRATION: Works with existing GUST system and managedServers
+     ✅ FIXED: Added context-aware DOM element management
+     ✅ FIXED: Dynamic player count element creation for selected servers
+     ✅ FIXED: Integration with existing player count system
+     ✅ FIXED: Proper server selection handling
      ============================================================================ -->
 
 <script>
     // ============================================================================
-    // SERVER HEALTH MODULE - COMPLETE FUNCTIONALITY (FIXED WITH TRENDS)
+    // SERVER HEALTH MODULE - CONTEXT-AWARE VERSION
     // ============================================================================
     
     // Global variables for Server Health
@@ -22,7 +22,8 @@
         refreshInterval: null,
         isActive: false,
         filters: { active: 'all' },
-        refreshCountdown: 30
+        refreshCountdown: 30,
+        selectedServerData: null // Track selected server data
     };
     
     // ============================================================================
@@ -33,22 +34,15 @@
         console.log('🏥 Loading Server Health tab...');
         
         try {
-            // Set module as active
             serverHealthData.isActive = true;
             
-            // Initialize Server Health system
             initializeServerHealth();
-            
-            // Load current server from dropdown or managedServers
             loadCurrentServer();
-            
-            // Load all components INCLUDING TRENDS
             loadHealthStatus();
             loadHealthCharts();
             loadCommandFeed();
-            loadTrendsData(); // ✅ ADDED: Load trends data
+            loadTrendsData();
             
-            // Start auto-refresh
             startAutoRefresh();
             
             console.log('✅ Server Health loaded successfully');
@@ -66,19 +60,14 @@
     function initializeServerHealth() {
         console.log('🔧 Initializing Server Health system...');
         
-        // Setup server selector with existing managedServers
         setupServerSelector();
-        
-        // Setup command filter buttons
         setupCommandFilters();
         
-        // Setup refresh button
-        const refreshBtn = document.getElementById('health-refresh-btn');
+        const refreshBtn = document.getElementById('refresh-health-btn');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', refreshHealthData);
         }
         
-        // Initialize charts if Chart.js is available
         if (typeof Chart !== 'undefined') {
             initializeHealthCharts();
         } else {
@@ -96,21 +85,16 @@
             return;
         }
         
-        // Clear existing options and show loading
         serverSelect.innerHTML = '<option value="">Loading servers...</option>';
         
-        // Function to populate servers
         function populateServers() {
             console.log('🔍 Server Health: Attempting to populate server selector...');
             
-            // FIXED: Check managedServers instead of window.managedServers
             if (typeof managedServers !== 'undefined' && managedServers && managedServers.length > 0) {
                 console.log(`✅ Server Health: Found ${managedServers.length} managed servers`);
                 
-                // Clear loading message
                 serverSelect.innerHTML = '<option value="">Select a server...</option>';
                 
-                // Add servers to dropdown
                 managedServers.forEach(server => {
                     if (server.isActive) {
                         const option = document.createElement('option');
@@ -120,36 +104,36 @@
                     }
                 });
                 
-                // Auto-select first server if available
                 const activeServers = managedServers.filter(s => s.isActive);
                 if (activeServers.length > 0) {
                     const firstServer = activeServers[0];
                     serverSelect.value = firstServer.serverId;
                     serverHealthData.currentServer = firstServer.serverId;
+                    serverHealthData.selectedServerData = firstServer;
                     console.log(`🎯 Server Health: Auto-selected server: ${firstServer.serverName} (${firstServer.serverId})`);
                     
-                    // Load data for the selected server after a brief delay
+                    // ✅ FIXED: Create player count elements for selected server
+                    createPlayerCountElementsForSelectedServer(firstServer);
+                    
                     setTimeout(() => {
                         refreshHealthData();
                     }, 1000);
                 }
                 
-                return true; // Success
+                return true;
             }
             
             console.log('⏳ Server Health: managedServers not ready yet...');
-            return false; // Not ready yet
+            return false;
         }
         
-        // Try to populate immediately
         if (populateServers()) {
             console.log('✅ Server Health: Servers populated immediately');
         } else {
             console.log('⏳ Server Health: Servers not ready, setting up watchers...');
             
-            // Strategy 1: Polling watcher with reasonable timeout
             let attempts = 0;
-            const maxAttempts = 20; // 10 seconds total (500ms * 20)
+            const maxAttempts = 20;
             
             const serverWatcher = setInterval(() => {
                 attempts++;
@@ -166,13 +150,11 @@
                 }
             }, 500);
             
-            // Strategy 2: Try to trigger server loading if function exists
             if (typeof loadManagedServers === 'function') {
                 console.log('🚀 Server Health: Calling loadManagedServers directly...');
                 try {
                     const result = loadManagedServers();
                     if (result && typeof result.then === 'function') {
-                        // It's a promise
                         result.then(() => {
                             console.log('✅ Server Health: Direct server loading completed');
                             setTimeout(() => {
@@ -184,7 +166,6 @@
                             console.error('❌ Server Health: Error in direct server loading:', error);
                         });
                     } else {
-                        // Synchronous call
                         setTimeout(() => {
                             if (populateServers()) {
                                 clearInterval(serverWatcher);
@@ -201,8 +182,115 @@
         serverSelect.addEventListener('change', onServerChange);
     }
     
+    // ✅ FIXED: Create dynamic player count elements for selected server
+    function createPlayerCountElementsForSelectedServer(server) {
+        console.log(`🎯 Creating player count elements for server: ${server.serverName} (${server.serverId})`);
+        
+        // Show the player count display section
+        const playerDisplay = document.getElementById('selected-server-player-count');
+        const noServerMessage = document.getElementById('no-server-selected-message');
+        
+        if (playerDisplay) {
+            playerDisplay.classList.remove('hidden');
+        }
+        if (noServerMessage) {
+            noServerMessage.classList.add('hidden');
+        }
+        
+        // Create dynamic DOM elements that match the expected pattern
+        const serverId = server.serverId;
+        
+        // ✅ FIXED: Create the missing DOM elements dynamically
+        createDynamicPlayerCountElements(serverId);
+        
+        // Update the visible display
+        updateServerHealthPlayerDisplay(server);
+        
+        // Initialize player count for this server
+        if (typeof window.refreshPlayerCount === 'function') {
+            setTimeout(() => {
+                window.refreshPlayerCount(serverId);
+            }, 2000);
+        }
+    }
+    
+    // ✅ FIXED: Create dynamic DOM elements for player count compatibility
+    function createDynamicPlayerCountElements(serverId) {
+        // Remove any existing dynamic elements first
+        removeDynamicPlayerCountElements();
+        
+        // Create the expected DOM elements
+        const hiddenContainer = document.getElementById('server-health-hidden-elements');
+        if (!hiddenContainer) {
+            console.warn('⚠️ Hidden elements container not found');
+            return;
+        }
+        
+        // Create elements with the expected IDs
+        const statusElement = document.createElement('span');
+        statusElement.id = `player-status-${serverId}`;
+        statusElement.className = 'player-count-status text-xs px-2 py-1 rounded bg-gray-700 text-yellow-400';
+        statusElement.textContent = '⏳ Loading...';
+        
+        const barElement = document.createElement('div');
+        barElement.id = `player-bar-${serverId}`;
+        barElement.className = 'player-count-fill bg-gradient-to-r from-green-400 to-cyan-400 rounded-full h-full transition-all duration-500';
+        barElement.style.width = '0%';
+        
+        const sourceElement = document.createElement('span');
+        sourceElement.id = `player-source-${serverId}`;
+        sourceElement.textContent = 'Server Health';
+        
+        // Add to hidden container
+        hiddenContainer.appendChild(statusElement);
+        hiddenContainer.appendChild(barElement);
+        hiddenContainer.appendChild(sourceElement);
+        
+        // Store reference for cleanup
+        hiddenContainer.setAttribute('data-current-server', serverId);
+        
+        console.log(`✅ Created dynamic player count elements for ${serverId}`);
+    }
+    
+    // ✅ FIXED: Remove dynamic DOM elements when switching servers
+    function removeDynamicPlayerCountElements() {
+        const hiddenContainer = document.getElementById('server-health-hidden-elements');
+        if (!hiddenContainer) return;
+        
+        const currentServerId = hiddenContainer.getAttribute('data-current-server');
+        if (currentServerId) {
+            // Remove the dynamic elements
+            const statusElement = document.getElementById(`player-status-${currentServerId}`);
+            const barElement = document.getElementById(`player-bar-${currentServerId}`);
+            const sourceElement = document.getElementById(`player-source-${currentServerId}`);
+            
+            if (statusElement) statusElement.remove();
+            if (barElement) barElement.remove();
+            if (sourceElement) sourceElement.remove();
+            
+            hiddenContainer.removeAttribute('data-current-server');
+        }
+    }
+    
+    // ✅ FIXED: Update the visible player display in Server Health context
+    function updateServerHealthPlayerDisplay(server) {
+        const currentElement = document.getElementById('health-player-current');
+        const maxElement = document.getElementById('health-player-max');
+        const statusElement = document.getElementById('health-player-status');
+        const barElement = document.getElementById('health-player-bar');
+        const sourceElement = document.getElementById('health-player-source');
+        
+        if (currentElement) currentElement.textContent = '--';
+        if (maxElement) maxElement.textContent = '--';
+        if (statusElement) {
+            statusElement.textContent = '⏳ Loading...';
+            statusElement.className = 'player-count-status text-xs px-2 py-1 rounded bg-yellow-900 text-yellow-300';
+        }
+        if (barElement) barElement.style.width = '0%';
+        if (sourceElement) sourceElement.textContent = 'Server Health Monitor';
+    }
+    
     function setupCommandFilters() {
-        // Setup filter buttons with safe selectors
         const filterButtons = [
             { id: 'filter-all-btn', type: 'all' },
             { id: 'filter-admin-btn', type: 'admin' },
@@ -217,7 +305,6 @@
             }
         });
         
-        // Set initial filter state
         updateFilterButtons();
     }
     
@@ -240,14 +327,106 @@
         
         if (!newServerId) {
             console.log('❌ No server selected');
+            
+            // Hide player count display
+            const playerDisplay = document.getElementById('selected-server-player-count');
+            const noServerMessage = document.getElementById('no-server-selected-message');
+            
+            if (playerDisplay) playerDisplay.classList.add('hidden');
+            if (noServerMessage) noServerMessage.classList.remove('hidden');
+            
+            // Remove dynamic elements
+            removeDynamicPlayerCountElements();
+            
+            serverHealthData.currentServer = null;
+            serverHealthData.selectedServerData = null;
             return;
         }
         
         console.log(`🔄 Switching server health to: ${newServerId}`);
-        serverHealthData.currentServer = newServerId;
         
-        // Reload all data for new server
-        refreshHealthData();
+        // Find the server data
+        const server = managedServers.find(s => s.serverId === newServerId);
+        if (server) {
+            serverHealthData.currentServer = newServerId;
+            serverHealthData.selectedServerData = server;
+            
+            // ✅ FIXED: Create player count elements for new server
+            createPlayerCountElementsForSelectedServer(server);
+            
+            // Reload all data for new server
+            refreshHealthData();
+        }
+    }
+    
+    // ============================================================================
+    // ENHANCED UPDATE PLAYER COUNT DISPLAY (SERVER HEALTH CONTEXT)
+    // ============================================================================
+    
+    // ✅ FIXED: Custom update function for Server Health context
+    function updateServerHealthPlayerCount(serverId, playerData, status) {
+        console.log(`🏥 Updating Server Health player count for ${serverId}:`, playerData, status);
+        
+        // Only update if this is the currently selected server
+        if (serverHealthData.currentServer !== serverId) {
+            console.log(`🏥 Ignoring update for ${serverId} - not currently selected server`);
+            return;
+        }
+        
+        // Update the visible display elements
+        const currentElement = document.getElementById('health-player-current');
+        const maxElement = document.getElementById('health-player-max');
+        const statusElement = document.getElementById('health-player-status');
+        const barElement = document.getElementById('health-player-bar');
+        const sourceElement = document.getElementById('health-player-source');
+        
+        // Update status first
+        if (statusElement) {
+            statusElement.className = 'player-count-status text-xs px-2 py-1 rounded';
+            switch (status) {
+                case 'loading':
+                    statusElement.textContent = '⏳ Loading...';
+                    statusElement.className += ' bg-yellow-900 text-yellow-300';
+                    break;
+                case 'success':
+                    statusElement.textContent = `✅ ${new Date().toLocaleTimeString()}`;
+                    statusElement.className += ' bg-green-900 text-green-300';
+                    break;
+                case 'error':
+                    statusElement.textContent = '❌ Error';
+                    statusElement.className += ' bg-red-900 text-red-300';
+                    break;
+            }
+        }
+        
+        // Update values if we have new data
+        if (playerData && currentElement && maxElement) {
+            currentElement.textContent = playerData.current;
+            maxElement.textContent = playerData.max;
+            
+            if (barElement) {
+                barElement.style.width = `${playerData.percentage}%`;
+                
+                barElement.className = 'player-count-fill bg-gradient-to-r rounded-full h-full transition-all duration-500';
+                if (playerData.percentage >= 90) {
+                    barElement.className += ' from-red-500 to-red-600';
+                } else if (playerData.percentage >= 75) {
+                    barElement.className += ' from-orange-500 to-red-500';
+                } else if (playerData.percentage >= 50) {
+                    barElement.className += ' from-yellow-500 to-orange-500';
+                } else {
+                    barElement.className += ' from-green-400 to-cyan-400';
+                }
+            }
+            
+            if (sourceElement) {
+                sourceElement.textContent = playerData.source === 'server_logs' ? 'Server Logs' : 
+                                           playerData.source === 'demo_data' ? 'Demo Data' : 
+                                           'Server Health Monitor';
+            }
+            
+            console.log(`✅ Server Health display updated: ${playerData.current}/${playerData.max} (${playerData.percentage}%)`);
+        }
     }
     
     // ============================================================================
@@ -264,7 +443,6 @@
         try {
             console.log(`📊 Loading health status for server ${serverHealthData.currentServer}...`);
             
-            // Show loading state
             updateHealthStatusDisplay({
                 overall_status: 'loading',
                 health_data: {
@@ -292,15 +470,13 @@
         } catch (error) {
             console.error('❌ Error loading health status:', error);
             showHealthError('Failed to load health status - using demo data');
-            // Show demo data as fallback
             showDemoHealthData();
         }
     }
     
     function updateHealthStatusDisplay(data) {
-        // Update main health status
         const statusElement = document.getElementById('health-status-text');
-        const lastCheckElement = document.getElementById('health-last-check');
+        const lastCheckElement = document.getElementById('last-health-check');
         const progressBar = document.getElementById('health-progress-bar');
         
         if (statusElement) {
@@ -320,7 +496,6 @@
             progressBar.className = `h-2 rounded-full transition-all duration-500 ${getHealthBarColor(data.overall_status)}`;
         }
         
-        // Update metrics if available
         const metrics = data.health_data?.metrics || {};
         updateMetricDisplay('response-time', metrics.response_time, 'ms');
         updateMetricDisplay('memory-usage', metrics.memory_usage, 'MB');
@@ -337,7 +512,7 @@
     }
     
     // ============================================================================
-    // PERFORMANCE TRENDS LOADING (FIXED - MISSING FUNCTIONALITY)
+    // TRENDS DATA LOADING
     // ============================================================================
 
     async function loadTrendsData() {
@@ -367,40 +542,34 @@
     function updateTrendsDisplay(trends) {
         console.log('📊 Updating trends display with data:', trends);
         
-        // Update response time
         const responseEl = document.getElementById('trends-response-current');
         if (responseEl && trends.response_time) {
             responseEl.textContent = `${trends.response_time.current}ms`;
             console.log('✅ Updated response time trends:', trends.response_time.current);
         }
         
-        // Update memory usage  
         const memoryEl = document.getElementById('trends-memory-current');
         if (memoryEl && trends.memory_usage) {
             memoryEl.textContent = `${trends.memory_usage.current}MB`;
             console.log('✅ Updated memory trends:', trends.memory_usage.current);
         }
         
-        // Update CPU usage (calculated from FPS or memory since no direct CPU field)
         const cpuEl = document.getElementById('trends-cpu-current');
         if (cpuEl) {
             if (trends.fps && trends.fps.current > 0) {
-                // Calculate CPU usage from FPS (inverse relationship)
                 const cpuUsage = Math.max(5, 100 - trends.fps.current);
                 cpuEl.textContent = `${Math.round(cpuUsage)}%`;
                 console.log('✅ Updated CPU trends (from FPS):', Math.round(cpuUsage));
             } else if (trends.memory_usage && trends.memory_usage.current > 0) {
-                // Calculate CPU from memory load  
                 const cpuUsage = Math.min(95, Math.max(5, trends.memory_usage.current / 50));
                 cpuEl.textContent = `${Math.round(cpuUsage)}%`;
                 console.log('✅ Updated CPU trends (from memory):', Math.round(cpuUsage));
             } else {
-                cpuEl.textContent = '25%'; // Default fallback
+                cpuEl.textContent = '25%';
                 console.log('✅ Updated CPU trends (fallback)');
             }
         }
         
-        // Update player count
         const playersEl = document.getElementById('trends-players-current');
         if (playersEl && trends.player_count !== undefined) {
             playersEl.textContent = `${trends.player_count.current}`;
@@ -411,7 +580,7 @@
     }
     
     // ============================================================================
-    // CHARTS INTEGRATION
+    // CHARTS INTEGRATION (PRESERVED)
     // ============================================================================
     
     function initializeHealthCharts() {
@@ -422,10 +591,8 @@
             return;
         }
         
-        // IMPORTANT: Destroy existing charts before creating new ones
         destroyExistingCharts();
         
-        // Chart configuration for dark theme
         const chartOptions = {
             responsive: true,
             maintainAspectRatio: false,
@@ -453,7 +620,6 @@
             }
         };
         
-        // Initialize FPS chart
         const fpsCanvas = document.getElementById('fps-chart');
         if (fpsCanvas) {
             try {
@@ -478,7 +644,6 @@
             }
         }
         
-        // Initialize Players chart
         const playersCanvas = document.getElementById('players-chart');
         if (playersCanvas) {
             try {
@@ -509,7 +674,6 @@
     function destroyExistingCharts() {
         console.log('🧹 Destroying existing charts...');
         
-        // Destroy existing Chart.js instances
         Object.keys(serverHealthData.charts).forEach(chartKey => {
             const chart = serverHealthData.charts[chartKey];
             if (chart && typeof chart.destroy === 'function') {
@@ -522,15 +686,12 @@
             }
         });
         
-        // Clear the charts object
         serverHealthData.charts = {};
         
-        // Also destroy any orphaned Chart.js instances on the canvas elements
         const canvasElements = ['fps-chart', 'players-chart'];
         canvasElements.forEach(canvasId => {
             const canvas = document.getElementById(canvasId);
             if (canvas) {
-                // Check if there's a Chart.js instance attached
                 const existingChart = Chart.getChart(canvas);
                 if (existingChart) {
                     try {
@@ -576,7 +737,6 @@
     }
     
     function updateCharts(chartData) {
-        // Update FPS chart
         if (serverHealthData.charts.fps && chartData.fps_chart) {
             const fpsChart = serverHealthData.charts.fps;
             fpsChart.data.labels = chartData.fps_chart.labels || [];
@@ -584,7 +744,6 @@
             fpsChart.update('none');
         }
         
-        // Update Players chart
         if (serverHealthData.charts.players && chartData.players_chart) {
             const playersChart = serverHealthData.charts.players;
             playersChart.data.labels = chartData.players_chart.labels || [];
@@ -594,7 +753,6 @@
     }
     
     function showDemoChartData() {
-        // Generate demo data for charts
         const labels = [];
         const fpsData = [];
         const playersData = [];
@@ -602,8 +760,8 @@
         for (let i = 0; i < 12; i++) {
             const time = new Date(Date.now() - (11 - i) * 30 * 60 * 1000);
             labels.push(time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
-            fpsData.push(Math.floor(Math.random() * 20) + 50); // 50-70 FPS
-            playersData.push(Math.floor(Math.random() * 10) + 5); // 5-15 players
+            fpsData.push(Math.floor(Math.random() * 20) + 50);
+            playersData.push(Math.floor(Math.random() * 10) + 5);
         }
         
         const demoChartData = {
@@ -622,7 +780,7 @@
     }
     
     // ============================================================================
-    // COMMAND FEED
+    // COMMAND FEED (PRESERVED)
     // ============================================================================
     
     async function loadCommandFeed() {
@@ -727,7 +885,6 @@
     }
     
     function showDemoCommandData() {
-        // Generate demo command data
         const demoCommands = [
             { command: 'serverinfo', type: 'auto', timestamp: new Date().toISOString(), user: 'System' },
             { command: 'say Welcome players!', type: 'admin', timestamp: new Date(Date.now() - 300000).toISOString(), user: 'Admin' },
@@ -754,7 +911,7 @@
                 console.log('🔄 Auto-refreshing Server Health data...');
                 refreshHealthData();
             }
-        }, 30000); // 30 seconds
+        }, 30000);
         
         console.log('⏰ Auto-refresh started (30s intervals)');
     }
@@ -764,14 +921,12 @@
         
         console.log('🔄 Refreshing all health data (WITH TRENDS)...');
         
-        // Load all data components INCLUDING TRENDS
         loadHealthStatus();
         loadHealthCharts();
         loadCommandFeed();
-        loadTrendsData(); // ✅ ADDED: Load trends data in refresh cycle
+        loadTrendsData();
     }
     
-    // Add a manual refresh function for troubleshooting
     function refreshServerHealth() {
         console.log('🔄 Server Health: Manual refresh triggered');
         setupServerSelector();
@@ -845,7 +1000,6 @@
     function safeEscapeHtml(text) {
         if (!text) return '';
         
-        // Use existing escapeHtml if available, otherwise create safe version
         if (typeof window.escapeHtml === 'function') {
             return window.escapeHtml(text);
         }
@@ -870,7 +1024,6 @@
     }
     
     function showNoServersMessage() {
-        // Update status cards to show no server selected
         const statusCards = document.querySelectorAll('.health-status-card');
         statusCards.forEach(card => {
             const valueElement = card.querySelector('.status-value');
@@ -882,7 +1035,6 @@
             }
         });
         
-        // Update charts area with helpful message
         const chartsContainer = document.querySelector('.health-charts-container') ||
                               document.querySelector('.flex-1.lg\\:w-3\\/4');
         if (chartsContainer) {
@@ -906,7 +1058,6 @@
             `;
         }
         
-        // Update command feed
         const commandFeed = document.getElementById('command-feed');
         if (commandFeed) {
             commandFeed.innerHTML = `
@@ -983,34 +1134,35 @@
         
         serverHealthData.isActive = false;
         
-        // Clear intervals
         if (serverHealthData.refreshInterval) {
             clearInterval(serverHealthData.refreshInterval);
             serverHealthData.refreshInterval = null;
         }
         
-        // Destroy charts properly
         destroyExistingCharts();
+        
+        // Clean up dynamic elements
+        removeDynamicPlayerCountElements();
         
         console.log('✅ Server Health module unloaded');
     }
     
     // ============================================================================
-    // GLOBAL FUNCTION EXPOSURE (FIXED - INCLUDES TRENDS)
+    // GLOBAL FUNCTION EXPOSURE
     // ============================================================================
     
-    // Expose functions to global scope for integration
     window.loadServerHealth = loadServerHealth;
     window.unloadServerHealth = unloadServerHealth;
     window.refreshHealthData = refreshHealthData;
     window.filterCommands = filterCommands;
     window.refreshServerHealth = refreshServerHealth;
-    
-    // ✅ ADDED: Expose trends functions to global scope
     window.loadTrendsData = loadTrendsData;
     window.updateTrendsDisplay = updateTrendsDisplay;
     
-    console.log('✅ Server Health JavaScript module loaded successfully (WITH TRENDS)');
-    console.log('🏥 Functions available: loadServerHealth, refreshHealthData, filterCommands, loadTrendsData, updateTrendsDisplay');
+    // ✅ FIXED: Expose Server Health specific player count function
+    window.updateServerHealthPlayerCount = updateServerHealthPlayerCount;
+    
+    console.log('✅ Server Health JavaScript module loaded successfully (CONTEXT-AWARE + FIXED DOM)');
+    console.log('🏥 Functions available: loadServerHealth, refreshHealthData, filterCommands, loadTrendsData, updateTrendsDisplay, updateServerHealthPlayerCount');
 
 </script>

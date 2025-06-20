@@ -1,24 +1,57 @@
 <!-- ============================================================================
-     GUST Bot Enhanced - Core JavaScript (CONTEXT-AWARE + MODULAR + LOGS-BASED + SERVER HEALTH)
+     GUST Bot Enhanced - Core JavaScript (PRODUCTION SAFE + MODULAR + LOGS-BASED + SERVER HEALTH)
      ============================================================================
-     ✅ FIXED: Context-aware DOM element management
-     ✅ FIXED: Different update strategies for different tabs
-     ✅ FIXED: Enhanced error handling and element checking
-     ✅ FIXED: Server Health integration with dynamic elements
+     UPDATED VERSION: Now includes complete Server Health integration
+     CORRECTED VERSION: Now uses logs-based player count instead of console parsing
+     MODULAR: Respects modular architecture - delegates to appropriate modules
+     LOGS-INTEGRATED: Uses server logs as source of truth for player data
+     ENHANCED: Preserves old player count values during loading
+     SERVER HEALTH: Full support for Server Health tab and functionality
+     
+     SAFETY FEATURES:
+     - Dependency checks before execution
+     - Graceful fallbacks for missing elements
+     - Function preservation (no overrides)
+     - Performance optimization
+     - Compatible with existing code
+     - Proper modular separation
+     - Logs-based player count integration
+     - Preserves old values during loading states
+     - Complete Server Health tab support
      ============================================================================ -->
 
 <script>
     // ============================================================================
-    // GUST Bot Enhanced - Core JavaScript Module (CONTEXT-AWARE VERSION)
+    // GUST Bot Enhanced - Core JavaScript Module (LOGS-INTEGRATED + MODULAR + SERVER HEALTH)
     // ============================================================================
-    
+    // Generated: 2025-06-19 (LOGS-BASED VERSION + MODULAR + ENHANCED UX + SERVER HEALTH)
+    // 
+    // This file contains EXACT extracted core functionality and global variables
+    // All feature-specific functions have been moved to their respective modules
+    // Player count now uses logs-based API instead of console parsing
+    // Enhanced to preserve old values during loading states
+    // Complete Server Health support added for 10th tab
+    // 
+    // SAFETY FEATURES:
+    // - No function overrides
+    // - Dependency validation
+    // - DOM element checking
+    // - Performance optimized
+    // - Graceful degradation
+    // - Proper modular architecture
+    // - Logs-based player count system
+    // - Enhanced UX with preserved values
+    // - Full Server Health integration
+    // ============================================================================
+
     // ============================================================================
     // GLOBAL VARIABLES (PRESERVED EXACTLY)
     // ============================================================================
     
+    // Essential global variables for application functionality
     let currentTab = 'dashboard';
-    let managedServers = [];
-    let selectedServers = new Set();
+    let managedServers = []; // Central server list
+    let selectedServers = new Set(); // For bulk operations
     let servers = [];
     let wsConnection = null;
     let isDemo = false;
@@ -29,21 +62,24 @@
     let websocketsAvailable = true;
     
     // ============================================================================
-    // CORE FUNCTIONS (ENHANCED WITH CONTEXT AWARENESS)
+    // CORE FUNCTIONS (EXACT EXTRACTED CONTENT - PRESERVED + SERVER HEALTH)
     // ============================================================================
     
+    // ENHANCED showTab function with complete Server Health support
     function showTab(tab) {
         console.log('🔄 Switching to tab:', tab);
         
         try {
             currentTab = tab;
             
+            // Update nav tabs - with null checking
             document.querySelectorAll('.nav-tab').forEach(t => {
                 if (t && t.classList) {
                     t.classList.remove('active');
                 }
             });
             
+            // Find and activate the nav tab
             const navTab = document.getElementById(tab + '-tab');
             if (navTab && navTab.classList) {
                 navTab.classList.add('active');
@@ -51,15 +87,17 @@
                 console.warn('❌ Nav tab not found:', tab + '-tab');
             }
             
+            // Update views - with null checking
             document.querySelectorAll('.view').forEach(view => {
                 if (view && view.classList) {
                     view.classList.add('hidden');
                 }
             });
             
+            // Show target view - try multiple ID patterns
             let targetView = document.getElementById(tab + '-view');
             if (!targetView) {
-                targetView = document.getElementById(tab);
+                targetView = document.getElementById(tab); // Alternative pattern
             }
             
             if (targetView && targetView.classList) {
@@ -67,11 +105,18 @@
                 console.log('✅ Showing view:', targetView.id);
             } else {
                 console.error('❌ No view found for tab:', tab);
+                console.log('🔍 Looking for:', tab + '-view', 'or', tab);
+                console.log('🔍 Available .view elements:');
+                document.querySelectorAll('.view').forEach(el => {
+                    console.log('   - ID:', el.id || 'no-id', 'Classes:', el.className);
+                });
+                
+                // Create a placeholder view if none exists
                 createPlaceholderView(tab);
                 return;
             }
             
-            // Load tab-specific data
+            // Load tab-specific data (UPDATED: Complete Server Health support)
             try {
                 if (tab === 'dashboard') loadDashboard();
                 else if (tab === 'server-manager') loadServerManager();
@@ -79,9 +124,9 @@
                 else if (tab === 'clans') loadClans();
                 else if (tab === 'console') initializeConsole();
                 else if (tab === 'user-management') loadUserManagement();
-                else if (tab === 'users') loadUserManagement();
+                else if (tab === 'users') loadUserManagement(); // Alternative name
                 else if (tab === 'logs') loadLogs();
-                else if (tab === 'server-health') safeCall('loadServerHealth');
+                else if (tab === 'server-health') safeCall('loadServerHealth'); // Server Health tab loader
             } catch (error) {
                 console.warn('Tab-specific loader error:', error);
             }
@@ -90,18 +135,23 @@
             
         } catch (error) {
             console.error('❌ showTab error:', error);
+            console.error('Stack trace:', error.stack);
         }
     }
 
+    // Enhanced placeholder view function with complete Server Health support
     function createPlaceholderView(tabId) {
         console.log('🔧 Creating placeholder view for:', tabId);
         
+        // Find a container to add the view to (usually the main content area)
         let container = document.querySelector('.main-content') || document.querySelector('main') || document.body;
         
+        // Create the placeholder view
         const placeholderView = document.createElement('div');
         placeholderView.id = tabId + '-view';
         placeholderView.className = 'view bg-gray-800 p-6 rounded-lg';
         
+        // Add content based on the tab type
         let title = tabId.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
         let content = '';
         
@@ -141,6 +191,139 @@
                         <h2 class="text-2xl font-bold mb-2">Server Health Monitoring</h2>
                         <p class="text-gray-400">Advanced health monitoring with real-time metrics and command integration</p>
                     </div>
+                    
+                    <!-- Health Overview Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-gray-700 p-4 rounded-lg border border-green-600">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="font-semibold text-green-400">System Status</h4>
+                                    <p class="text-2xl font-bold text-green-300">Healthy</p>
+                                </div>
+                                <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                                    ✅
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-700 p-4 rounded-lg border border-blue-600">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="font-semibold text-blue-400">Active Servers</h4>
+                                    <p class="text-2xl font-bold text-blue-300">--</p>
+                                </div>
+                                <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                                    🖥️
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-700 p-4 rounded-lg border border-purple-600">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="font-semibold text-purple-400">Health Score</h4>
+                                    <p class="text-2xl font-bold text-purple-300">95%</p>
+                                </div>
+                                <div class="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                                    📊
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Main Layout Preview -->
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+                        <!-- Left Side: Charts and Metrics (75%) -->
+                        <div class="lg:col-span-3 space-y-4">
+                            <div class="bg-gray-700 p-4 rounded-lg">
+                                <h4 class="font-semibold mb-2 flex items-center gap-2">
+                                    📊 Performance Charts
+                                    <span class="text-xs bg-blue-900 px-2 py-1 rounded">Chart.js Ready</span>
+                                </h4>
+                                <div class="h-48 bg-gray-800 rounded flex items-center justify-center border border-gray-600">
+                                    <div class="text-center text-gray-400">
+                                        <div class="text-6xl mb-2">📈</div>
+                                        <p>Performance charts will render here</p>
+                                        <p class="text-xs mt-2">CPU, Memory, Network, Player Count metrics</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 p-4 rounded-lg">
+                                <h4 class="font-semibold mb-2">🎯 Health Metrics Grid</h4>
+                                <div class="h-32 bg-gray-800 rounded flex items-center justify-center border border-gray-600">
+                                    <div class="text-center text-gray-400">
+                                        <p>Real-time health status indicators</p>
+                                        <p class="text-xs mt-1">Response times, server status, resource usage</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Side: Command Feed (25%) -->
+                        <div class="lg:col-span-1">
+                            <div class="bg-gray-700 p-4 rounded-lg h-full">
+                                <h4 class="font-semibold mb-2 flex items-center gap-2">
+                                    🔧 Command Feed
+                                    <span class="text-xs bg-green-900 px-2 py-1 rounded">Live</span>
+                                </h4>
+                                <div class="h-80 bg-gray-800 rounded border border-gray-600 p-3">
+                                    <div class="text-xs text-gray-400 space-y-2">
+                                        <div class="border-b border-gray-600 pb-2 mb-2">
+                                            <p class="text-green-400">✅ System health check initiated</p>
+                                            <p class="text-gray-500">12:34:56</p>
+                                        </div>
+                                        <div class="border-b border-gray-600 pb-2 mb-2">
+                                            <p class="text-blue-400">📊 Performance metrics updated</p>
+                                            <p class="text-gray-500">12:34:45</p>
+                                        </div>
+                                        <div class="border-b border-gray-600 pb-2 mb-2">
+                                            <p class="text-yellow-400">⚠️ Server restart recommended</p>
+                                            <p class="text-gray-500">12:33:21</p>
+                                        </div>
+                                        <div class="text-center mt-4 text-gray-500">
+                                            <p>Live command feed</p>
+                                            <p>will appear here</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Integration Status -->
+                    <div class="bg-blue-900 bg-opacity-30 border border-blue-600 rounded p-4">
+                        <h4 class="font-semibold text-blue-300 mb-2">🔧 Server Health Integration Status</h4>
+                        <div class="text-sm space-y-2">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                <span class="text-green-300">Navigation integration complete</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                <span class="text-green-300">Route registration ready</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+                                <span class="text-yellow-300">Template files: Create <code>templates/views/server_health.html</code></span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+                                <span class="text-yellow-300">JavaScript: Create <code>templates/scripts/server_health.js.html</code></span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+                                <span class="text-yellow-300">Backend: Implement server health routes and storage</span>
+                            </div>
+                        </div>
+                        <div class="mt-4 p-3 bg-gray-800 rounded border border-gray-600">
+                            <p class="text-blue-300 text-xs">
+                                <strong>💡 Next Steps:</strong> Once the backend routes and template files are created, 
+                                this placeholder will be replaced with the full Server Health monitoring interface 
+                                featuring the 75/25 layout with real-time charts and command feed.
+                            </p>
+                        </div>
+                    </div>
                 `;
                 break;
             default:
@@ -158,12 +341,14 @@
             </div>
         `;
         
+        // Hide all other views first
         document.querySelectorAll('.view').forEach(view => {
             if (view && view.classList) {
                 view.classList.add('hidden');
             }
         });
         
+        // Add the placeholder to the container
         container.appendChild(placeholderView);
         
         console.log('✅ Created placeholder view:', tabId + '-view');
@@ -181,6 +366,7 @@
         }
     }
 
+    // Helper Functions
     function getTypeIcon(type) {
         const icons = {
             'chat': '💬',
@@ -194,7 +380,7 @@
             'system': '🖥️',
             'event': '🎯',
             'ban': '🚫',
-            'health': '🏥'
+            'health': '🏥'  // NEW: Health-related icon
         };
         return icons[type] || '📋';
     }
@@ -208,6 +394,7 @@
         return div.innerHTML;
     }
 
+    // Token Management
     function refreshToken() {
         const refreshBtn = document.getElementById('refreshTokenBtn');
         if (!refreshBtn) return;
@@ -224,7 +411,7 @@
             if (result.success) {
                 alert('Token refreshed successfully!');
                 if (typeof updateSystemStatus === 'function') {
-                    updateSystemStatus();
+                    updateSystemStatus(); // Reload status
                 }
             } else {
                 alert('Token refresh failed. Please re-login with G-Portal credentials.');
@@ -239,7 +426,9 @@
         });
     }
 
+    // FIXED: Server dropdown updates with Logs tab support
     function updateAllServerDropdowns() {
+        // Complete list of all server dropdown IDs in the application
         const serverDropdowns = [
             'consoleServerSelect',
             'eventServerSelect', 
@@ -248,8 +437,8 @@
             'giveItemServerSelect',
             'liveTargetServer',
             'serverFilter',
-            'server-health-selector',
-            'server-select'
+            'server-health-selector', // Server Health dropdown
+            'server-select' // FIXED: Added Logs tab dropdown
         ];
         
         serverDropdowns.forEach(dropdownId => {
@@ -258,17 +447,20 @@
             
             const currentValue = dropdown.value;
             
+            // Clear existing options except the first one
             const firstOption = dropdown.querySelector('option:first-child');
             dropdown.innerHTML = '';
             if (firstOption) {
                 dropdown.appendChild(firstOption);
             }
             
+            // Add server options
             managedServers.filter(server => server.isActive).forEach(server => {
                 const option = document.createElement('option');
                 option.value = server.serverId;
                 option.textContent = `${server.serverName} (${server.serverId}) - ${server.serverRegion}`;
                 
+                // Add status indicator
                 if (server.status === 'online') {
                     option.textContent += ' ✅';
                 } else if (server.status === 'offline') {
@@ -278,6 +470,7 @@
                 dropdown.appendChild(option);
             });
             
+            // Restore previous selection if still valid
             if (currentValue) {
                 dropdown.value = currentValue;
             }
@@ -288,6 +481,7 @@
         return managedServers.find(server => server.serverId === serverId);
     }
 
+    // LOGS-BASED: Safe refreshServerList with logs-based player count integration
     function refreshServerList() {
         const container = document.getElementById('managedServersList');
         if (!container) return;
@@ -317,7 +511,7 @@
                                 ID: ${server.serverId} | Region: ${server.serverRegion} | Type: ${server.serverType || 'Standard'}
                             </div>
                             
-                            <!-- Player Count Display (Server Manager Context) -->
+                            <!-- LOGS-BASED: Player Count Display (Safe Integration) -->
                             <div class="player-count-container mt-2 p-2 bg-gray-800 rounded border border-gray-600" id="player-count-${server.serverId}">
                                 <div class="flex items-center justify-between text-sm">
                                     <div class="flex items-center space-x-2">
@@ -344,6 +538,7 @@
                     </div>
                     
                     <div class="flex items-center space-x-2">
+                        <!-- Status Indicator -->
                         <div class="flex items-center space-x-2">
                             <span class="text-xs px-2 py-1 rounded ${getStatusClass(server.status)}">
                                 ${getStatusText(server.status)}
@@ -351,6 +546,7 @@
                             ${server.lastPing ? `<span class="text-xs text-gray-400">Pinged: ${new Date(server.lastPing).toLocaleTimeString()}</span>` : ''}
                         </div>
                         
+                        <!-- Quick Actions -->
                         <button onclick="safeCall('pingSingleServer', '${server.serverId}')" 
                                 class="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs" title="Ping Server">
                             📡
@@ -376,12 +572,14 @@
             </div>
         `).join('');
         
+        // LOGS-BASED: Initialize player count system if available
         setTimeout(() => {
             logsBasedInitializePlayerCount();
         }, 2000);
     }
 
     function updateConsoleFilters() {
+        // Update monitor server filter with connected servers
         const monitorFilter = document.getElementById('monitorServerFilter');
         if (monitorFilter) {
             const currentValue = monitorFilter.value;
@@ -408,6 +606,7 @@
         .then(data => {
             connectionStatus = data.connections;
             
+            // Update live indicator in sidebar
             const indicator = document.getElementById('liveIndicator');
             const totalConnections = Object.keys(connectionStatus).length;
             const activeConnections = Object.values(connectionStatus).filter(c => c.connected).length;
@@ -426,6 +625,7 @@
                 }
             }
             
+            // Update health mini indicator in sidebar
             const healthIndicator = document.getElementById('health-mini-indicator');
             const healthStatus = document.getElementById('healthMiniStatus');
             if (healthIndicator && healthStatus) {
@@ -433,11 +633,13 @@
                 updateHealthMiniWidget(healthScore);
             }
             
+            // Update connection stats in console
             const activeCountElement = document.getElementById('activeConnectionCount');
             if (activeCountElement) {
                 activeCountElement.textContent = activeConnections;
             }
             
+            // Update active connections display
             const connectionsDiv = document.getElementById('liveActiveConnections');
             if (connectionsDiv) {
                 if (totalConnections === 0) {
@@ -464,6 +666,7 @@
                 }
             }
             
+            // Update console filters
             updateConsoleFilters();
         })
         .catch(error => {
@@ -471,12 +674,14 @@
         });
     }
 
+    // NEW: Health score calculation
     function calculateHealthScore(activeConnections, totalConnections) {
-        if (totalConnections === 0) return 95;
+        if (totalConnections === 0) return 95; // Default healthy score
         const connectionRatio = activeConnections / totalConnections;
         return Math.round(connectionRatio * 100);
     }
 
+    // NEW: Update health mini widget in sidebar
     function updateHealthMiniWidget(healthScore) {
         const healthIndicator = document.getElementById('health-mini-indicator');
         const healthStatus = document.getElementById('healthMiniStatus');
@@ -506,6 +711,7 @@
         }
     }
 
+    // ENHANCED CONSOLE REFRESH WITH LIVE MESSAGES
     function refreshConsoleWithLiveMessages() {
         Promise.all([
             fetch('/api/console/output'),
@@ -524,12 +730,14 @@
         .catch(error => {
             console.error('Error refreshing console with live messages:', error);
             if (typeof refreshConsole === 'function') {
-                refreshConsole();
+                refreshConsole(); // Fallback
             }
         });
     }
 
+    // Live Console Functions - Auto-Connect Mode
     function addLiveConsoleMessage(message, shouldScroll = true) {
+        // This function is used to add connection status messages to the console
         const outputDiv = document.getElementById('consoleOutput');
         if (!outputDiv) return;
         
@@ -547,7 +755,7 @@
     }
 
     // ============================================================================
-    // GLOBAL UTILITY FUNCTIONS
+    // GLOBAL UTILITY FUNCTIONS (FOR MODULE COMPATIBILITY)
     // ============================================================================
     
     function showStatus(message, type = 'info') {
@@ -572,6 +780,7 @@
         }
     }
     
+    // Status helper functions
     function getStatusClass(status) {
         switch(status) {
             case 'online': return 'bg-green-800 text-green-200';
@@ -589,15 +798,16 @@
     }
 
     // ============================================================================
-    // ✅ FIXED: CONTEXT-AWARE PLAYER COUNT SYSTEM
+    // LOGS-BASED PLAYER COUNT SYSTEM - CORE INFRASTRUCTURE
     // ============================================================================
 
+    // Core player count system configuration
     let logsBasedPlayerCountSystem = {
         enabled: false,
         polling: false,
         intervalId: null,
         config: {
-            interval: 30000,
+            interval: 30000, // 30 seconds for logs-based approach
             maxRetries: 3,
             batchSize: 2
         },
@@ -607,6 +817,9 @@
         }
     };
 
+    /**
+     * SAFE: Check if function exists before calling
+     */
     function safeCall(functionName, ...args) {
         try {
             if (typeof window[functionName] === 'function') {
@@ -621,6 +834,9 @@
         }
     }
 
+    /**
+     * SAFE: Get DOM element with error handling
+     */
     function safeGetElement(id) {
         try {
             const element = document.getElementById(id);
@@ -635,7 +851,11 @@
         }
     }
 
+    /**
+     * LOGS-BASED: Initialize player count system using logs API
+     */
     function logsBasedInitializePlayerCount() {
+        // Check dependencies
         if (!managedServers || managedServers.length === 0) {
             console.log('📊 Logs-based player count: No servers to monitor yet');
             return;
@@ -654,6 +874,7 @@
         console.log('📊 Initializing logs-based player count system...');
         logsBasedPlayerCountSystem.enabled = true;
 
+        // Show player count containers
         managedServers.forEach(server => {
             const container = safeGetElement(`player-count-${server.serverId}`);
             if (container) {
@@ -661,17 +882,22 @@
             }
         });
 
+        // Check if logs-based functions are available
         if (typeof window.getPlayerCountFromLogs === 'function') {
             console.log('✅ Logs module detected - using logs-based API');
         } else {
             console.log('⚠️ Logs module not ready - will use direct API calls');
         }
 
+        // Start polling with delay
         setTimeout(() => {
             startLogsBasedPlayerCountPolling();
         }, 3000);
     }
 
+    /**
+     * LOGS-BASED: Start player count polling using logs API
+     */
     function startLogsBasedPlayerCountPolling() {
         if (logsBasedPlayerCountSystem.polling) {
             return;
@@ -680,13 +906,18 @@
         console.log('▶️ Starting logs-based player count polling...');
         logsBasedPlayerCountSystem.polling = true;
 
+        // Initial poll
         logsBasedPollAllServers();
 
+        // Set up interval - longer for logs-based approach
         logsBasedPlayerCountSystem.intervalId = setInterval(() => {
             logsBasedPollAllServers();
         }, logsBasedPlayerCountSystem.config.interval);
     }
 
+    /**
+     * LOGS-BASED: Poll all servers using logs API
+     */
     function logsBasedPollAllServers() {
         if (!managedServers || managedServers.length === 0) {
             return;
@@ -694,6 +925,7 @@
 
         console.log(`🔍 Logs-based polling ${managedServers.length} servers...`);
 
+        // Process servers in small batches
         const batches = [];
         for (let i = 0; i < managedServers.length; i += logsBasedPlayerCountSystem.config.batchSize) {
             batches.push(managedServers.slice(i, i + logsBasedPlayerCountSystem.config.batchSize));
@@ -712,13 +944,16 @@
 
             batchIndex++;
             if (batchIndex < batches.length) {
-                setTimeout(processBatch, 5000);
+                setTimeout(processBatch, 5000); // 5 second delay between batches for logs
             }
         }
 
         processBatch();
     }
 
+    /**
+     * LOGS-BASED: Query specific server for player count using logs API
+     */
     async function logsBasedQueryServerPlayerCount(serverId) {
         if (logsBasedPlayerCountSystem.state.activeRequests.has(serverId)) {
             return;
@@ -735,7 +970,9 @@
         try {
             console.log(`📊 Logs-based query for ${server.serverName} (${serverId})`);
             
+            // Check if we're in demo mode
             if (isDemo) {
+                // Demo mode: generate mock data
                 setTimeout(() => {
                     const mockData = generateMockPlayerData(serverId);
                     updatePlayerCountDisplay(serverId, mockData, 'success');
@@ -744,12 +981,15 @@
                 return;
             }
 
+            // REAL MODE: Use logs-based API
             if (typeof window.getPlayerCountFromLogs === 'function') {
+                // Use logs module function
                 const result = await window.getPlayerCountFromLogs(serverId);
                 if (result.success) {
                     logsBasedPlayerCountSystem.state.serverData.set(serverId, result.data);
                 }
             } else {
+                // Direct API call fallback
                 const response = await fetch(`/api/logs/player-count/${serverId}`, {
                     method: 'POST',
                     headers: {
@@ -777,34 +1017,16 @@
         }
     }
 
-    // ✅ FIXED: Context-aware player count display update
+    /**
+     * ENHANCED: Update player count display (preserves old values during loading)
+     */
     function updatePlayerCountDisplay(serverId, playerData, status = 'success') {
-        console.log(`📊 Updating player count display for ${serverId} (context: ${currentTab})`);
-        
-        // ✅ FIXED: Different update strategies for different contexts
-        if (currentTab === 'server-health') {
-            // Server Health context - use Server Health specific function
-            if (typeof window.updateServerHealthPlayerCount === 'function') {
-                window.updateServerHealthPlayerCount(serverId, playerData, status);
-            } else {
-                console.log('⚠️ Server Health player count update function not available');
-            }
-            return;
-        }
-        
-        // ✅ FIXED: Server Manager context - use standard elements
         const countElement = document.querySelector(`#player-count-${serverId} .player-count-value`);
         const maxElement = document.querySelector(`#player-count-${serverId} .player-max-value`);
         const statusElement = safeGetElement(`player-status-${serverId}`);
         const progressBar = safeGetElement(`player-bar-${serverId}`);
         const sourceElement = safeGetElement(`player-source-${serverId}`);
         const serverCard = document.querySelector(`[data-server-id="${serverId}"]`);
-
-        // ✅ FIXED: Only proceed if we found the elements (context-aware)
-        if (!countElement || !maxElement) {
-            console.log(`📊 Skipping update for ${serverId} - elements not found in current context (${currentTab})`);
-            return;
-        }
 
         // Update status first (always update this)
         if (statusElement) {
@@ -827,12 +1049,15 @@
 
         // Only update values if we have new data (preserve old values during loading/error)
         if (playerData && countElement && maxElement) {
+            // Update the actual values
             countElement.textContent = playerData.current;
             maxElement.textContent = playerData.max;
 
+            // Update progress bar
             if (progressBar) {
                 progressBar.style.width = `${playerData.percentage}%`;
                 
+                // Update color based on percentage
                 progressBar.className = 'player-count-fill bg-gradient-to-r rounded-full h-full transition-all duration-500';
                 if (playerData.percentage >= 90) {
                     progressBar.className += ' from-red-500 to-red-600';
@@ -845,14 +1070,16 @@
                 }
             }
 
+            // Update source indicator
             if (sourceElement) {
                 sourceElement.textContent = playerData.source === 'server_logs' ? 'Server Logs' : 
-                                           playerData.source === 'demo_data' ? 'Demo Data' : 
+                                           playerData.source === 'mock' ? 'Demo Data' : 
                                            playerData.source === 'auto_command_logs' ? 'Auto Commands + Logs' :
                                            playerData.source === 'logs_api' ? 'Server Logs' :
                                            'Unknown';
             }
 
+            // Update server card attributes
             if (serverCard) {
                 serverCard.setAttribute('data-has-players', playerData.current > 0 ? 'true' : 'false');
             }
@@ -860,12 +1087,14 @@
             console.log(`📊 Updated display for ${serverId}: ${playerData.current}/${playerData.max} (${playerData.percentage}%)`);
             
         } else if (status === 'loading') {
+            // During loading, keep old values but update source
             if (sourceElement) {
                 sourceElement.textContent = 'Loading...';
             }
             console.log(`⏳ Loading player count for ${serverId} (keeping old values)`);
             
         } else if (status === 'error' && !playerData) {
+            // On error without new data, keep old values but update source
             if (sourceElement) {
                 sourceElement.textContent = 'Error - Using Last Known';
             }
@@ -882,6 +1111,9 @@
         }
     }
 
+    /**
+     * LOGS-BASED: Generate mock player data (realistic)
+     */
     function generateMockPlayerData(serverId) {
         const playerCount = Math.floor(Math.random() * 60);
         const maxPlayers = [50, 100, 150, 200][Math.floor(Math.random() * 4)];
@@ -891,20 +1123,28 @@
             max: maxPlayers,
             percentage: maxPlayers > 0 ? Math.round((playerCount / maxPlayers) * 100) : 0,
             timestamp: new Date().toISOString(),
-            source: 'demo_data'
+            source: 'mock'
         };
     }
 
+    /**
+     * LOGS-BASED: Manual refresh for specific server
+     */
     function refreshPlayerCount(serverId) {
         console.log(`🔄 Manual logs-based refresh for server ${serverId}`);
         
+        // Check if logs-based function is available
         if (typeof window.getPlayerCountFromLogs === 'function') {
             window.getPlayerCountFromLogs(serverId);
         } else {
+            // Fallback to direct API call
             logsBasedQueryServerPlayerCount(serverId);
         }
     }
 
+    /**
+     * NEW: Server Health Integration Test
+     */
     function testServerHealthIntegration() {
         console.log('🧪 Testing Server Health integration...');
         
@@ -917,12 +1157,18 @@
         const testServerId = managedServers[0].serverId;
         console.log(`🎯 Testing Server Health with server: ${testServerId}`);
         
+        // Test server health check
         safeCall('checkServerHealth', testServerId);
-        updateHealthMiniWidget(85);
+        
+        // Update health indicators
+        updateHealthMiniWidget(85); // Mock health score
         
         showStatus('Server Health integration test completed', 'success');
     }
 
+    /**
+     * LOGS-BASED: Test integration
+     */
     function testLogsIntegration() {
         console.log('🧪 Testing logs-based integration...');
         
@@ -934,13 +1180,15 @@
         const testServerId = managedServers[0].serverId;
         console.log(`🎯 Testing with server: ${testServerId}`);
         
+        // Test using logs-based approach
         refreshPlayerCount(testServerId);
     }
-    
+
     // ============================================================================
-    // GLOBAL FUNCTION EXPOSURE
+    // CRITICAL: IMMEDIATE GLOBAL FUNCTION EXPOSURE
     // ============================================================================
     
+    // IMMEDIATELY attach core functions to window (before DOM loads)
     window.showTab = showTab;
     window.createPlaceholderView = createPlaceholderView;
     window.escapeHtml = escapeHtml;
@@ -957,7 +1205,7 @@
     window.getStatusClass = getStatusClass;
     window.getStatusText = getStatusText;
     
-    // Player count functions
+    // LOGS-BASED: Player count functions
     window.safeCall = safeCall;
     window.safeGetElement = safeGetElement;
     window.logsBasedInitializePlayerCount = logsBasedInitializePlayerCount;
@@ -966,12 +1214,12 @@
     window.generateMockPlayerData = generateMockPlayerData;
     window.testLogsIntegration = testLogsIntegration;
     
-    // Server Health functions
+    // NEW: Server Health functions
     window.testServerHealthIntegration = testServerHealthIntegration;
     window.calculateHealthScore = calculateHealthScore;
     window.updateHealthMiniWidget = updateHealthMiniWidget;
     
-    // Global variables
+    // Ensure global variables are accessible
     window.currentTab = currentTab;
     window.servers = servers;
     window.managedServers = managedServers;
@@ -984,20 +1232,21 @@
     window.autoScroll = autoScroll;
     window.websocketsAvailable = websocketsAvailable;
     
-    console.log('🚀 GUST Bot Enhanced - Core Module Initialized (CONTEXT-AWARE + LOGS-BASED + MODULAR + SERVER HEALTH)');
+    console.log('🚀 GUST Bot Enhanced - Core Module Initialized (LOGS-BASED + MODULAR + ENHANCED UX + SERVER HEALTH)');
     console.log('⚡ Global functions exposed immediately');
     console.log('📦 Modular architecture active - feature modules loaded separately');
     console.log('📋 Logs-based player count system ready');
     console.log('✨ Enhanced UX: Preserves old values during loading');
-    console.log('🏥 Server Health: Complete integration with context-aware updates');
+    console.log('🏥 Server Health: Complete integration ready for full functionality');
     
     // ============================================================================
-    // INITIALIZATION
+    // INITIALIZATION (PRESERVED EXACT BEHAVIOR)
     // ============================================================================
     
     document.addEventListener('DOMContentLoaded', function() {
         console.log('📋 DOM loaded - setting up event handlers');
         
+        // Setup global event listeners (preserve original behavior)
         window.addEventListener('hashchange', function() {
             const tab = window.location.hash.substring(1);
             if (tab && typeof window.showTab === 'function') {
@@ -1005,6 +1254,7 @@
             }
         });
         
+        // Initialize default tab (preserve original behavior)
         setTimeout(function() {
             if (window.location.hash) {
                 const tab = window.location.hash.substring(1);
@@ -1016,7 +1266,7 @@
                     window.showTab('dashboard');
                 }
             }
-        }, 200);
+        }, 200); // Small delay to ensure all modules are loaded
         
         console.log('✅ Core initialization complete');
         console.log('🌐 Global functions available:', {
@@ -1024,7 +1274,7 @@
             currentTab: window.currentTab,
             logsBasedPlayerCount: typeof window.logsBasedInitializePlayerCount,
             enhancedUX: 'Preserves old values during loading',
-            serverHealthSupport: 'Context-aware integration ready'
+            serverHealthSupport: 'Complete integration ready'
         });
     });
 
