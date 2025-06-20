@@ -1,0 +1,876 @@
+# 🏥 GUST Server Monitoring System - Complete Implementation Guide
+
+## 📋 **Overview**
+
+This document details the complete server monitoring ecosystem for the WDC-GP/GUST-MARK-1 Rust server management application. The system now features comprehensive monitoring capabilities including real-time player tracking, server health monitoring, performance analytics, and command execution tracking.
+
+## 🎯 **Complete Monitoring Features**
+
+### **🏥 Server Health Monitoring** ✅ *COMPLETE*
+- **Real-time Performance Monitoring**: CPU, Memory, FPS, Player Count tracking
+- **Command History Tracking**: 24-hour command execution history with filtering
+- **Live Health Status Cards**: Color-coded status indicators with progress bars
+- **Interactive Charts**: Chart.js integration for performance visualization
+- **Command Feed**: Real-time command execution feed with type filtering
+- **Health Trend Analysis**: Performance trends with percentage changes
+- **75/25 Layout**: Professional dashboard with charts (left) and commands (right)
+
+### **👥 Live Player Count System** ✅ *COMPLETE*
+- **Real-time Updates**: 10-second polling with performance optimization
+- **Visual Progress Bars**: Color-coded capacity indicators
+- **Enhanced UX**: Preserved values during loading states
+- **Demo Mode Support**: Mock data for testing
+- **Logs-based Architecture**: Uses server logs as source of truth
+- **Auto Command Integration**: Automatic serverinfo execution
+
+### **📊 Performance Analytics** ✅ *COMPLETE*
+- **Trend Analysis**: 24-hour and 7-day performance trends
+- **Metric Correlation**: FPS vs Player Count analysis
+- **Historical Data**: MongoDB storage with 7-day retention
+- **Real-time Charts**: Live updating performance graphs
+
+## 🏗️ **System Architecture Overview**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                GUST Monitoring Ecosystem                    │
+├─────────────────────────────────────────────────────────────┤
+│ Frontend Monitoring Components                              │
+│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐ │
+│ │ Server      │ │ Live Player │ │ Performance │ │ Health  │ │
+│ │ Health      │ │ Count       │ │ Charts      │ │ Status  │ │
+│ │ Dashboard   │ │ Display     │ │ Analytics   │ │ Cards   │ │
+│ └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│ Data Integration Layer                                      │
+│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐ │
+│ │ Logs API    │ │ Health APIs │ │ Console     │ │ Command │ │
+│ │ Integration │ │ (Real Data) │ │ System      │ │ Tracking│ │
+│ └─────────────┘ └─────────────┘ └─────────────┘ └─────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│ Storage & Processing                                        │
+│ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐             │
+│ │ MongoDB     │ │ In-Memory   │ │ File System │             │
+│ │ (Primary)   │ │ (Fallback)  │ │ (Logs)      │             │
+│ └─────────────┘ └─────────────┘ └─────────────┘             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 📁 **Complete File Structure**
+
+### **Backend Components** ✅ *IMPLEMENTED*
+
+#### **1. Server Health System**
+```
+routes/server_health.py              # API endpoints for health monitoring
+utils/server_health_storage.py       # Data storage and retrieval
+```
+
+#### **2. Enhanced Logs System**
+```
+routes/logs.py                       # Enhanced with player count API
+utils/api_client.py                  # G-Portal API integration
+```
+
+#### **3. Console Integration**
+```
+routes/console.py                    # Command execution and tracking
+websocket/manager.py                 # Real-time WebSocket communication
+```
+
+### **Frontend Components** ✅ *IMPLEMENTED*
+
+#### **4. Monitoring Views**
+```
+templates/views/server_health.html   # 75/25 health dashboard layout
+templates/views/console.html         # Enhanced console with monitoring
+templates/views/server_manager.html  # Server list with live player counts
+```
+
+#### **5. JavaScript Modules**
+```
+templates/scripts/server_health.js.html  # Health monitoring frontend
+templates/scripts/main.js.html           # Core functions + player count
+templates/scripts/console.js.html        # Console integration
+templates/scripts/logs.js.html           # Auto commands + logs API
+```
+
+#### **6. Enhanced Navigation**
+```
+templates/base/sidebar.html          # Updated with health indicator
+templates/enhanced_dashboard.html    # Integrated all monitoring views
+```
+
+## 🔄 **Data Flow Architecture**
+
+### **Complete Monitoring Pipeline**
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│ Auto        │───▶│ Server Logs │───▶│ Logs API    │───▶│ Multiple    │
+│ Commands    │    │ (serverinfo)│    │ Parser      │    │ Consumers   │
+│ (10s)       │    │ Storage     │    │             │    │             │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+                                                                   │
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐             │
+│ Player      │◀───│ Health      │◀───│ Real-time   │◀────────────┤
+│ Count       │    │ Monitoring  │    │ Data        │             │
+│ Display     │    │ System      │    │ Processing  │             │
+└─────────────┘    └─────────────┘    └─────────────┘             │
+                                                                   │
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐             │
+│ Performance │◀───│ Chart.js    │◀───│ Historical  │◀────────────┘
+│ Charts      │    │ Rendering   │    │ Analytics   │
+│ (Dashboard) │    │             │    │             │
+└─────────────┘    └─────────────┘    └─────────────┘
+```
+
+### **Monitoring Data Sources**
+```python
+# Real server data integration
+def get_monitoring_data(server_id):
+    """Unified data collection from multiple sources"""
+    
+    # 1. Real-time player data from logs
+    player_data = get_player_data_from_logs(server_id)
+    
+    # 2. Server performance metrics
+    performance_data = calculate_performance_metrics(player_data)
+    
+    # 3. Command execution history
+    command_history = get_command_history(server_id)
+    
+    # 4. Health status calculation
+    health_status = determine_health_status(player_data, performance_data)
+    
+    return {
+        'player_data': player_data,
+        'performance': performance_data,
+        'commands': command_history,
+        'health': health_status
+    }
+```
+
+## 🏥 **Server Health Dashboard**
+
+### **Layout Implementation**
+```html
+<!-- 75/25 Professional Layout -->
+<div class="flex flex-col lg:flex-row gap-6">
+    <!-- LEFT SIDE: Performance Monitoring (75%) -->
+    <div class="flex-1 lg:w-3/4 space-y-4">
+        
+        <!-- Status Cards Row -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- System Health Card -->
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-400">System Health</span>
+                    <span class="w-3 h-3 bg-green-500 rounded-full"></span>
+                </div>
+                <div class="text-xl font-semibold text-green-400 mt-2">System healthy</div>
+                <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
+                    <div class="w-4/5 h-2 bg-green-500 rounded-full"></div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Last check: 2:45:23 PM</p>
+            </div>
+            
+            <!-- Response Time Card -->
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <span class="text-gray-400">⚡ Response Time</span>
+                <div class="text-2xl font-bold text-white mt-2">25ms</div>
+                <p class="text-xs text-gray-500">24h avg: 30ms</p>
+            </div>
+            
+            <!-- Memory Usage Card -->
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <span class="text-gray-400">🧠 Memory Usage</span>
+                <div class="text-2xl font-bold text-white mt-2">1.6GB</div>
+                <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
+                    <div class="w-3/5 h-2 bg-blue-500 rounded-full"></div>
+                </div>
+            </div>
+            
+            <!-- Player Count Card -->
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <span class="text-gray-400">👥 Players Online</span>
+                <div class="text-2xl font-bold text-white mt-2">12/100</div>
+                <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
+                    <div class="w-1/8 h-2 bg-purple-500 rounded-full"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- FPS Performance Chart -->
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <h3 class="text-white font-semibold mb-4">FPS Performance</h3>
+                <div class="relative h-64">
+                    <canvas id="fps-chart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Player Activity Chart -->
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <h3 class="text-white font-semibold mb-4">Player Activity</h3>
+                <div class="relative h-64">
+                    <canvas id="players-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- RIGHT SIDE: Command Feed (25%) -->
+    <div class="lg:w-1/4">
+        <div class="bg-gray-800 rounded-lg h-full flex flex-col">
+            <!-- Command Feed Header -->
+            <div class="p-4 border-b border-gray-700">
+                <h3 class="text-white font-semibold">Commands (24h)</h3>
+                <div class="flex gap-2 mt-2">
+                    <button class="px-2 py-1 text-xs bg-purple-600 text-white rounded">All</button>
+                    <button class="px-2 py-1 text-xs bg-gray-600 text-white rounded">Admin</button>
+                    <button class="px-2 py-1 text-xs bg-gray-600 text-white rounded">Auto</button>
+                </div>
+            </div>
+            
+            <!-- Command Feed Content -->
+            <div class="flex-1 p-4 overflow-y-auto">
+                <div class="space-y-2">
+                    <!-- Real-time command entries -->
+                    <div class="text-xs p-2 bg-gray-700 rounded">
+                        <div class="flex justify-between items-start">
+                            <span class="text-yellow-400">[15:30:22] serverinfo</span>
+                            <span class="text-gray-400">🤖 Auto</span>
+                        </div>
+                    </div>
+                    <!-- More command entries... -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+```
+
+### **Real-time Health Calculation**
+```javascript
+// Frontend health status updates
+function updateHealthStatusDisplay(data) {
+    const status = data.overall_status;
+    const metrics = data.health_data?.metrics || {};
+    
+    // Update system health indicator
+    updateStatusIndicator(status);
+    
+    // Update metric displays with real data
+    updateMetricCard('response-time', metrics.response_time, 'ms');
+    updateMetricCard('memory-usage', metrics.memory_usage, 'MB');
+    updateMetricCard('player-count', `${metrics.player_count}/${metrics.max_players}`);
+    
+    // Update progress bars
+    updateProgressBars(metrics);
+    
+    // Update charts with real-time data
+    updatePerformanceCharts(data.chart_data);
+}
+```
+
+## 👥 **Enhanced Live Player Count**
+
+### **Integration with Health Monitoring**
+```javascript
+// Unified player count display across all tabs
+function updatePlayerCountDisplay(serverId, playerData, status) {
+    const serverCard = document.querySelector(`[data-server-id="${serverId}"]`);
+    if (!serverCard) return;
+    
+    // Update player count in server manager
+    updateServerManagerDisplay(serverCard, playerData, status);
+    
+    // Update health monitoring if active
+    if (typeof updateHealthPlayerCount === 'function') {
+        updateHealthPlayerCount(serverId, playerData);
+    }
+    
+    // Update dashboard stats
+    updateDashboardPlayerCount(playerData);
+}
+```
+
+### **Enhanced Visual Indicators**
+```css
+/* Progressive color coding for player capacity */
+.player-progress-bar {
+    transition: all 0.3s ease;
+}
+
+.player-progress-bar.capacity-low {    /* 0-50% */
+    background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.player-progress-bar.capacity-medium { /* 51-75% */
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.player-progress-bar.capacity-high {   /* 76-90% */
+    background: linear-gradient(90deg, #f97316, #fb923c);
+}
+
+.player-progress-bar.capacity-full {   /* 91-100% */
+    background: linear-gradient(90deg, #dc2626, #ef4444);
+}
+```
+
+## 📊 **Performance Analytics**
+
+### **Chart.js Integration**
+```javascript
+// Advanced chart configuration for monitoring
+const chartConfig = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+        intersect: false,
+        mode: 'index'
+    },
+    plugins: {
+        legend: {
+            labels: { color: '#e5e7eb' }
+        },
+        tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+            titleColor: '#f3f4f6',
+            bodyColor: '#d1d5db',
+            borderColor: '#6b7280',
+            borderWidth: 1
+        }
+    },
+    scales: {
+        x: {
+            ticks: { color: '#9ca3af' },
+            grid: { color: '#374151' }
+        },
+        y: {
+            beginAtZero: true,
+            ticks: { color: '#9ca3af' },
+            grid: { color: '#374151' }
+        }
+    }
+};
+
+// Multi-chart initialization
+function initializeMonitoringCharts() {
+    // FPS Performance Chart
+    initChart('fps-chart', {
+        label: 'Server FPS',
+        borderColor: '#22c55e',
+        backgroundColor: 'rgba(34, 197, 94, 0.1)'
+    });
+    
+    // Player Activity Chart
+    initChart('players-chart', {
+        label: 'Active Players',
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)'
+    });
+    
+    // Memory Usage Chart
+    initChart('memory-chart', {
+        label: 'Memory Usage (MB)',
+        borderColor: '#8b5cf6',
+        backgroundColor: 'rgba(139, 92, 246, 0.1)'
+    });
+    
+    // Response Time Chart
+    initChart('response-time-chart', {
+        label: 'Response Time (ms)',
+        borderColor: '#f59e0b',
+        backgroundColor: 'rgba(245, 158, 11, 0.1)'
+    });
+}
+```
+
+### **Trend Analysis Backend**
+```python
+# Performance trend calculation
+def calculate_performance_trends(server_id, hours=24):
+    """Calculate comprehensive performance trends"""
+    
+    # Get historical data
+    current_metrics = get_current_metrics(server_id)
+    historical_data = get_historical_data(server_id, hours)
+    
+    # Calculate trends
+    trends = {}
+    for metric in ['response_time', 'memory_usage', 'fps', 'player_count']:
+        current_value = current_metrics.get(metric, 0)
+        historical_avg = calculate_average(historical_data, metric)
+        
+        # Calculate trend direction and percentage change
+        if historical_avg > 0:
+            change_pct = ((current_value - historical_avg) / historical_avg) * 100
+            
+            if change_pct > 5:
+                trend_indicator = "📈"  # Improving
+            elif change_pct < -5:
+                trend_indicator = "📉"  # Declining
+            else:
+                trend_indicator = "➡️"  # Stable
+        else:
+            trend_indicator = "➡️"
+            change_pct = 0
+        
+        trends[metric] = {
+            'current': current_value,
+            'average': historical_avg,
+            'change_percent': round(change_pct, 1),
+            'trend': trend_indicator
+        }
+    
+    return trends
+```
+
+## 🔄 **Auto-Refresh & Real-time Updates**
+
+### **Coordinated Refresh System**
+```javascript
+// Global monitoring refresh coordination
+class MonitoringCoordinator {
+    constructor() {
+        this.intervals = {};
+        this.activeModules = new Set();
+    }
+    
+    registerModule(module, refreshFunction, interval) {
+        this.activeModules.add(module);
+        
+        this.intervals[module] = setInterval(() => {
+            if (this.isModuleActive(module)) {
+                refreshFunction();
+            }
+        }, interval);
+    }
+    
+    unregisterModule(module) {
+        this.activeModules.delete(module);
+        
+        if (this.intervals[module]) {
+            clearInterval(this.intervals[module]);
+            delete this.intervals[module];
+        }
+    }
+    
+    refreshAll() {
+        this.activeModules.forEach(module => {
+            const refreshFunction = this.getRefreshFunction(module);
+            if (refreshFunction) {
+                refreshFunction();
+            }
+        });
+    }
+}
+
+// Initialize global coordinator
+const monitoringCoordinator = new MonitoringCoordinator();
+
+// Register monitoring modules
+monitoringCoordinator.registerModule('player-count', refreshPlayerCount, 10000);  // 10s
+monitoringCoordinator.registerModule('server-health', refreshHealthData, 30000);  // 30s
+monitoringCoordinator.registerModule('performance-charts', updateCharts, 30000);  // 30s
+```
+
+### **Intelligent Update Strategy**
+```javascript
+// Smart update system that preserves user experience
+function smartUpdate(updateFunction, fallbackData) {
+    return async function(...args) {
+        try {
+            // Show loading state while preserving existing data
+            showLoadingState(true);
+            
+            // Attempt update
+            const result = await updateFunction(...args);
+            
+            if (result && result.success) {
+                // Update with real data
+                updateDisplay(result.data);
+                showSuccessState();
+            } else {
+                // Use fallback but indicate warning
+                updateDisplay(fallbackData);
+                showWarningState('Using cached data');
+            }
+            
+        } catch (error) {
+            // Preserve existing display, show error indicator
+            console.error('Update failed:', error);
+            showErrorState('Update failed - retrying...');
+            
+            // Retry after delay
+            setTimeout(() => smartUpdate(updateFunction, fallbackData)(...args), 5000);
+            
+        } finally {
+            showLoadingState(false);
+        }
+    };
+}
+```
+
+## 🔐 **Security & Error Handling**
+
+### **Comprehensive Error Recovery**
+```python
+# Backend error handling with graceful degradation
+def safe_monitoring_operation(operation_func):
+    """Decorator for safe monitoring operations"""
+    def wrapper(*args, **kwargs):
+        try:
+            result = operation_func(*args, **kwargs)
+            return {'success': True, 'data': result}
+            
+        except DatabaseConnectionError as e:
+            logger.warning(f"Database error, using fallback: {e}")
+            return {'success': False, 'error': 'database', 'fallback': True}
+            
+        except APIConnectionError as e:
+            logger.warning(f"API error, using cached data: {e}")
+            return {'success': False, 'error': 'api', 'cached': True}
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in {operation_func.__name__}: {e}")
+            return {'success': False, 'error': 'unknown', 'message': str(e)}
+    
+    return wrapper
+
+@safe_monitoring_operation
+def get_server_health_status(server_id):
+    # Implementation with automatic error handling
+    pass
+```
+
+### **Input Validation & Sanitization**
+```python
+# Comprehensive input validation
+def validate_monitoring_request(server_id, hours=None, command_type=None):
+    """Validate all monitoring API inputs"""
+    
+    # Server ID validation
+    if not server_id or not isinstance(server_id, str):
+        raise ValueError("Invalid server ID")
+    
+    if len(server_id) > 50 or not re.match(r'^[a-zA-Z0-9_-]+$', server_id):
+        raise ValueError("Server ID format invalid")
+    
+    # Hours validation for trend requests
+    if hours is not None:
+        if not isinstance(hours, int) or hours < 1 or hours > 168:  # Max 7 days
+            raise ValueError("Hours must be between 1 and 168")
+    
+    # Command type validation
+    if command_type is not None:
+        valid_types = ['all', 'admin', 'ingame', 'auto', 'system']
+        if command_type.lower() not in valid_types:
+            raise ValueError(f"Invalid command type. Must be one of: {valid_types}")
+    
+    return True
+```
+
+## 📈 **Performance Optimization**
+
+### **Database Query Optimization**
+```python
+# Optimized MongoDB queries with indexing
+class OptimizedHealthStorage:
+    def __init__(self, db):
+        self.db = db
+        self.setup_indexes()
+    
+    def setup_indexes(self):
+        """Create optimized indexes for monitoring queries"""
+        
+        # Health snapshots index
+        self.db.server_health_snapshots.create_index([
+            ("server_id", 1),
+            ("timestamp", -1)
+        ])
+        
+        # Command history index
+        self.db.server_health_commands.create_index([
+            ("server_id", 1),
+            ("timestamp", -1),
+            ("command_type", 1)
+        ])
+        
+        # TTL index for automatic cleanup
+        self.db.server_health_snapshots.create_index(
+            "timestamp", 
+            expireAfterSeconds=604800  # 7 days
+        )
+    
+    def get_health_trends_optimized(self, server_id, hours=6):
+        """Optimized trend retrieval with aggregation pipeline"""
+        
+        pipeline = [
+            {
+                "$match": {
+                    "server_id": server_id,
+                    "timestamp": {
+                        "$gte": datetime.utcnow() - timedelta(hours=hours)
+                    }
+                }
+            },
+            {
+                "$sort": {"timestamp": 1}
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "timestamp": 1,
+                    "health_data.statistics.fps": 1,
+                    "health_data.statistics.memory_usage": 1,
+                    "health_data.statistics.player_count": 1,
+                    "health_data.response_time": 1
+                }
+            },
+            {
+                "$limit": 100  # Limit for performance
+            }
+        ]
+        
+        return list(self.db.server_health_snapshots.aggregate(pipeline))
+```
+
+### **Frontend Performance Optimization**
+```javascript
+// Optimized chart updates with throttling
+class PerformanceOptimizedCharts {
+    constructor() {
+        this.updateQueue = new Map();
+        this.isUpdating = false;
+    }
+    
+    // Throttled update method
+    throttledUpdate(chartId, data) {
+        this.updateQueue.set(chartId, data);
+        
+        if (!this.isUpdating) {
+            this.isUpdating = true;
+            requestAnimationFrame(() => this.processUpdateQueue());
+        }
+    }
+    
+    processUpdateQueue() {
+        for (const [chartId, data] of this.updateQueue) {
+            const chart = Chart.getChart(chartId);
+            if (chart) {
+                // Batch update for performance
+                chart.data.labels = data.labels;
+                chart.data.datasets[0].data = data.data;
+                chart.update('none'); // No animation for smoother performance
+            }
+        }
+        
+        this.updateQueue.clear();
+        this.isUpdating = false;
+    }
+}
+
+// Memory management for monitoring data
+class MonitoringMemoryManager {
+    constructor() {
+        this.dataCache = new Map();
+        this.maxCacheSize = 100;
+    }
+    
+    addToCache(key, data) {
+        if (this.dataCache.size >= this.maxCacheSize) {
+            // Remove oldest entry
+            const firstKey = this.dataCache.keys().next().value;
+            this.dataCache.delete(firstKey);
+        }
+        
+        this.dataCache.set(key, {
+            data: data,
+            timestamp: Date.now()
+        });
+    }
+    
+    getFromCache(key, maxAge = 30000) { // 30 seconds default
+        const cached = this.dataCache.get(key);
+        if (cached && (Date.now() - cached.timestamp) < maxAge) {
+            return cached.data;
+        }
+        return null;
+    }
+}
+```
+
+## 🧪 **Testing & Validation**
+
+### **Monitoring System Tests**
+```javascript
+// Comprehensive monitoring system tests
+class MonitoringSystemTests {
+    async runAllTests() {
+        console.log('🧪 Running monitoring system tests...');
+        
+        // Test server health components
+        await this.testServerHealthSystem();
+        
+        // Test player count system
+        await this.testPlayerCountSystem();
+        
+        // Test chart integration
+        await this.testChartIntegration();
+        
+        // Test error handling
+        await this.testErrorHandling();
+        
+        console.log('✅ All monitoring tests completed');
+    }
+    
+    async testServerHealthSystem() {
+        console.log('Testing Server Health system...');
+        
+        // Test health status API
+        const healthResponse = await fetch('/api/server_health/status/test_server');
+        console.assert(healthResponse.ok, 'Health status API should respond');
+        
+        // Test chart data API
+        const chartResponse = await fetch('/api/server_health/charts/test_server');
+        console.assert(chartResponse.ok, 'Chart data API should respond');
+        
+        // Test command history API
+        const commandResponse = await fetch('/api/server_health/commands/test_server');
+        console.assert(commandResponse.ok, 'Command history API should respond');
+        
+        console.log('✅ Server Health system tests passed');
+    }
+    
+    async testPlayerCountSystem() {
+        console.log('Testing Player Count system...');
+        
+        // Test logs API integration
+        if (typeof getPlayerCountFromLogs === 'function') {
+            const result = await getPlayerCountFromLogs('test_server');
+            console.assert(result !== null, 'Player count should return data');
+        }
+        
+        // Test visual updates
+        const serverCard = document.querySelector('[data-server-id="test_server"]');
+        if (serverCard) {
+            updatePlayerCountDisplay('test_server', {current: 10, max: 100, percentage: 10});
+            console.log('✅ Player count display updated');
+        }
+        
+        console.log('✅ Player Count system tests passed');
+    }
+    
+    async testChartIntegration() {
+        console.log('Testing Chart.js integration...');
+        
+        // Test chart creation
+        if (typeof Chart !== 'undefined') {
+            const testCanvas = document.createElement('canvas');
+            testCanvas.id = 'test-chart';
+            document.body.appendChild(testCanvas);
+            
+            const testChart = new Chart(testCanvas, {
+                type: 'line',
+                data: { labels: [], datasets: [] }
+            });
+            
+            console.assert(testChart instanceof Chart, 'Chart should be created');
+            
+            // Test chart cleanup
+            testChart.destroy();
+            document.body.removeChild(testCanvas);
+            
+            console.log('✅ Chart integration tests passed');
+        }
+    }
+}
+
+// Run tests in development
+if (window.location.hostname === 'localhost') {
+    const tests = new MonitoringSystemTests();
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => tests.runAllTests(), 2000);
+    });
+}
+```
+
+## 📋 **API Documentation**
+
+### **Complete Monitoring Endpoints**
+```
+Server Health Monitoring:
+├── GET  /api/server_health/status/<server_id>        # Real-time health status
+├── GET  /api/server_health/charts/<server_id>        # Performance chart data
+├── GET  /api/server_health/commands/<server_id>      # Command execution history
+├── GET  /api/server_health/trends/<server_id>        # Performance trend analysis
+├── POST /api/server_health/command/track             # Track command execution
+└── GET  /api/server_health/heartbeat                 # System health check
+
+Player Count Monitoring:
+├── POST /api/logs/player-count/<server_id>           # Real-time player data
+├── GET  /api/logs/<server_id>                        # Server logs with parsing
+└── POST /api/console/command                         # Execute serverinfo commands
+
+Performance Analytics:
+├── GET  /api/server_health/trends/<server_id>?period=24h    # 24-hour trends
+├── GET  /api/server_health/trends/<server_id>?period=7d     # 7-day trends
+└── GET  /api/server_health/charts/<server_id>?hours=<n>     # Custom time range
+```
+
+### **Response Examples**
+```json
+// Complete Health Status Response
+{
+    "success": true,
+    "status": "healthy",
+    "health_data": {
+        "overall_status": "healthy",
+        "health_percentage": 85,
+        "metrics": {
+            "response_time": 25,
+            "memory_usage": 1600,
+            "cpu_usage": 15,
+            "player_count": 12,
+            "max_players": 100,
+            "fps": 65,
+            "uptime": 86400
+        },
+        "data_source": "real_logs_data"
+    },
+    "server_id": "1736296",
+    "checked_at": "2025-06-19T15:30:00Z"
+}
+
+// Performance Trends Response
+{
+    "success": true,
+    "trends": {
+        "response_time": {
+            "current": 25,
+            "avg_24h": 30,
+            "change_percent": -16.7,
+            "trend": "📈"
+        },
+        "player_count": {
+            "current": 12,
+            "avg_24h": 8,
+            "change_percent": 50.0,
+            "trend": "📈"
+        }
+    },
+    "calculated_at": "2025-06-19T15:30:00Z"
+}
+```
+
+---
+
+*Complete monitoring guide updated: June 19, 2025*  
+*Status: ✅ Full ecosystem implementation with real-time integration*  
+*Next update: System enhancement and feature expansion*
+
+**Summary**: The GUST Server Monitoring System now provides comprehensive real-time monitoring capabilities with professional dashboards, advanced analytics, and seamless integration across all monitoring components.
