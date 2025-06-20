@@ -1,15 +1,15 @@
 <!-- ============================================================================
-     GUST Bot Enhanced - Core JavaScript (CONTEXT-AWARE + MODULAR + LOGS-BASED + SERVER HEALTH)
+     GUST Bot Enhanced - Core JavaScript (PHASE 1 FIXES)
      ============================================================================
-     ✅ FIXED: Context-aware DOM element management
-     ✅ FIXED: Different update strategies for different tabs
-     ✅ FIXED: Enhanced error handling and element checking
-     ✅ FIXED: Server Health integration with dynamic elements
+     ✅ FIXED: Global event broadcasting when servers load
+     ✅ FIXED: Enhanced debugging for server data sharing
+     ✅ FIXED: Better error handling and timing coordination
+     ✅ PRESERVED: All core functionality
      ============================================================================ -->
 
 <script>
     // ============================================================================
-    // GUST Bot Enhanced - Core JavaScript Module (CONTEXT-AWARE VERSION)
+    // GUST Bot Enhanced - Core JavaScript Module (PHASE 1 FIXES)
     // ============================================================================
     
     // ============================================================================
@@ -28,8 +28,37 @@
     let autoScroll = true;
     let websocketsAvailable = true;
     
+    // ✅ NEW: Global event system for module communication
+    let globalEventSystem = {
+        listeners: {},
+        emit: function(eventName, data) {
+            console.log(`📡 Global Event: ${eventName}`, data);
+            
+            // Dispatch custom DOM event
+            const event = new CustomEvent(eventName, { detail: data });
+            window.dispatchEvent(event);
+            
+            // Also trigger any registered listeners
+            if (this.listeners[eventName]) {
+                this.listeners[eventName].forEach(callback => {
+                    try {
+                        callback(data);
+                    } catch (error) {
+                        console.error(`❌ Event listener error for ${eventName}:`, error);
+                    }
+                });
+            }
+        },
+        on: function(eventName, callback) {
+            if (!this.listeners[eventName]) {
+                this.listeners[eventName] = [];
+            }
+            this.listeners[eventName].push(callback);
+        }
+    };
+    
     // ============================================================================
-    // CORE FUNCTIONS (ENHANCED WITH CONTEXT AWARENESS)
+    // CORE FUNCTIONS (ENHANCED WITH GLOBAL EVENTS)
     // ============================================================================
     
     function showTab(tab) {
@@ -67,11 +96,13 @@
                 console.log('✅ Showing view:', targetView.id);
             } else {
                 console.error('❌ No view found for tab:', tab);
-                createPlaceholderView(tab);
+                if (tab !== 'server-health') {
+                    createPlaceholderView(tab);
+                }
                 return;
             }
             
-            // Load tab-specific data
+            // Load tab-specific data with proper modular calls
             try {
                 if (tab === 'dashboard') loadDashboard();
                 else if (tab === 'server-manager') loadServerManager();
@@ -81,7 +112,9 @@
                 else if (tab === 'user-management') loadUserManagement();
                 else if (tab === 'users') loadUserManagement();
                 else if (tab === 'logs') loadLogs();
-                else if (tab === 'server-health') safeCall('loadServerHealth');
+                else if (tab === 'server-health') {
+                    safeCall('loadServerHealth');
+                }
             } catch (error) {
                 console.warn('Tab-specific loader error:', error);
             }
@@ -130,16 +163,6 @@
                     <div class="bg-gray-700 p-4 rounded">
                         <h4 class="font-semibold mb-2">📥 Log Management</h4>
                         <p class="text-sm text-gray-400">Download and view server logs available</p>
-                    </div>
-                `;
-                break;
-            case 'server-health':
-                title = '🏥 Server Health';
-                content = `
-                    <div class="text-center mb-6">
-                        <div class="text-4xl mb-4">🏥</div>
-                        <h2 class="text-2xl font-bold mb-2">Server Health Monitoring</h2>
-                        <p class="text-gray-400">Advanced health monitoring with real-time metrics and command integration</p>
                     </div>
                 `;
                 break;
@@ -239,7 +262,15 @@
         });
     }
 
+    // ✅ ENHANCED: Server dropdown updates with global event broadcasting
     function updateAllServerDropdowns() {
+        console.log('🔄 Updating all server dropdowns...');
+        console.log('🔍 Current managedServers state:');
+        console.log('  - Type:', typeof managedServers);
+        console.log('  - Is Array:', Array.isArray(managedServers));
+        console.log('  - Length:', managedServers ? managedServers.length : 'undefined');
+        console.log('  - First server:', managedServers && managedServers[0] ? managedServers[0] : 'none');
+        
         const serverDropdowns = [
             'consoleServerSelect',
             'eventServerSelect', 
@@ -248,13 +279,18 @@
             'giveItemServerSelect',
             'liveTargetServer',
             'serverFilter',
-            'server-health-selector',
+            'server-health-selector', // Include Server Health dropdown
             'server-select'
         ];
         
+        let updatedDropdowns = 0;
+        
         serverDropdowns.forEach(dropdownId => {
             const dropdown = document.getElementById(dropdownId);
-            if (!dropdown) return;
+            if (!dropdown) {
+                console.log(`  - ${dropdownId}: Not found`);
+                return;
+            }
             
             const currentValue = dropdown.value;
             
@@ -264,6 +300,7 @@
                 dropdown.appendChild(firstOption);
             }
             
+            let addedOptions = 0;
             managedServers.filter(server => server.isActive).forEach(server => {
                 const option = document.createElement('option');
                 option.value = server.serverId;
@@ -276,11 +313,25 @@
                 }
                 
                 dropdown.appendChild(option);
+                addedOptions++;
             });
             
             if (currentValue) {
                 dropdown.value = currentValue;
             }
+            
+            console.log(`  - ${dropdownId}: Updated with ${addedOptions} options`);
+            updatedDropdowns++;
+        });
+        
+        console.log(`✅ Updated ${updatedDropdowns} server dropdowns`);
+        
+        // ✅ NEW: Broadcast that server dropdowns have been updated
+        globalEventSystem.emit('serverDropdownsUpdated', {
+            serversCount: managedServers.length,
+            activeServers: managedServers.filter(s => s.isActive).length,
+            updatedDropdowns: updatedDropdowns,
+            timestamp: new Date().toISOString()
         });
     }
 
@@ -288,9 +339,15 @@
         return managedServers.find(server => server.serverId === serverId);
     }
 
+    // ✅ ENHANCED: Complete refreshServerList function with global events
     function refreshServerList() {
+        console.log('🔄 Refreshing server list...');
+        
         const container = document.getElementById('managedServersList');
-        if (!container) return;
+        if (!container) {
+            console.warn('⚠️ managedServersList container not found');
+            return;
+        }
         
         if (managedServers.length === 0) {
             container.innerHTML = `
@@ -302,6 +359,8 @@
             `;
             return;
         }
+        
+        console.log(`📊 Rendering ${managedServers.length} servers`);
         
         container.innerHTML = managedServers.map(server => `
             <div class="bg-gray-700 p-4 rounded-lg border border-gray-600" data-server-id="${server.serverId}" data-has-players="false">
@@ -376,6 +435,15 @@
             </div>
         `).join('');
         
+        console.log('✅ Server list refreshed');
+        
+        // ✅ NEW: Broadcast that server list has been refreshed
+        globalEventSystem.emit('serverListRefreshed', {
+            serversCount: managedServers.length,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Initialize player count after rendering
         setTimeout(() => {
             logsBasedInitializePlayerCount();
         }, 2000);
@@ -426,13 +494,6 @@
                 }
             }
             
-            const healthIndicator = document.getElementById('health-mini-indicator');
-            const healthStatus = document.getElementById('healthMiniStatus');
-            if (healthIndicator && healthStatus) {
-                const healthScore = calculateHealthScore(activeConnections, totalConnections);
-                updateHealthMiniWidget(healthScore);
-            }
-            
             const activeCountElement = document.getElementById('activeConnectionCount');
             if (activeCountElement) {
                 activeCountElement.textContent = activeConnections;
@@ -469,41 +530,6 @@
         .catch(error => {
             console.error('Error updating connection status:', error);
         });
-    }
-
-    function calculateHealthScore(activeConnections, totalConnections) {
-        if (totalConnections === 0) return 95;
-        const connectionRatio = activeConnections / totalConnections;
-        return Math.round(connectionRatio * 100);
-    }
-
-    function updateHealthMiniWidget(healthScore) {
-        const healthIndicator = document.getElementById('health-mini-indicator');
-        const healthStatus = document.getElementById('healthMiniStatus');
-        
-        if (healthIndicator) {
-            if (healthScore >= 80) {
-                healthIndicator.className = 'w-2 h-2 bg-green-500 rounded-full animate-pulse';
-            } else if (healthScore >= 60) {
-                healthIndicator.className = 'w-2 h-2 bg-yellow-500 rounded-full animate-pulse';
-            } else {
-                healthIndicator.className = 'w-2 h-2 bg-red-500 rounded-full animate-pulse';
-            }
-        }
-        
-        if (healthStatus) {
-            const statusText = healthScore >= 80 ? 'All Systems Normal' : 
-                             healthScore >= 60 ? 'Minor Issues Detected' : 
-                             'Attention Required';
-            const statusColor = healthScore >= 80 ? 'text-green-400' : 
-                              healthScore >= 60 ? 'text-yellow-400' : 
-                              'text-red-400';
-            
-            healthStatus.innerHTML = `
-                <div class="${statusColor}">${statusText}</div>
-                <div class="text-gray-400 mt-1">Last Check: ${new Date().toLocaleTimeString()}</div>
-            `;
-        }
     }
 
     function refreshConsoleWithLiveMessages() {
@@ -543,6 +569,64 @@
         
         if (shouldScroll && autoScroll) {
             outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+    }
+    
+    // ============================================================================
+    // ✅ NEW: ENHANCED GLOBAL EVENT SYSTEM FOR SERVER LOADING
+    // ============================================================================
+    
+    // Enhanced function to be called when servers are loaded
+    function broadcastServersLoaded() {
+        console.log('📡 Broadcasting serversLoaded event...');
+        
+        const eventData = {
+            serversCount: managedServers.length,
+            activeServers: managedServers.filter(s => s.isActive).length,
+            timestamp: new Date().toISOString(),
+            servers: managedServers.map(s => ({
+                serverId: s.serverId,
+                serverName: s.serverName,
+                isActive: s.isActive,
+                status: s.status
+            }))
+        };
+        
+        // Broadcast to all listening modules
+        globalEventSystem.emit('serversLoaded', eventData);
+        
+        console.log('✅ serversLoaded event broadcasted to all modules');
+    }
+    
+    // ✅ NEW: Manual force refresh for all modules
+    function forceGlobalServerRefresh() {
+        console.log('🚀 FORCE REFRESH: Triggering global server refresh');
+        
+        // First, try to reload servers
+        if (typeof window.loadManagedServers === 'function') {
+            console.log('🔄 Calling loadManagedServers...');
+            
+            const result = window.loadManagedServers();
+            if (result && typeof result.then === 'function') {
+                result.then(() => {
+                    console.log('✅ loadManagedServers Promise resolved');
+                    broadcastServersLoaded();
+                    
+                    // Also trigger server health refresh if available
+                    if (typeof window.forceServerHealthRefresh === 'function') {
+                        setTimeout(() => {
+                            window.forceServerHealthRefresh();
+                        }, 1000);
+                    }
+                }).catch(error => {
+                    console.error('❌ loadManagedServers Promise rejected:', error);
+                });
+            } else {
+                console.log('🔄 loadManagedServers returned non-promise');
+                broadcastServersLoaded();
+            }
+        } else {
+            console.warn('⚠️ loadManagedServers function not available');
         }
     }
 
@@ -589,7 +673,7 @@
     }
 
     // ============================================================================
-    // ✅ FIXED: CONTEXT-AWARE PLAYER COUNT SYSTEM
+    // ✅ PRESERVED: CONTEXT-AWARE PLAYER COUNT SYSTEM
     // ============================================================================
 
     let logsBasedPlayerCountSystem = {
@@ -777,13 +861,12 @@
         }
     }
 
-    // ✅ FIXED: Context-aware player count display update
+    // ✅ PRESERVED: Context-aware player count display update
     function updatePlayerCountDisplay(serverId, playerData, status = 'success') {
         console.log(`📊 Updating player count display for ${serverId} (context: ${currentTab})`);
         
-        // ✅ FIXED: Different update strategies for different contexts
+        // Delegate to Server Health module if in that context
         if (currentTab === 'server-health') {
-            // Server Health context - use Server Health specific function
             if (typeof window.updateServerHealthPlayerCount === 'function') {
                 window.updateServerHealthPlayerCount(serverId, playerData, status);
             } else {
@@ -792,7 +875,7 @@
             return;
         }
         
-        // ✅ FIXED: Server Manager context - use standard elements
+        // Server Manager context - use standard elements
         const countElement = document.querySelector(`#player-count-${serverId} .player-count-value`);
         const maxElement = document.querySelector(`#player-count-${serverId} .player-max-value`);
         const statusElement = safeGetElement(`player-status-${serverId}`);
@@ -800,7 +883,7 @@
         const sourceElement = safeGetElement(`player-source-${serverId}`);
         const serverCard = document.querySelector(`[data-server-id="${serverId}"]`);
 
-        // ✅ FIXED: Only proceed if we found the elements (context-aware)
+        // Only proceed if we found the elements (context-aware)
         if (!countElement || !maxElement) {
             console.log(`📊 Skipping update for ${serverId} - elements not found in current context (${currentTab})`);
             return;
@@ -905,24 +988,6 @@
         }
     }
 
-    function testServerHealthIntegration() {
-        console.log('🧪 Testing Server Health integration...');
-        
-        if (!managedServers || managedServers.length === 0) {
-            console.log('❌ No servers configured for health testing');
-            showStatus('No servers configured for health testing', 'warning');
-            return;
-        }
-        
-        const testServerId = managedServers[0].serverId;
-        console.log(`🎯 Testing Server Health with server: ${testServerId}`);
-        
-        safeCall('checkServerHealth', testServerId);
-        updateHealthMiniWidget(85);
-        
-        showStatus('Server Health integration test completed', 'success');
-    }
-
     function testLogsIntegration() {
         console.log('🧪 Testing logs-based integration...');
         
@@ -938,7 +1003,7 @@
     }
     
     // ============================================================================
-    // GLOBAL FUNCTION EXPOSURE
+    // GLOBAL FUNCTION EXPOSURE (ENHANCED WITH GLOBAL EVENTS)
     // ============================================================================
     
     window.showTab = showTab;
@@ -966,10 +1031,10 @@
     window.generateMockPlayerData = generateMockPlayerData;
     window.testLogsIntegration = testLogsIntegration;
     
-    // Server Health functions
-    window.testServerHealthIntegration = testServerHealthIntegration;
-    window.calculateHealthScore = calculateHealthScore;
-    window.updateHealthMiniWidget = updateHealthMiniWidget;
+    // ✅ NEW: Global event system functions
+    window.globalEventSystem = globalEventSystem;
+    window.broadcastServersLoaded = broadcastServersLoaded;
+    window.forceGlobalServerRefresh = forceGlobalServerRefresh;
     
     // Global variables
     window.currentTab = currentTab;
@@ -984,19 +1049,27 @@
     window.autoScroll = autoScroll;
     window.websocketsAvailable = websocketsAvailable;
     
-    console.log('🚀 GUST Bot Enhanced - Core Module Initialized (CONTEXT-AWARE + LOGS-BASED + MODULAR + SERVER HEALTH)');
+    console.log('🚀 GUST Bot Enhanced - Core Module Initialized (PHASE 1 FIXES - GLOBAL EVENTS)');
     console.log('⚡ Global functions exposed immediately');
-    console.log('📦 Modular architecture active - feature modules loaded separately');
+    console.log('📦 Modular architecture active - Server Health functions moved to dedicated module');
     console.log('📋 Logs-based player count system ready');
     console.log('✨ Enhanced UX: Preserves old values during loading');
-    console.log('🏥 Server Health: Complete integration with context-aware updates');
+    console.log('📡 NEW: Global event system for module communication');
+    console.log('🔄 NEW: Force refresh functions available');
     
     // ============================================================================
-    // INITIALIZATION
+    // INITIALIZATION WITH GLOBAL EVENTS
     // ============================================================================
     
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('📋 DOM loaded - setting up event handlers');
+        console.log('📋 DOM loaded - setting up event handlers with global events');
+        
+        // ✅ NEW: Set up global event listeners
+        globalEventSystem.on('serversLoaded', function(data) {
+            console.log('📡 Core module received serversLoaded event:', data);
+            updateAllServerDropdowns();
+            refreshServerList();
+        });
         
         window.addEventListener('hashchange', function() {
             const tab = window.location.hash.substring(1);
@@ -1018,14 +1091,20 @@
             }
         }, 200);
         
-        console.log('✅ Core initialization complete');
+        console.log('✅ Core initialization complete with global event system');
         console.log('🌐 Global functions available:', {
             showTab: typeof window.showTab,
             currentTab: window.currentTab,
             logsBasedPlayerCount: typeof window.logsBasedInitializePlayerCount,
-            enhancedUX: 'Preserves old values during loading',
-            serverHealthSupport: 'Context-aware integration ready'
+            globalEvents: typeof window.globalEventSystem,
+            enhancedUX: 'Preserves old values during loading'
         });
+        
+        // ✅ NEW: Add manual refresh button to console for debugging
+        console.log('🔧 Debug functions available:');
+        console.log('  - forceGlobalServerRefresh(): Force refresh all modules');
+        console.log('  - globalEventSystem.emit("test", {}): Test event system');
+        console.log('  - debugServerHealth(): Debug server health state');
     });
 
 </script>
