@@ -1,18 +1,14 @@
 """
-GUST Bot Enhanced - Main Flask Application (COMPLETE SERVER HEALTH INTEGRATION)
+GUST Bot Enhanced - Main Flask Application (FIXED VERSION)
 ================================================================================
-✅ Fixed MongoDB connection handling with graceful fallback
-✅ Added user_storage system for clans/economy integration  
-✅ Fixed init_clans_routes() missing user_storage parameter
-✅ All console functions working with correct GraphQL
-✅ Enhanced error handling and logging
-✅ COMPLETE: Server Health monitoring system with 75/25 layout
-✅ Updated route initialization for consistency
-✅ Enhanced health checks with comprehensive monitoring
-✅ FIXED: GraphQL structure corrected for console commands
-✅ FIXED: Improved token loading error handling
-✅ FIXED: Proper None value handling in console route
-✅ FIXED: Correct GraphQL rsid structure for G-Portal API
+✅ FIXED: "argument of type 'NoneType' is not iterable" errors
+✅ FIXED: Console command sending errors
+✅ FIXED: Token validation and None handling
+✅ FIXED: GraphQL error handling improvements
+✅ FIXED: Safer string operations throughout
+✅ FIXED: Better request validation in console routes
+✅ FIXED: Improved error logging and debugging
+✅ FIXED: Enhanced exception handling in all critical paths
 """
 
 import os
@@ -148,7 +144,7 @@ class InMemoryUserStorage:
             return all_clans
 
 class GustBotEnhanced:
-    """Main GUST Bot Enhanced application class (COMPLETE SERVER HEALTH INTEGRATION)"""
+    """Main GUST Bot Enhanced application class (FIXED VERSION)"""
     
     def __init__(self):
         """Initialize the enhanced GUST bot application"""
@@ -349,29 +345,62 @@ class GustBotEnhanced:
         
         @self.app.route('/api/console/send', methods=['POST'])
         def send_console_command():
-            """Send console command to server - FIXED VERSION WITH PROPER ERROR HANDLING"""
+            """Send console command to server - COMPLETELY FIXED VERSION"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
             try:
-                # FIXED: Better request handling
-                if not request.json:
+                # FIXED: Enhanced request validation
+                if not request:
+                    logger.error("❌ No request object")
+                    return jsonify({'success': False, 'error': 'Invalid request'}), 400
+                
+                if not hasattr(request, 'json') or request.json is None:
                     logger.error("❌ No JSON data in request")
-                    return jsonify({'success': False, 'error': 'No JSON data provided'})
+                    return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
                 
                 data = request.json
+                if not isinstance(data, dict):
+                    logger.error("❌ Invalid JSON data format")
+                    return jsonify({'success': False, 'error': 'Invalid JSON format'}), 400
                 
-                # FIXED: Safer data extraction with proper defaults
-                command = data.get('command', '') if data.get('command') is not None else ''
-                server_id = data.get('serverId', '') if data.get('serverId') is not None else ''
-                region = data.get('region', 'US') if data.get('region') is not None else 'US'
+                # FIXED: Safe data extraction with comprehensive None checking
+                command = None
+                server_id = None
+                region = None
+                
+                try:
+                    command = data.get('command')
+                    if command is None:
+                        command = ''
+                    elif not isinstance(command, str):
+                        command = str(command)
+                    command = command.strip()
+                    
+                    server_id = data.get('serverId')
+                    if server_id is None:
+                        server_id = ''
+                    elif not isinstance(server_id, str):
+                        server_id = str(server_id)
+                    server_id = server_id.strip()
+                    
+                    region = data.get('region')
+                    if region is None:
+                        region = 'US'
+                    elif not isinstance(region, str):
+                        region = str(region)
+                    region = region.strip().upper()
+                    
+                except Exception as extract_error:
+                    logger.error(f"❌ Data extraction error: {extract_error}")
+                    return jsonify({'success': False, 'error': 'Data extraction failed'}), 400
                 
                 logger.debug(f"🔍 Console command request: command='{command}', server_id='{server_id}', region='{region}'")
                 
                 # Validate required fields
                 if not command or not server_id:
                     logger.warning(f"❌ Missing required fields: command='{command}', server_id='{server_id}'")
-                    return jsonify({'success': False, 'error': 'Command and server ID required'})
+                    return jsonify({'success': False, 'error': 'Command and server ID are required'}), 400
                 
                 # Check if in demo mode
                 demo_mode = session.get('demo_mode', True)
@@ -391,24 +420,27 @@ class GustBotEnhanced:
                     
                     # Simulate response in separate thread
                     def simulate_response():
-                        time.sleep(1)
-                        responses = [
-                            f"[DEMO] Server {server_id}: Command '{command}' executed successfully",
-                            f"[DEMO] {server_id}: Players online: 23/100",
-                            f"[DEMO] {server_id}: Server FPS: 60",
-                            f"[DEMO] {server_id}: Uptime: 2d 14h 32m"
-                        ]
-                        
-                        for response_msg in responses[:2]:  # Send 2 responses
-                            self.console_output.append({
-                                'timestamp': datetime.now().isoformat(),
-                                'message': response_msg,
-                                'status': 'server_response',
-                                'server_id': server_id,
-                                'source': 'demo_simulation',
-                                'type': 'system'
-                            })
-                            time.sleep(0.5)
+                        try:
+                            time.sleep(1)
+                            responses = [
+                                f"[DEMO] Server {server_id}: Command '{command}' executed successfully",
+                                f"[DEMO] {server_id}: Players online: 23/100",
+                                f"[DEMO] {server_id}: Server FPS: 60",
+                                f"[DEMO] {server_id}: Uptime: 2d 14h 32m"
+                            ]
+                            
+                            for response_msg in responses[:2]:  # Send 2 responses
+                                self.console_output.append({
+                                    'timestamp': datetime.now().isoformat(),
+                                    'message': response_msg,
+                                    'status': 'server_response',
+                                    'server_id': server_id,
+                                    'source': 'demo_simulation',
+                                    'type': 'system'
+                                })
+                                time.sleep(0.5)
+                        except Exception as sim_error:
+                            logger.error(f"❌ Demo simulation error: {sim_error}")
                     
                     threading.Thread(target=simulate_response, daemon=True).start()
                     return jsonify({'success': True, 'demo_mode': True})
@@ -419,17 +451,17 @@ class GustBotEnhanced:
                 try:
                     result = self.send_console_command_graphql(command, server_id, region)
                     return jsonify({'success': result, 'demo_mode': False})
-                except Exception as e:
-                    logger.error(f"❌ GraphQL command error: {e}")
+                except Exception as graphql_error:
+                    logger.error(f"❌ GraphQL command error: {graphql_error}")
                     import traceback
-                    logger.error(f"❌ Full traceback: {traceback.format_exc()}")
-                    return jsonify({'success': False, 'error': str(e), 'demo_mode': False})
+                    logger.error(f"❌ GraphQL traceback: {traceback.format_exc()}")
+                    return jsonify({'success': False, 'error': str(graphql_error), 'demo_mode': False}), 500
                     
-            except Exception as outer_e:
-                logger.error(f"❌ Outer exception in console send route: {outer_e}")
+            except Exception as outer_error:
+                logger.error(f"❌ Console send route error: {outer_error}")
                 import traceback
-                logger.error(f"❌ Full outer traceback: {traceback.format_exc()}")
-                return jsonify({'success': False, 'error': f'Request processing error: {str(outer_e)}'})
+                logger.error(f"❌ Console route traceback: {traceback.format_exc()}")
+                return jsonify({'success': False, 'error': f'Request processing error: {str(outer_error)}'}), 500
         
         @self.app.route('/api/console/output')
         def get_console_output():
@@ -455,55 +487,74 @@ class GustBotEnhanced:
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
-            data = request.json
-            server_id = data.get('serverId')
-            region = data.get('region', 'US')
-            
-            if not server_id:
-                return jsonify({'success': False, 'error': 'Server ID required'})
-            
-            if session.get('demo_mode', True):
-                return jsonify({
-                    'success': False, 
-                    'error': 'Live console requires G-Portal authentication. Please login with real credentials.'
-                })
-            
-            # FIXED: Improved token loading
             try:
-                token = load_token()
-                if not token or token == '':
+                data = request.json if request.json else {}
+                server_id = data.get('serverId')
+                region = data.get('region', 'US')
+                
+                if not server_id:
+                    return jsonify({'success': False, 'error': 'Server ID required'})
+                
+                if session.get('demo_mode', True):
+                    return jsonify({
+                        'success': False, 
+                        'error': 'Live console requires G-Portal authentication. Please login with real credentials.'
+                    })
+                
+                # FIXED: Improved token loading with better error handling
+                try:
+                    token_data = load_token()
+                    if not token_data:
+                        return jsonify({
+                            'success': False,
+                            'error': 'No valid G-Portal token. Please re-login.'
+                        })
+                    
+                    # Extract token safely
+                    token = None
+                    if isinstance(token_data, dict):
+                        token = token_data.get('access_token')
+                    elif isinstance(token_data, str):
+                        token = token_data
+                    
+                    if not token or token == '':
+                        return jsonify({
+                            'success': False,
+                            'error': 'Invalid G-Portal token. Please re-login.'
+                        })
+                        
+                except Exception as token_error:
+                    logger.error(f"❌ Token loading error in live connect: {token_error}")
                     return jsonify({
                         'success': False,
-                        'error': 'No valid G-Portal token. Please re-login.'
+                        'error': 'Token loading failed. Please re-login.'
                     })
-            except Exception as e:
-                logger.error(f"❌ Token loading error: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': 'Token loading failed. Please re-login.'
-                })
-            
-            try:
-                # Add WebSocket connection
-                future = self.websocket_manager.add_connection(server_id, region, token)
-                self.live_connections[server_id] = {
-                    'region': region,
-                    'connected_at': datetime.now().isoformat(),
-                    'connected': True
-                }
                 
-                return jsonify({
-                    'success': True,
-                    'message': f'Live console connected for server {server_id}',
-                    'server_id': server_id
-                })
-                
+                try:
+                    # Add WebSocket connection
+                    future = self.websocket_manager.add_connection(server_id, region, token)
+                    self.live_connections[server_id] = {
+                        'region': region,
+                        'connected_at': datetime.now().isoformat(),
+                        'connected': True
+                    }
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': f'Live console connected for server {server_id}',
+                        'server_id': server_id
+                    })
+                    
+                except Exception as connect_error:
+                    logger.error(f"❌ Error connecting live console: {connect_error}")
+                    return jsonify({
+                        'success': False,
+                        'error': f'Failed to connect: {str(connect_error)}'
+                    })
+                    
             except Exception as e:
-                logger.error(f"❌ Error connecting live console: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': f'Failed to connect: {str(e)}'
-                })
+                logger.error(f"❌ Live console connect error: {e}")
+                return jsonify({'success': False, 'error': str(e)})
         
         @self.app.route('/api/console/live/disconnect', methods=['POST'])
         def disconnect_live_console():
@@ -511,29 +562,34 @@ class GustBotEnhanced:
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
-            data = request.json
-            server_id = data.get('serverId')
-            
-            if server_id in self.live_connections:
-                try:
-                    self.websocket_manager.remove_connection(server_id)
-                    del self.live_connections[server_id]
-                    
-                    return jsonify({
-                        'success': True,
-                        'message': f'Live console disconnected for server {server_id}'
-                    })
-                except Exception as e:
-                    logger.error(f"❌ Error disconnecting live console: {e}")
+            try:
+                data = request.json if request.json else {}
+                server_id = data.get('serverId')
+                
+                if server_id in self.live_connections:
+                    try:
+                        self.websocket_manager.remove_connection(server_id)
+                        del self.live_connections[server_id]
+                        
+                        return jsonify({
+                            'success': True,
+                            'message': f'Live console disconnected for server {server_id}'
+                        })
+                    except Exception as disconnect_error:
+                        logger.error(f"❌ Error disconnecting live console: {disconnect_error}")
+                        return jsonify({
+                            'success': False,
+                            'error': f'Failed to disconnect: {str(disconnect_error)}'
+                        })
+                else:
                     return jsonify({
                         'success': False,
-                        'error': f'Failed to disconnect: {str(e)}'
+                        'error': 'Server not connected'
                     })
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': 'Server not connected'
-                })
+                    
+            except Exception as e:
+                logger.error(f"❌ Live console disconnect error: {e}")
+                return jsonify({'success': False, 'error': str(e)})
         
         @self.app.route('/api/console/live/status')
         def live_console_status():
@@ -541,21 +597,32 @@ class GustBotEnhanced:
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
-            if self.websocket_manager:
-                try:
-                    status = self.websocket_manager.get_connection_status()
-                except Exception as e:
-                    logger.error(f"❌ Error getting connection status: {e}")
+            try:
+                if self.websocket_manager:
+                    try:
+                        status = self.websocket_manager.get_connection_status()
+                    except Exception as status_error:
+                        logger.error(f"❌ Error getting connection status: {status_error}")
+                        status = {}
+                else:
                     status = {}
-            else:
-                status = {}
-            
-            return jsonify({
-                'connections': status,
-                'total_connections': len(status),
-                'demo_mode': session.get('demo_mode', True),
-                'websockets_available': WEBSOCKETS_AVAILABLE
-            })
+                
+                return jsonify({
+                    'connections': status,
+                    'total_connections': len(status),
+                    'demo_mode': session.get('demo_mode', True),
+                    'websockets_available': WEBSOCKETS_AVAILABLE
+                })
+                
+            except Exception as e:
+                logger.error(f"❌ Live console status error: {e}")
+                return jsonify({
+                    'connections': {},
+                    'total_connections': 0,
+                    'demo_mode': True,
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'error': str(e)
+                })
         
         @self.app.route('/api/console/live/messages')
         def get_live_messages():
@@ -563,53 +630,65 @@ class GustBotEnhanced:
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
-            server_id = request.args.get('serverId')
-            limit = int(request.args.get('limit', 50))
-            message_type = request.args.get('type')
-            
-            if message_type == 'all':
-                message_type = None
-            
-            # Get WebSocket messages (live server console) if available
-            ws_messages = []
-            if self.websocket_manager:
-                try:
-                    ws_messages = self.websocket_manager.get_messages(
-                        server_id=server_id,
-                        limit=limit,
-                        message_type=message_type
-                    )
-                except Exception as e:
-                    logger.error(f"❌ Error getting WebSocket messages: {e}")
-                    ws_messages = []
-            
-            # Get console output messages (demo/commands/system messages only)
-            console_messages = []
-            for msg in self.console_output:
-                # Only include non-WebSocket messages to avoid duplication
-                if msg.get('source') != 'websocket_live':
-                    console_messages.append(msg)
-            
-            # Filter console messages by type
-            if message_type and message_type != 'all':
-                console_messages = [msg for msg in console_messages if msg.get('type') == message_type]
-            
-            # Combine WebSocket and console messages
-            all_messages = ws_messages + console_messages[-limit:]
-            
-            # Sort by timestamp safely
-            all_messages.sort(key=lambda x: x.get("timestamp", ""))
-            
-            # Limit results
-            final_messages = all_messages[-limit:] if limit else all_messages
-            
-            return jsonify({
-                'messages': final_messages,
-                'count': len(final_messages),
-                'server_id': server_id,
-                'timestamp': datetime.now().isoformat(),
-                'websockets_available': WEBSOCKETS_AVAILABLE
-            })
+            try:
+                server_id = request.args.get('serverId')
+                limit = int(request.args.get('limit', 50))
+                message_type = request.args.get('type')
+                
+                if message_type == 'all':
+                    message_type = None
+                
+                # Get WebSocket messages (live server console) if available
+                ws_messages = []
+                if self.websocket_manager:
+                    try:
+                        ws_messages = self.websocket_manager.get_messages(
+                            server_id=server_id,
+                            limit=limit,
+                            message_type=message_type
+                        )
+                    except Exception as ws_error:
+                        logger.error(f"❌ Error getting WebSocket messages: {ws_error}")
+                        ws_messages = []
+                
+                # Get console output messages (demo/commands/system messages only)
+                console_messages = []
+                for msg in self.console_output:
+                    # Only include non-WebSocket messages to avoid duplication
+                    if msg.get('source') != 'websocket_live':
+                        console_messages.append(msg)
+                
+                # Filter console messages by type
+                if message_type and message_type != 'all':
+                    console_messages = [msg for msg in console_messages if msg.get('type') == message_type]
+                
+                # Combine WebSocket and console messages
+                all_messages = ws_messages + console_messages[-limit:]
+                
+                # Sort by timestamp safely
+                all_messages.sort(key=lambda x: x.get("timestamp", ""))
+                
+                # Limit results
+                final_messages = all_messages[-limit:] if limit else all_messages
+                
+                return jsonify({
+                    'messages': final_messages,
+                    'count': len(final_messages),
+                    'server_id': server_id,
+                    'timestamp': datetime.now().isoformat(),
+                    'websockets_available': WEBSOCKETS_AVAILABLE
+                })
+                
+            except Exception as e:
+                logger.error(f"❌ Live messages error: {e}")
+                return jsonify({
+                    'messages': [],
+                    'count': 0,
+                    'server_id': request.args.get('serverId'),
+                    'timestamp': datetime.now().isoformat(),
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'error': str(e)
+                })
         
         @self.app.route('/api/console/live/test')
         def test_live_console():
@@ -628,8 +707,8 @@ class GustBotEnhanced:
                         try:
                             messages = self.websocket_manager.get_messages(server_id, limit=10)
                             all_messages.extend(messages)
-                        except Exception as e:
-                            logger.error(f"❌ Error getting messages for server {server_id}: {e}")
+                        except Exception as msg_error:
+                            logger.error(f"❌ Error getting messages for server {server_id}: {msg_error}")
                     
                     return jsonify({
                         'success': True,
@@ -678,23 +757,33 @@ class GustBotEnhanced:
         
         @self.app.route('/api/console/live/messages')
         def get_live_messages():
-            limit = int(request.args.get('limit', 50))
-            message_type = request.args.get('type')
-            
-            console_messages = list(self.console_output)
-            
-            # Filter by type
-            if message_type and message_type != 'all':
-                console_messages = [msg for msg in console_messages if msg.get('type') == message_type]
-            
-            final_messages = console_messages[-limit:] if limit else console_messages
-            
-            return jsonify({
-                'messages': final_messages,
-                'count': len(final_messages),
-                'timestamp': datetime.now().isoformat(),
-                'websockets_available': False
-            })
+            try:
+                limit = int(request.args.get('limit', 50))
+                message_type = request.args.get('type')
+                
+                console_messages = list(self.console_output)
+                
+                # Filter by type
+                if message_type and message_type != 'all':
+                    console_messages = [msg for msg in console_messages if msg.get('type') == message_type]
+                
+                final_messages = console_messages[-limit:] if limit else console_messages
+                
+                return jsonify({
+                    'messages': final_messages,
+                    'count': len(final_messages),
+                    'timestamp': datetime.now().isoformat(),
+                    'websockets_available': False
+                })
+            except Exception as e:
+                logger.error(f"❌ Stub live messages error: {e}")
+                return jsonify({
+                    'messages': [],
+                    'count': 0,
+                    'timestamp': datetime.now().isoformat(),
+                    'websockets_available': False,
+                    'error': str(e)
+                })
         
         @self.app.route('/api/console/live/test')
         def test_live_console():
@@ -712,56 +801,65 @@ class GustBotEnhanced:
         def health_check():
             """Enhanced health check endpoint (COMPLETE SERVER HEALTH INTEGRATION)"""
             
-            # Calculate health metrics
-            active_connections = len(self.live_connections) if self.live_connections else 0
-            
-            # Get server health score
-            health_score = 95  # Default healthy score
             try:
-                if self.server_health_storage:
-                    # Try to get actual health data
-                    health_data = self.server_health_storage.get_system_health()
-                    if health_data:
-                        health_score = health_data.get('overall_score', 95)
+                # Calculate health metrics
+                active_connections = len(self.live_connections) if self.live_connections else 0
+                
+                # Get server health score
+                health_score = 95  # Default healthy score
+                try:
+                    if self.server_health_storage:
+                        # Try to get actual health data
+                        health_data = self.server_health_storage.get_system_health()
+                        if health_data:
+                            health_score = health_data.get('overall_score', 95)
+                except Exception as health_error:
+                    logger.warning(f"⚠️ Could not get health score: {health_error}")
+                
+                return jsonify({
+                    'status': 'healthy',
+                    'timestamp': datetime.now().isoformat(),
+                    'database': 'MongoDB' if self.db else 'InMemoryStorage',
+                    'user_storage': type(self.user_storage).__name__,
+                    'koth_system': 'vanilla_compatible',
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'active_events': len(self.vanilla_koth.get_active_events()),
+                    'live_connections': active_connections,
+                    'console_buffer_size': len(self.console_output),
+                    'health_score': health_score,  # NEW: Overall system health score
+                    'server_health_storage': type(self.server_health_storage).__name__,  # NEW: Health storage type
+                    'features': {
+                        'console_commands': True,
+                        'event_management': True,
+                        'koth_events_fixed': True,
+                        'economy_system': True,
+                        'clan_management': True,
+                        'gambling_games': True,
+                        'server_diagnostics': True,
+                        'live_console': WEBSOCKETS_AVAILABLE,
+                        'graphql_working': True,
+                        'user_storage_working': True,
+                        'server_health_monitoring': True,  # Server Health feature flag
+                        'server_health_layout': '75/25',  # NEW: Layout specification
+                        'server_health_backend': True,  # NEW: Backend integration status
+                        'enhanced_navigation': True,  # NEW: Navigation integration
+                        'health_indicators': True  # NEW: Health status indicators
+                    }
+                })
             except Exception as e:
-                logger.warning(f"⚠️ Could not get health score: {e}")
-            
-            return jsonify({
-                'status': 'healthy',
-                'timestamp': datetime.now().isoformat(),
-                'database': 'MongoDB' if self.db else 'InMemoryStorage',
-                'user_storage': type(self.user_storage).__name__,
-                'koth_system': 'vanilla_compatible',
-                'websockets_available': WEBSOCKETS_AVAILABLE,
-                'active_events': len(self.vanilla_koth.get_active_events()),
-                'live_connections': active_connections,
-                'console_buffer_size': len(self.console_output),
-                'health_score': health_score,  # NEW: Overall system health score
-                'server_health_storage': type(self.server_health_storage).__name__,  # NEW: Health storage type
-                'features': {
-                    'console_commands': True,
-                    'event_management': True,
-                    'koth_events_fixed': True,
-                    'economy_system': True,
-                    'clan_management': True,
-                    'gambling_games': True,
-                    'server_diagnostics': True,
-                    'live_console': WEBSOCKETS_AVAILABLE,
-                    'graphql_working': True,
-                    'user_storage_working': True,
-                    'server_health_monitoring': True,  # Server Health feature flag
-                    'server_health_layout': '75/25',  # NEW: Layout specification
-                    'server_health_backend': True,  # NEW: Backend integration status
-                    'enhanced_navigation': True,  # NEW: Navigation integration
-                    'health_indicators': True  # NEW: Health status indicators
-                }
-            })
+                logger.error(f"❌ Health check error: {e}")
+                return jsonify({
+                    'status': 'error',
+                    'timestamp': datetime.now().isoformat(),
+                    'error': str(e),
+                    'health_score': 0
+                }), 500
         
         @self.app.route('/api/token/status')
         def token_status():
-            """Get authentication token status"""
+            """Get authentication token status - FIXED VERSION"""
             try:
-                # FIXED: Improved token loading with error handling
+                # FIXED: Comprehensive token loading with all edge cases handled
                 try:
                     token_data = load_token()
                     demo_mode = session.get('demo_mode', True)
@@ -775,19 +873,36 @@ class GustBotEnhanced:
                             'time_left': 0
                         })
                     
+                    # Enhanced token validation
                     if token_data:
-                        # Check if token is still valid (simplified check)
-                        expires_at = token_data.get('access_token_exp', 0)
-                        current_time = int(time.time())
-                        time_left = expires_at - current_time
-                        
-                        return jsonify({
-                            'has_token': True,
-                            'token_valid': time_left > 0,
-                            'demo_mode': False,
-                            'websockets_available': WEBSOCKETS_AVAILABLE,
-                            'time_left': max(0, time_left)
-                        })
+                        try:
+                            # Handle different token formats
+                            expires_at = 0
+                            if isinstance(token_data, dict):
+                                expires_at = token_data.get('access_token_exp', 0)
+                                if not isinstance(expires_at, (int, float)):
+                                    expires_at = 0
+                            
+                            current_time = int(time.time())
+                            time_left = max(0, int(expires_at) - current_time)
+                            
+                            return jsonify({
+                                'has_token': True,
+                                'token_valid': time_left > 0,
+                                'demo_mode': False,
+                                'websockets_available': WEBSOCKETS_AVAILABLE,
+                                'time_left': time_left
+                            })
+                        except Exception as validation_error:
+                            logger.error(f"❌ Token validation error: {validation_error}")
+                            return jsonify({
+                                'has_token': False,
+                                'token_valid': False,
+                                'demo_mode': True,
+                                'websockets_available': WEBSOCKETS_AVAILABLE,
+                                'time_left': 0,
+                                'error': 'Token validation failed'
+                            })
                     else:
                         return jsonify({
                             'has_token': False,
@@ -878,69 +993,114 @@ class GustBotEnhanced:
     def send_console_command_graphql(self, command, sid, region):
         """
         Send console command via GraphQL - COMPLETELY FIXED VERSION
-        ✅ CORRECT GraphQL structure with rsid wrapper for G-Portal API
-        ✅ Better error handling and logging
-        ✅ Improved None value handling
+        ✅ FIXED: All NoneType errors eliminated
+        ✅ FIXED: Enhanced error handling and validation
+        ✅ FIXED: Improved token handling
+        ✅ FIXED: Better logging and debugging
         """
         import requests
         
         try:
             logger.debug(f"🔍 GraphQL command input: command='{command}', sid='{sid}', region='{region}'")
             
+            # Rate limiting
             self.rate_limiter.wait_if_needed("graphql")
             
-            # FIXED: Improved token loading with error handling
+            # FIXED: Enhanced token loading with comprehensive error handling
+            token = None
             try:
-                token = load_token()
-                if not token or token == '':
+                token_data = load_token()
+                if not token_data:
+                    logger.warning("❌ No token data available")
+                    return False
+                
+                # Handle different token formats safely
+                if isinstance(token_data, dict):
+                    token = token_data.get('access_token')
+                elif isinstance(token_data, str):
+                    token = token_data
+                else:
+                    logger.error(f"❌ Unexpected token data type: {type(token_data)}")
+                    return False
+                
+                # Validate token
+                if not token or not isinstance(token, str) or token.strip() == '':
                     logger.warning("❌ No valid G-Portal token available")
                     return False
-            except Exception as e:
-                logger.error(f"❌ Token loading error in GraphQL: {e}")
+                    
+            except Exception as token_error:
+                logger.error(f"❌ Token loading error in GraphQL: {token_error}")
                 return False
             
-            # FIXED: Validate inputs with better error handling
+            # FIXED: Enhanced input validation with comprehensive error handling
             try:
+                # Validate server ID
                 is_valid, server_id = validate_server_id(sid)
                 if not is_valid or server_id is None:
                     logger.error(f"❌ Invalid server ID: {sid}")
                     return False
-            except Exception as e:
-                logger.error(f"❌ Server ID validation error: {e}")
+                
+                # Ensure server_id is an integer
+                if not isinstance(server_id, int):
+                    try:
+                        server_id = int(server_id)
+                    except (ValueError, TypeError) as convert_error:
+                        logger.error(f"❌ Server ID conversion error: {convert_error}")
+                        return False
+                        
+            except Exception as sid_error:
+                logger.error(f"❌ Server ID validation error: {sid_error}")
                 return False
             
             try:
+                # Validate region
                 if not validate_region(region):
                     logger.error(f"❌ Invalid region: {region}")
                     return False
-            except Exception as e:
-                logger.error(f"❌ Region validation error: {e}")
+                
+                # Ensure region is a valid string
+                if not isinstance(region, str):
+                    try:
+                        region = str(region)
+                    except Exception as region_convert_error:
+                        logger.error(f"❌ Region conversion error: {region_convert_error}")
+                        return False
+                
+                region = region.upper().strip()
+                
+            except Exception as region_error:
+                logger.error(f"❌ Region validation error: {region_error}")
                 return False
             
-            # FIXED: Format command with error handling
+            # FIXED: Enhanced command formatting with error handling
             try:
                 formatted_command = format_command(command)
-                if not formatted_command:
+                if not formatted_command or not isinstance(formatted_command, str):
                     logger.error(f"❌ Command formatting failed for: {command}")
                     return False
-            except Exception as e:
-                logger.error(f"❌ Command formatting error: {e}")
+            except Exception as cmd_error:
+                logger.error(f"❌ Command formatting error: {cmd_error}")
                 return False
             
+            # Get endpoint
             endpoint = Config.GPORTAL_API_ENDPOINT
+            if not endpoint:
+                logger.error("❌ No GraphQL endpoint configured")
+                return False
             
+            # Prepare headers
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
                 "User-Agent": "GUST-Bot/1.0"
             }
             
-            # ✅ COMPLETELY FIXED: CORRECT GraphQL payload structure with rsid wrapper
+            # FIXED: Enhanced GraphQL payload with comprehensive validation
             payload = {
                 "operationName": "sendConsoleMessage",
                 "variables": {
                     "sid": server_id,
-                    "region": region.upper(),
+                    "region": region,
                     "message": formatted_command
                 },
                 "query": """mutation sendConsoleMessage($sid: Int!, $region: REGION!, $message: String!) {
@@ -951,9 +1111,10 @@ class GustBotEnhanced:
                 }"""
             }
             
-            logger.debug(f"🔍 GraphQL payload: {payload}")
+            logger.debug(f"🔍 GraphQL payload: {json.dumps(payload, indent=2)}")
             logger.info(f"🔄 Sending command to server {server_id} ({region}): {formatted_command}")
             
+            # Make the request
             response = requests.post(endpoint, json=payload, headers=headers, timeout=15)
             
             logger.debug(f"🔍 Response status: {response.status_code}")
@@ -961,7 +1122,7 @@ class GustBotEnhanced:
             if response.status_code == 200:
                 try:
                     data = response.json()
-                    logger.debug(f"🔍 Response JSON: {data}")
+                    logger.debug(f"🔍 Response JSON: {json.dumps(data, indent=2)}")
                     
                     if 'data' in data and 'sendConsoleMessage' in data['data']:
                         result = data['data']['sendConsoleMessage']
@@ -982,22 +1143,35 @@ class GustBotEnhanced:
                         
                         return success
                     elif 'errors' in data:
-                        logger.error(f"❌ GraphQL errors: {data['errors']}")
+                        errors = data['errors']
+                        logger.error(f"❌ GraphQL errors: {errors}")
                         return False
                     else:
                         logger.error(f"❌ Unexpected response format: {data}")
                         return False
                         
-                except json.JSONDecodeError as e:
-                    logger.error(f"❌ Failed to parse JSON response: {e}")
+                except json.JSONDecodeError as json_error:
+                    logger.error(f"❌ Failed to parse JSON response: {json_error}")
                     logger.error(f"❌ Raw response: {response.text}")
+                    return False
+                except Exception as parse_error:
+                    logger.error(f"❌ Response parsing error: {parse_error}")
                     return False
             else:
                 logger.error(f"❌ HTTP error {response.status_code}: {response.text}")
                 return False
                 
-        except Exception as e:
-            logger.error(f"❌ Exception in send_console_command_graphql: {e}")
+        except requests.exceptions.Timeout as timeout_error:
+            logger.error(f"❌ Request timeout: {timeout_error}")
+            return False
+        except requests.exceptions.ConnectionError as conn_error:
+            logger.error(f"❌ Connection error: {conn_error}")
+            return False
+        except requests.exceptions.RequestException as req_error:
+            logger.error(f"❌ Request error: {req_error}")
+            return False
+        except Exception as general_error:
+            logger.error(f"❌ Exception in send_console_command_graphql: {general_error}")
             import traceback
             logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             return False
@@ -1006,8 +1180,12 @@ class GustBotEnhanced:
         """Start background tasks (ENHANCED WITH SERVER HEALTH MONITORING)"""
         def run_scheduled():
             while True:
-                schedule.run_pending()
-                time.sleep(60)
+                try:
+                    schedule.run_pending()
+                    time.sleep(60)
+                except Exception as schedule_error:
+                    logger.error(f"❌ Background task error: {schedule_error}")
+                    time.sleep(60)
         
         # Schedule cleanup tasks
         schedule.every(5).minutes.do(self.cleanup_expired_events)
@@ -1022,18 +1200,21 @@ class GustBotEnhanced:
     
     def cleanup_expired_events(self):
         """Clean up expired events"""
-        current_time = datetime.now()
-        if not self.db:
-            # Clean in-memory events
-            for event in self.events:
-                if event.get('status') == 'active':
-                    try:
-                        start_time = datetime.fromisoformat(event['startTime'])
-                        duration = event.get('duration', 60)
-                        if (current_time - start_time).total_seconds() > duration * 60:
-                            event['status'] = 'completed'
-                    except Exception as e:
-                        logger.error(f"❌ Error cleaning up event: {e}")
+        try:
+            current_time = datetime.now()
+            if not self.db:
+                # Clean in-memory events
+                for event in self.events:
+                    if event.get('status') == 'active':
+                        try:
+                            start_time = datetime.fromisoformat(event['startTime'])
+                            duration = event.get('duration', 60)
+                            if (current_time - start_time).total_seconds() > duration * 60:
+                                event['status'] = 'completed'
+                        except Exception as event_error:
+                            logger.error(f"❌ Error cleaning up event: {event_error}")
+        except Exception as cleanup_error:
+            logger.error(f"❌ Event cleanup error: {cleanup_error}")
     
     def update_server_health_metrics(self):
         """Update server health metrics (background task)"""
@@ -1055,8 +1236,8 @@ class GustBotEnhanced:
                 # Store health snapshot
                 self.server_health_storage.store_system_health(health_data)
                 
-        except Exception as e:
-            logger.error(f"❌ Error updating server health metrics: {e}")
+        except Exception as health_error:
+            logger.error(f"❌ Error updating server health metrics: {health_error}")
     
     def run(self, host=None, port=None, debug=False):
         """Run the enhanced application (COMPLETE SERVER HEALTH INTEGRATION)"""
@@ -1079,10 +1260,10 @@ class GustBotEnhanced:
             if self.websocket_manager:
                 try:
                     self.websocket_manager.stop()
-                except Exception as e:
-                    logger.error(f"❌ Error stopping WebSocket manager: {e}")
-        except Exception as e:
-            logger.error(f"\n❌ Error: {e}")
+                except Exception as cleanup_error:
+                    logger.error(f"❌ Error stopping WebSocket manager: {cleanup_error}")
+        except Exception as run_error:
+            logger.error(f"\n❌ Error: {run_error}")
 
 
 # ============================================================================
@@ -1102,6 +1283,6 @@ if __name__ == '__main__':
     try:
         app = GustBotEnhanced()
         app.run(debug=True)
-    except Exception as e:
-        logger.error(f"❌ Failed to start application: {e}")
+    except Exception as startup_error:
+        logger.error(f"❌ Failed to start application: {startup_error}")
         exit(1)
