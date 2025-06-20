@@ -1,11 +1,13 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GUST Bot - Enhanced with Live Console (FIXED)</title>
+    <title>GUST Bot - Enhanced with Live Console (FIXED) + Server Health</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
+    <!-- Chart.js CDN for Server Health charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-900 text-white">
     <div class="flex h-screen">
@@ -18,6 +20,10 @@
             {% include 'views/dashboard.html' %}
             {% include 'views/server_manager.html' %}
             {% include 'views/console.html' %}
+            
+            <!-- Server Health View -->
+            {% include 'views/server_health.html' %}
+            
             {% include 'views/events.html' %}
             {% include 'views/economy.html' %}
             {% include 'views/gambling.html' %}
@@ -33,6 +39,10 @@
     {% include 'scripts/dashboard.js.html' %}
     {% include 'scripts/server_manager.js.html' %}
     {% include 'scripts/console.js.html' %}
+    
+    <!-- Server Health JavaScript -->
+    {% include 'scripts/server_health.js.html' %}
+    
     {% include 'scripts/events.js.html' %}
     {% include 'scripts/economy.js.html' %}
     {% include 'scripts/gambling.js.html' %}
@@ -42,5 +52,3 @@
     {% include 'scripts/logs.js.html' %}
 </body>
 </html>
-
-

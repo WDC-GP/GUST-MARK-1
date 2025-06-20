@@ -1,7 +1,7 @@
 <!-- ============================================================================
-     GUST Bot Enhanced - Sidebar Navigation Component (FIXED)
+     GUST Bot Enhanced - Sidebar Navigation Component (UPDATED WITH SERVER HEALTH)
      ============================================================================
-     Extracted from enhanced_dashboard.html on 2025-06-17 12:20:33
+     Updated: 2025-06-19 - Added Server Health as 10th tab with health status indicator
      
      This component contains the main navigation sidebar with all tabs.
      
@@ -9,84 +9,116 @@
      - Made logs tab consistent with other tabs using showTab('logs')
      - Fixed duplicate closing button tags
      - Ensured all tabs follow the same pattern
+     - ADDED: Server Health tab with animated health indicator
+     - Proper positioning of Server Health tab in navigation flow
      ============================================================================ -->
 
 <div class="w-64 bg-gray-800 p-4 overflow-y-auto">
-            <h1 class="text-xl font-bold text-purple-400 mb-2">🚀 GUST Enhanced</h1>
-            <div class="text-xs text-green-400 mb-6">✅ KOTH Fixed + Live Console FIXED</div>
+    <h1 class="text-xl font-bold text-purple-400 mb-2">🚀 GUST Enhanced</h1>
+    <div class="text-xs text-green-400 mb-6">✅ KOTH Fixed + Live Console FIXED + Server Health</div>
+    
+    <!-- Navigation Tabs -->
+    <div class="mb-6">
+        <h3 class="text-sm font-semibold mb-3 text-gray-400">Navigation</h3>
+        <div class="space-y-2">
+            <button onclick="showTab('dashboard')" 
+                    class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700 active" 
+                    id="dashboard-tab">
+                📊 Dashboard
+            </button>
+            <button onclick="showTab('server-manager')" 
+                    class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                    id="server-manager-tab">
+                🖥️ Server Manager
+            </button>
+            <button onclick="showTab('console')" 
+                    class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                    id="console-tab">
+                🔧 Console & Live Monitor
+            </button>
             
-            <!-- Navigation Tabs -->
-            <div class="mb-6">
-                <h3 class="text-sm font-semibold mb-3 text-gray-400">Navigation</h3>
-                <div class="space-y-2">
-                    <button onclick="showTab('dashboard')" 
-                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700 active" 
-                            id="dashboard-tab">
-                        📊 Dashboard
-                    </button>
-                    <button onclick="showTab('server-manager')" 
-                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
-                            id="server-manager-tab">
-                        🖥️ Server Manager
-                    </button>
-                    <button onclick="showTab('console')" 
-                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
-                            id="console-tab">
-                        🔧 Console & Live Monitor
-                    </button>
-                    <button onclick="showTab('events')" 
-                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
-                            id="events-tab">
-                        🎯 Events
-                    </button>
-                    <button onclick="showTab('economy')" 
-                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
-                            id="economy-tab">
-                        💰 Economy
-                    </button>
-                    <button onclick="showTab('gambling')" 
-                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
-                            id="gambling-tab">
-                        🎰 Gambling
-                    </button>
-                    <button onclick="showTab('clans')" 
-                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
-                            id="clans-tab">
-                        🛡️ Clans
-                    </button>
-                    <button onclick="showTab('user-management')" 
-                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
-                            id="user-management-tab">
-                        👤 User Management
-                    </button>
-                    <button onclick="showTab('logs')" 
-                            class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
-                            id="logs-tab">
-                        📋 Server Logs
-                    </button>
-                </div>
-            </div>
+            <!-- Server Health Tab - Positioned after console for logical flow -->
+            <button onclick="showTab('server-health')" 
+                    class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700 transition-colors" 
+                    id="server-health-tab">
+                <span class="flex items-center gap-2">
+                    🏥 Server Health
+                    <span id="health-status-indicator" class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                </span>
+            </button>
             
-            <!-- Live Status -->
-            <div class="mb-6 p-3 bg-gray-700 rounded">
-                <h3 class="text-sm font-semibold mb-2">📡 System Status</h3>
-                <div id="systemStatus" class="text-sm">
-                    <div class="text-gray-400">Loading...</div>
-                </div>
-                <div id="liveIndicator" class="flex items-center mt-2">
-                    <div class="w-3 h-3 bg-gray-500 rounded-full mr-2"></div>
-                    <span class="text-xs">Ready</span>
-                </div>
-            </div>
-            
-            <!-- Live Console Test Button -->
-            <div class="mb-6">
-                <button onclick="testLiveConsole()" class="w-full bg-blue-600 hover:bg-blue-700 p-2 rounded text-sm">
-                    🔍 Test Live Console
-                </button>
-            </div>
-            
-            <div class="mt-auto pt-8">
-                <a href="/logout" class="block p-2 rounded hover:bg-red-700 text-red-400">🚪 Logout</a>
-            </div>
+            <button onclick="showTab('events')" 
+                    class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                    id="events-tab">
+                🎯 Events
+            </button>
+            <button onclick="showTab('economy')" 
+                    class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                    id="economy-tab">
+                💰 Economy
+            </button>
+            <button onclick="showTab('gambling')" 
+                    class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                    id="gambling-tab">
+                🎰 Gambling
+            </button>
+            <button onclick="showTab('clans')" 
+                    class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                    id="clans-tab">
+                🛡️ Clans
+            </button>
+            <button onclick="showTab('user-management')" 
+                    class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                    id="user-management-tab">
+                👤 User Management
+            </button>
+            <button onclick="showTab('logs')" 
+                    class="nav-tab w-full text-left p-3 rounded hover:bg-gray-700" 
+                    id="logs-tab">
+                📋 Server Logs
+            </button>
         </div>
+    </div>
+    
+    <!-- Live Status -->
+    <div class="mb-6 p-3 bg-gray-700 rounded">
+        <h3 class="text-sm font-semibold mb-2">📡 System Status</h3>
+        <div id="systemStatus" class="text-sm">
+            <div class="text-gray-400">Loading...</div>
+        </div>
+        <div id="liveIndicator" class="flex items-center mt-2">
+            <div class="w-3 h-3 bg-gray-500 rounded-full mr-2"></div>
+            <span class="text-xs">Ready</span>
+        </div>
+    </div>
+    
+    <!-- Server Health Status (Mini Widget) -->
+    <div class="mb-6 p-3 bg-gray-700 rounded">
+        <h3 class="text-sm font-semibold mb-2 flex items-center gap-2">
+            🏥 Health Status
+            <span id="health-mini-indicator" class="w-2 h-2 bg-green-500 rounded-full"></span>
+        </h3>
+        <div id="healthMiniStatus" class="text-xs">
+            <div class="text-green-400">All Systems Normal</div>
+            <div class="text-gray-400 mt-1">Last Check: --:--</div>
+        </div>
+    </div>
+    
+    <!-- Live Console Test Button -->
+    <div class="mb-6">
+        <button onclick="testLiveConsole()" class="w-full bg-blue-600 hover:bg-blue-700 p-2 rounded text-sm">
+            🔍 Test Live Console
+        </button>
+    </div>
+    
+    <!-- Server Health Quick Test -->
+    <div class="mb-6">
+        <button onclick="safeCall('testServerHealthIntegration')" class="w-full bg-purple-600 hover:bg-purple-700 p-2 rounded text-sm">
+            🏥 Test Server Health
+        </button>
+    </div>
+    
+    <div class="mt-auto pt-8">
+        <a href="/logout" class="block p-2 rounded hover:bg-red-700 text-red-400">🚪 Logout</a>
+    </div>
+</div>

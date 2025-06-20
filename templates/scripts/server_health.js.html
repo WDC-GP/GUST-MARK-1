@@ -1,0 +1,771 @@
+<!-- ============================================================================
+     GUST Bot Enhanced - Server Health JavaScript Module (FIXED VERSION)
+     ============================================================================
+     PURPOSE: Frontend functionality for Server Health monitoring system
+     FEATURES: 75/25 layout, Chart.js integration, command feed, status cards
+     LAYOUT: Left side charts + Right side command feed
+     INTEGRATION: Works with existing GUST system and managedServers
+     ============================================================================ -->
+
+<script>
+    // ============================================================================
+    // SERVER HEALTH MODULE - COMPLETE FUNCTIONALITY (FIXED)
+    // ============================================================================
+    
+    // Global variables for Server Health
+    let serverHealthData = {
+        currentServer: null,
+        charts: {},
+        commandFeed: [],
+        healthStatus: {},
+        autoRefresh: true,
+        refreshInterval: null,
+        isActive: false,
+        filters: { active: 'all' },
+        refreshCountdown: 30
+    };
+    
+    // ============================================================================
+    // MAIN LOAD FUNCTION - Called by showTab()
+    // ============================================================================
+    
+    function loadServerHealth() {
+        console.log('🏥 Loading Server Health tab...');
+        
+        try {
+            // Set module as active
+            serverHealthData.isActive = true;
+            
+            // Initialize Server Health system
+            initializeServerHealth();
+            
+            // Load current server from dropdown or managedServers
+            loadCurrentServer();
+            
+            // Load all components
+            loadHealthStatus();
+            loadHealthCharts();
+            loadCommandFeed();
+            
+            // Start auto-refresh
+            startAutoRefresh();
+            
+            console.log('✅ Server Health loaded successfully');
+            
+        } catch (error) {
+            console.error('❌ Error loading Server Health:', error);
+            showHealthError('Failed to load Server Health: ' + error.message);
+        }
+    }
+    
+    // ============================================================================
+    // INITIALIZATION
+    // ============================================================================
+    
+    function initializeServerHealth() {
+        console.log('🔧 Initializing Server Health system...');
+        
+        // Setup server selector with existing managedServers
+        setupServerSelector();
+        
+        // Setup command filter buttons
+        setupCommandFilters();
+        
+        // Setup refresh button
+        const refreshBtn = document.getElementById('health-refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', refreshHealthData);
+        }
+        
+        // Initialize charts if Chart.js is available
+        if (typeof Chart !== 'undefined') {
+            initializeHealthCharts();
+        } else {
+            console.warn('⚠️ Chart.js not available - charts will not be displayed');
+            showChartsUnavailable();
+        }
+        
+        console.log('✅ Server Health initialization complete');
+    }
+    
+    function setupServerSelector() {
+        const serverSelect = document.getElementById('server-health-selector');
+        if (!serverSelect) {
+            console.warn('⚠️ Health server selector not found');
+            return;
+        }
+        
+        // Clear existing options
+        serverSelect.innerHTML = '<option value="">Select a server...</option>';
+        
+        // Use existing managedServers from main system
+        if (window.managedServers && window.managedServers.length > 0) {
+            window.managedServers.forEach(server => {
+                if (server.isActive) {
+                    const option = document.createElement('option');
+                    option.value = server.serverId;
+                    option.textContent = `${server.serverName} (${server.serverId})`;
+                    serverSelect.appendChild(option);
+                }
+            });
+            
+            // Auto-select first server
+            if (window.managedServers.length > 0) {
+                const firstServer = window.managedServers.find(s => s.isActive);
+                if (firstServer) {
+                    serverSelect.value = firstServer.serverId;
+                    serverHealthData.currentServer = firstServer.serverId;
+                }
+            }
+        } else {
+            console.warn('⚠️ No managed servers found for Server Health');
+            // Show message to add servers first
+            showNoServersMessage();
+        }
+        
+        // Add change event listener
+        serverSelect.addEventListener('change', onServerChange);
+    }
+    
+    function setupCommandFilters() {
+        // Setup filter buttons with safe selectors
+        const filterButtons = [
+            { id: 'filter-all-btn', type: 'all' },
+            { id: 'filter-admin-btn', type: 'admin' },
+            { id: 'filter-ingame-btn', type: 'ingame' },
+            { id: 'filter-auto-btn', type: 'auto' }
+        ];
+        
+        filterButtons.forEach(btn => {
+            const element = document.getElementById(btn.id);
+            if (element) {
+                element.addEventListener('click', () => filterCommands(btn.type));
+            }
+        });
+        
+        // Set initial filter state
+        updateFilterButtons();
+    }
+    
+    // ============================================================================
+    // SERVER SELECTION
+    // ============================================================================
+    
+    function loadCurrentServer() {
+        const serverSelect = document.getElementById('server-health-selector');
+        if (serverSelect && serverSelect.value) {
+            serverHealthData.currentServer = serverSelect.value;
+            console.log(`🎯 Current server set to: ${serverHealthData.currentServer}`);
+        } else {
+            console.warn('⚠️ No server selected for health monitoring');
+        }
+    }
+    
+    function onServerChange(event) {
+        const newServerId = event.target.value;
+        
+        if (!newServerId) {
+            console.log('❌ No server selected');
+            return;
+        }
+        
+        console.log(`🔄 Switching server health to: ${newServerId}`);
+        serverHealthData.currentServer = newServerId;
+        
+        // Reload all data for new server
+        refreshHealthData();
+    }
+    
+    // ============================================================================
+    // HEALTH STATUS CARDS
+    // ============================================================================
+    
+    async function loadHealthStatus() {
+        if (!serverHealthData.currentServer) {
+            console.warn('⚠️ No server selected for health status');
+            showSelectServerMessage();
+            return;
+        }
+        
+        try {
+            console.log(`📊 Loading health status for server ${serverHealthData.currentServer}...`);
+            
+            // Show loading state
+            updateHealthStatusDisplay({
+                overall_status: 'loading',
+                health_data: {
+                    metrics: {
+                        response_time: '--',
+                        memory_usage: '--',
+                        cpu_usage: '--',
+                        player_count: '--'
+                    }
+                }
+            });
+            
+            const response = await fetch(`/api/server_health/status/${serverHealthData.currentServer}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('✅ Health status loaded:', result.status);
+                serverHealthData.healthStatus = result;
+                updateHealthStatusDisplay(result);
+            } else {
+                console.error('❌ Health status error:', result.error);
+                showHealthError(result.error);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error loading health status:', error);
+            showHealthError('Failed to load health status - using demo data');
+            // Show demo data as fallback
+            showDemoHealthData();
+        }
+    }
+    
+    function updateHealthStatusDisplay(data) {
+        // Update main health status
+        const statusElement = document.getElementById('health-status-text');
+        const lastCheckElement = document.getElementById('health-last-check');
+        const progressBar = document.getElementById('health-progress-bar');
+        
+        if (statusElement) {
+            const status = data.overall_status || 'unknown';
+            statusElement.textContent = `System ${status}`;
+            statusElement.className = `font-semibold text-${getStatusColor(status)}-400`;
+        }
+        
+        if (lastCheckElement) {
+            const lastCheck = new Date().toLocaleTimeString();
+            lastCheckElement.textContent = `Last check: ${lastCheck}`;
+        }
+        
+        if (progressBar) {
+            const percentage = data.health_data?.health_percentage || 75;
+            progressBar.style.width = `${percentage}%`;
+            progressBar.className = `h-2 rounded-full transition-all duration-500 ${getHealthBarColor(data.overall_status)}`;
+        }
+        
+        // Update metrics if available
+        const metrics = data.health_data?.metrics || {};
+        updateMetricDisplay('response-time', metrics.response_time, 'ms');
+        updateMetricDisplay('memory-usage', metrics.memory_usage, 'MB');
+        updateMetricDisplay('cpu-usage', metrics.cpu_usage, '%');
+        updateMetricDisplay('player-count', metrics.player_count, '');
+    }
+    
+    function updateMetricDisplay(metricId, value, suffix) {
+        const element = document.getElementById(`${metricId}-current`);
+        if (element) {
+            const displayValue = value !== undefined ? `${value}${suffix}` : '--';
+            element.textContent = displayValue;
+        }
+    }
+    
+    // ============================================================================
+    // CHARTS INTEGRATION
+    // ============================================================================
+    
+    function initializeHealthCharts() {
+        console.log('📊 Initializing health charts...');
+        
+        if (typeof Chart === 'undefined') {
+            console.warn('⚠️ Chart.js not available');
+            return;
+        }
+        
+        // Chart configuration for dark theme
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#e5e7eb'
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#9ca3af' },
+                    grid: { color: '#374151' }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#9ca3af' },
+                    grid: { color: '#374151' }
+                }
+            }
+        };
+        
+        // Initialize FPS chart
+        const fpsCanvas = document.getElementById('fps-chart');
+        if (fpsCanvas) {
+            serverHealthData.charts.fps = new Chart(fpsCanvas, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'FPS',
+                        data: [],
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: chartOptions
+            });
+        }
+        
+        // Initialize Players chart
+        const playersCanvas = document.getElementById('players-chart');
+        if (playersCanvas) {
+            serverHealthData.charts.players = new Chart(playersCanvas, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Players',
+                        data: [],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: chartOptions
+            });
+        }
+        
+        console.log('✅ Health charts initialized');
+    }
+    
+    async function loadHealthCharts() {
+        if (!serverHealthData.currentServer) {
+            console.warn('⚠️ No server selected for charts');
+            return;
+        }
+        
+        if (typeof Chart === 'undefined') {
+            showChartsUnavailable();
+            return;
+        }
+        
+        try {
+            console.log(`📈 Loading chart data for server ${serverHealthData.currentServer}...`);
+            
+            const response = await fetch(`/api/server_health/charts/${serverHealthData.currentServer}?hours=6`);
+            const result = await response.json();
+            
+            if (result.success) {
+                updateCharts(result.chart_data);
+                console.log('✅ Charts updated successfully');
+            } else {
+                console.error('❌ Chart data error:', result.error);
+                showDemoChartData();
+            }
+            
+        } catch (error) {
+            console.error('❌ Error loading charts:', error);
+            showDemoChartData();
+        }
+    }
+    
+    function updateCharts(chartData) {
+        // Update FPS chart
+        if (serverHealthData.charts.fps && chartData.fps_chart) {
+            const fpsChart = serverHealthData.charts.fps;
+            fpsChart.data.labels = chartData.fps_chart.labels || [];
+            fpsChart.data.datasets[0].data = chartData.fps_chart.datasets[0].data || [];
+            fpsChart.update('none');
+        }
+        
+        // Update Players chart
+        if (serverHealthData.charts.players && chartData.players_chart) {
+            const playersChart = serverHealthData.charts.players;
+            playersChart.data.labels = chartData.players_chart.labels || [];
+            playersChart.data.datasets[0].data = chartData.players_chart.datasets[0].data || [];
+            playersChart.update('none');
+        }
+    }
+    
+    function showDemoChartData() {
+        // Generate demo data for charts
+        const labels = [];
+        const fpsData = [];
+        const playersData = [];
+        
+        for (let i = 0; i < 12; i++) {
+            const time = new Date(Date.now() - (11 - i) * 30 * 60 * 1000);
+            labels.push(time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+            fpsData.push(Math.floor(Math.random() * 20) + 50); // 50-70 FPS
+            playersData.push(Math.floor(Math.random() * 10) + 5); // 5-15 players
+        }
+        
+        const demoChartData = {
+            fps_chart: {
+                labels: labels,
+                datasets: [{ data: fpsData }]
+            },
+            players_chart: {
+                labels: labels,
+                datasets: [{ data: playersData }]
+            }
+        };
+        
+        updateCharts(demoChartData);
+        console.log('📊 Demo chart data displayed');
+    }
+    
+    // ============================================================================
+    // COMMAND FEED
+    // ============================================================================
+    
+    async function loadCommandFeed() {
+        if (!serverHealthData.currentServer) {
+            console.warn('⚠️ No server selected for command feed');
+            return;
+        }
+        
+        try {
+            console.log(`📋 Loading command feed for server ${serverHealthData.currentServer}...`);
+            
+            showCommandLoading(true);
+            
+            const response = await fetch(`/api/server_health/commands/${serverHealthData.currentServer}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                serverHealthData.commandFeed = result.commands || [];
+                updateCommandFeedDisplay();
+                updateCommandStats(result.command_types || {}, result.total || 0);
+                console.log(`✅ Loaded ${serverHealthData.commandFeed.length} commands`);
+            } else {
+                console.error('❌ Command feed error:', result.error);
+                showDemoCommandData();
+            }
+            
+        } catch (error) {
+            console.error('❌ Error loading command feed:', error);
+            showDemoCommandData();
+        } finally {
+            showCommandLoading(false);
+        }
+    }
+    
+    function updateCommandFeedDisplay() {
+        const commandFeed = document.getElementById('command-feed');
+        if (!commandFeed) return;
+        
+        const filteredCommands = filterCommandsByType(serverHealthData.commandFeed);
+        
+        if (filteredCommands.length === 0) {
+            commandFeed.innerHTML = '<div class="text-gray-400 text-center py-4">No commands found</div>';
+            return;
+        }
+        
+        const commandHTML = filteredCommands.map(cmd => `
+            <div class="command-entry text-xs p-2 bg-gray-700 rounded mb-2 hover:bg-gray-600 transition-colors">
+                <div class="flex justify-between items-start">
+                    <span class="text-${getCommandColor(cmd.type)} flex-1 mr-2">
+                        [${formatTime(cmd.timestamp)}] ${safeEscapeHtml(cmd.command)}
+                    </span>
+                    <span class="text-${getTypeColor(cmd.type)} text-xs whitespace-nowrap">
+                        ${getTypeIcon(cmd.type)} ${cmd.type}
+                    </span>
+                </div>
+                ${cmd.user && cmd.user !== 'System' ? `
+                    <div class="text-gray-500 text-xs mt-1">by ${safeEscapeHtml(cmd.user)}</div>
+                ` : ''}
+            </div>
+        `).join('');
+        
+        commandFeed.innerHTML = commandHTML;
+        commandFeed.scrollTop = commandFeed.scrollHeight;
+    }
+    
+    function filterCommandsByType(commands) {
+        const activeFilter = serverHealthData.filters.active;
+        if (activeFilter === 'all') {
+            return commands;
+        }
+        return commands.filter(cmd => cmd.type && cmd.type.toLowerCase() === activeFilter.toLowerCase());
+    }
+    
+    function filterCommands(type) {
+        console.log(`🔍 Filtering commands by: ${type}`);
+        serverHealthData.filters.active = type;
+        updateFilterButtons();
+        updateCommandFeedDisplay();
+    }
+    
+    function updateFilterButtons() {
+        const filterTypes = ['all', 'admin', 'ingame', 'auto'];
+        
+        filterTypes.forEach(type => {
+            const button = document.getElementById(`filter-${type}-btn`);
+            if (button) {
+                button.classList.remove('bg-purple-600', 'bg-gray-600');
+                if (type === serverHealthData.filters.active) {
+                    button.classList.add('bg-purple-600');
+                } else {
+                    button.classList.add('bg-gray-600');
+                }
+            }
+        });
+    }
+    
+    function updateCommandStats(commandTypes, total) {
+        const totalElement = document.getElementById('command-total-count');
+        if (totalElement) {
+            totalElement.textContent = total;
+        }
+    }
+    
+    function showDemoCommandData() {
+        // Generate demo command data
+        const demoCommands = [
+            { command: 'serverinfo', type: 'auto', timestamp: new Date().toISOString(), user: 'System' },
+            { command: 'say Welcome players!', type: 'admin', timestamp: new Date(Date.now() - 300000).toISOString(), user: 'Admin' },
+            { command: 'players', type: 'ingame', timestamp: new Date(Date.now() - 600000).toISOString(), user: 'Player123' },
+            { command: 'save', type: 'auto', timestamp: new Date(Date.now() - 900000).toISOString(), user: 'System' }
+        ];
+        
+        serverHealthData.commandFeed = demoCommands;
+        updateCommandFeedDisplay();
+        console.log('📋 Demo command data displayed');
+    }
+    
+    // ============================================================================
+    // AUTO-REFRESH
+    // ============================================================================
+    
+    function startAutoRefresh() {
+        if (serverHealthData.refreshInterval) {
+            clearInterval(serverHealthData.refreshInterval);
+        }
+        
+        serverHealthData.refreshInterval = setInterval(() => {
+            if (serverHealthData.isActive && serverHealthData.currentServer) {
+                console.log('🔄 Auto-refreshing Server Health data...');
+                refreshHealthData();
+            }
+        }, 30000); // 30 seconds
+        
+        console.log('⏰ Auto-refresh started (30s intervals)');
+    }
+    
+    function refreshHealthData() {
+        if (!serverHealthData.currentServer) return;
+        
+        console.log('🔄 Refreshing all health data...');
+        loadHealthStatus();
+        loadHealthCharts();
+        loadCommandFeed();
+    }
+    
+    // ============================================================================
+    // UTILITY FUNCTIONS
+    // ============================================================================
+    
+    function getCommandColor(type) {
+        const colors = {
+            'admin': 'green-400',
+            'ingame': 'blue-400',
+            'auto': 'yellow-400',
+            'system': 'purple-400'
+        };
+        return colors[type?.toLowerCase()] || 'gray-400';
+    }
+    
+    function getTypeColor(type) {
+        const colors = {
+            'admin': 'purple-400',
+            'ingame': 'blue-400',
+            'auto': 'yellow-400',
+            'system': 'gray-400'
+        };
+        return colors[type?.toLowerCase()] || 'gray-400';
+    }
+    
+    function getTypeIcon(type) {
+        const icons = {
+            'admin': '⚡',
+            'ingame': '🎮',
+            'auto': '🤖',
+            'system': '⚙️'
+        };
+        return icons[type?.toLowerCase()] || '📝';
+    }
+    
+    function getStatusColor(status) {
+        const colors = {
+            'healthy': 'green',
+            'warning': 'yellow',
+            'critical': 'red',
+            'error': 'red',
+            'loading': 'blue'
+        };
+        return colors[status?.toLowerCase()] || 'gray';
+    }
+    
+    function getHealthBarColor(status) {
+        const colors = {
+            'healthy': 'bg-green-500',
+            'warning': 'bg-yellow-500',
+            'critical': 'bg-red-500',
+            'error': 'bg-red-500',
+            'loading': 'bg-blue-500'
+        };
+        return colors[status?.toLowerCase()] || 'bg-gray-500';
+    }
+    
+    function formatTime(timestamp) {
+        if (!timestamp) return '--:--';
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    function safeEscapeHtml(text) {
+        if (!text) return '';
+        
+        // Use existing escapeHtml if available, otherwise create safe version
+        if (typeof window.escapeHtml === 'function') {
+            return window.escapeHtml(text);
+        }
+        
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // ============================================================================
+    // ERROR HANDLING & FALLBACKS
+    // ============================================================================
+    
+    function showHealthError(message) {
+        console.error('🚨 Server Health Error:', message);
+        
+        const errorDiv = document.getElementById('health-error-message');
+        if (errorDiv) {
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+    }
+    
+    function showNoServersMessage() {
+        const healthContainer = document.getElementById('server-health-content');
+        if (healthContainer) {
+            healthContainer.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="text-6xl mb-4">🏥</div>
+                    <h3 class="text-xl font-semibold mb-2">No Servers Available</h3>
+                    <p class="text-gray-400 mb-4">Add servers in the Server Manager to monitor their health.</p>
+                    <button onclick="showTab('server-manager')" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">
+                        Go to Server Manager
+                    </button>
+                </div>
+            `;
+        }
+    }
+    
+    function showSelectServerMessage() {
+        const statusCards = document.querySelector('.health-status-cards');
+        if (statusCards) {
+            statusCards.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="text-4xl mb-4">📊</div>
+                    <h3 class="text-lg font-semibold mb-2">Select a Server</h3>
+                    <p class="text-gray-400">Choose a server from the dropdown to view health data.</p>
+                </div>
+            `;
+        }
+    }
+    
+    function showChartsUnavailable() {
+        const chartsSection = document.querySelector('.health-charts-section');
+        if (chartsSection) {
+            chartsSection.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="text-4xl mb-4">📈</div>
+                    <h3 class="text-lg font-semibold mb-2">Charts Unavailable</h3>
+                    <p class="text-gray-400">Chart.js library not loaded. Charts will be displayed when available.</p>
+                </div>
+            `;
+        }
+    }
+    
+    function showCommandLoading(show) {
+        const loadingEl = document.getElementById('command-loading');
+        if (loadingEl) {
+            if (show) {
+                loadingEl.classList.remove('hidden');
+            } else {
+                loadingEl.classList.add('hidden');
+            }
+        }
+    }
+    
+    function showDemoHealthData() {
+        const demoData = {
+            overall_status: 'healthy',
+            health_data: {
+                health_percentage: 85,
+                metrics: {
+                    response_time: 45,
+                    memory_usage: 512,
+                    cpu_usage: 25,
+                    player_count: 12
+                }
+            }
+        };
+        
+        updateHealthStatusDisplay(demoData);
+        console.log('📊 Demo health data displayed');
+    }
+    
+    // ============================================================================
+    // MODULE LIFECYCLE
+    // ============================================================================
+    
+    function unloadServerHealth() {
+        console.log('🏥 Unloading Server Health module...');
+        
+        serverHealthData.isActive = false;
+        
+        // Clear intervals
+        if (serverHealthData.refreshInterval) {
+            clearInterval(serverHealthData.refreshInterval);
+            serverHealthData.refreshInterval = null;
+        }
+        
+        // Destroy charts
+        Object.values(serverHealthData.charts).forEach(chart => {
+            if (chart && typeof chart.destroy === 'function') {
+                chart.destroy();
+            }
+        });
+        serverHealthData.charts = {};
+        
+        console.log('✅ Server Health module unloaded');
+    }
+    
+    // ============================================================================
+    // GLOBAL FUNCTION EXPOSURE
+    // ============================================================================
+    
+    // Expose functions to global scope for integration
+    window.loadServerHealth = loadServerHealth;
+    window.unloadServerHealth = unloadServerHealth;
+    window.refreshHealthData = refreshHealthData;
+    window.filterCommands = filterCommands;
+    
+    console.log('✅ Server Health JavaScript module loaded successfully');
+    console.log('🏥 Functions available: loadServerHealth, refreshHealthData, filterCommands');
+
+</script>

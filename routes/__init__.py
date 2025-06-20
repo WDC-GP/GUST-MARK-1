@@ -1,8 +1,8 @@
-# routes/__init__.py - FIXED VERSION WITH LOGS ROUTES INTEGRATION
-# Remove circular imports by lazy loading + Add logs routes
+# routes/__init__.py - UPDATED VERSION WITH SERVER HEALTH ROUTES INTEGRATION
+# Remove circular imports by lazy loading + Add logs routes + Add server health routes
 
-def init_all_routes(app, db, user_storage, economy_storage=None, logs_storage=None):
-    '''Initialize all routes with lazy loading to prevent circular imports + logs integration'''
+def init_all_routes(app, db, user_storage, economy_storage=None, logs_storage=None, server_health_storage=None):
+    '''Initialize all routes with lazy loading to prevent circular imports + logs integration + server health'''
     
     # Auth Routes (foundation - independent)
     from .auth import auth_bp
@@ -52,7 +52,7 @@ def init_all_routes(app, db, user_storage, economy_storage=None, logs_storage=No
     print("[✅ OK] Events routes registered")
     
     # ============================================================================
-    # LOGS ROUTES INTEGRATION - NEW ADDITION
+    # LOGS ROUTES INTEGRATION - EXISTING (PRESERVED FROM YOUR FILE)
     # ============================================================================
     
     # Logs Routes (log management + player count integration)
@@ -67,19 +67,37 @@ def init_all_routes(app, db, user_storage, economy_storage=None, logs_storage=No
     app.register_blueprint(logs_bp)
     print("[✅ OK] Logs routes registered (with player count integration)")
     
-    print("[🚀 COMPLETE] All routes initialized successfully with logs integration")
+    # ============================================================================
+    # SERVER HEALTH ROUTES INTEGRATION - NEW ADDITION
+    # ============================================================================
+    
+    # Server Health Routes (health monitoring + layout-specific endpoints)
+    from .server_health import init_server_health_routes, server_health_bp
+    
+    # Initialize server health storage if not provided
+    if server_health_storage is None:
+        from utils.server_health_storage import ServerHealthStorage
+        server_health_storage = ServerHealthStorage(db, user_storage)
+        print("[🔧 INIT] Created Server Health storage instance")
+    
+    # Initialize and register server health routes
+    init_server_health_routes(app, db, server_health_storage)
+    app.register_blueprint(server_health_bp)
+    print("[✅ OK] Server Health routes registered (layout-focused monitoring)")
+    
+    print("[🚀 COMPLETE] All routes initialized successfully with logs integration + server health")
     
     return app
 
 # ============================================================================
-# ENHANCED INITIALIZATION WITH LOGS SUPPORT
+# ENHANCED INITIALIZATION WITH LOGS SUPPORT + SERVER HEALTH (PRESERVED + UPDATED)
 # ============================================================================
 
 def init_all_routes_enhanced(app, db, user_storage, economy_storage=None, logs_storage=None, 
-                           servers=None, clans=None, users=None, events=None, 
+                           server_health_storage=None, servers=None, clans=None, users=None, events=None, 
                            vanilla_koth=None, console_output=None):
     '''
-    Enhanced route initialization with full parameter support
+    Enhanced route initialization with full parameter support + server health
     This version accepts all the data structures that might be passed from main app
     '''
     
@@ -92,7 +110,7 @@ def init_all_routes_enhanced(app, db, user_storage, economy_storage=None, logs_s
     console_output = console_output or []
     logs_storage = logs_storage or []
     
-    print("[🔧 INIT] Starting enhanced route initialization...")
+    print("[🔧 INIT] Starting enhanced route initialization with server health support...")
     
     # Auth Routes (foundation - independent)
     from .auth import auth_bp
@@ -147,14 +165,29 @@ def init_all_routes_enhanced(app, db, user_storage, economy_storage=None, logs_s
     app.register_blueprint(logs_bp)
     print("[✅ OK] Logs routes registered (with player count integration)")
     
-    print("[🚀 COMPLETE] Enhanced route initialization complete")
+    # Server Health Routes (with server health storage and layout integration)
+    from .server_health import init_server_health_routes, server_health_bp
+    
+    # Initialize server health storage if not provided
+    if server_health_storage is None:
+        from utils.server_health_storage import ServerHealthStorage
+        server_health_storage = ServerHealthStorage(db, user_storage)
+        print("[🔧 INIT] Created Server Health storage instance")
+    
+    # Initialize and register server health routes
+    init_server_health_routes(app, db, server_health_storage)
+    app.register_blueprint(server_health_bp)
+    print("[✅ OK] Server Health routes registered (layout-focused monitoring)")
+    
+    print("[🚀 COMPLETE] Enhanced route initialization complete with server health")
     print(f"[📊 STATS] Initialized with {len(servers)} servers, {len(users)} users, {len(clans)} clans")
     print(f"[📋 LOGS] Logs storage initialized with {len(logs_storage)} entries")
+    print("[🏥 HEALTH] Server Health monitoring system active")
     
     return app
 
 # ============================================================================
-# BACKWARD COMPATIBILITY
+# BACKWARD COMPATIBILITY (PRESERVED FROM YOUR FILE)
 # ============================================================================
 
 # Keep the original function name for backward compatibility
