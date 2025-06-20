@@ -1,12 +1,12 @@
 """
 GUST Bot Enhanced - Helper Functions (COMPREHENSIVE AUTHENTICATION FIX - FINAL VERSION)
 ========================================================================================
+✅ FIXED: Buffer time reduced to 60 seconds for G-Portal compatibility
 ✅ FIXED: Consistent token return format - always returns string, never dict
 ✅ FIXED: Simplified load_token() to eliminate format confusion 
 ✅ FIXED: Enhanced JWT validation with proper character support
 ✅ FIXED: Robust refresh_token() with comprehensive error handling
 ✅ FIXED: Thread-safe file operations with improved locking
-✅ FIXED: 180-second buffer time to prevent premature expiration
 ✅ ENHANCED: Better error messages and detailed logging throughout
 ✅ ENHANCED: Proper request headers and G-Portal API compatibility
 ✅ ENHANCED: Atomic file operations with cleanup and rollback
@@ -91,13 +91,13 @@ def release_file_lock(file_handle):
 
 def load_token():
     """
-    ✅ FINAL FIX: Load and return ONLY the access token as string
+    ✅ CRITICAL FIX: Load and return ONLY the access token as string
     
     CRITICAL CHANGES:
     - ALWAYS returns string (access token) or empty string
     - NEVER returns dict to eliminate format confusion
     - Enhanced JWT validation for OAuth/Bearer tokens
-    - 180-second buffer time to prevent premature expiration
+    - ✅ FIXED: 60-second buffer time for G-Portal compatibility
     - Comprehensive error handling and logging
     
     Returns:
@@ -129,8 +129,9 @@ def load_token():
             logger.error(f"❌ Invalid token expiration format: {token_exp}")
             return ''
             
-        # ✅ CRITICAL FIX: 180-second buffer time
-        buffer_time = 180
+        # ✅ CRITICAL FIX: 60-second buffer time for G-Portal compatibility
+        # G-Portal refresh tokens expire much faster than expected
+        buffer_time = 60  # FIXED: Changed from 180 to 60 seconds
         time_until_expiry = token_exp - current_time
         
         logger.debug(f"⏰ Token expires in {time_until_expiry:.1f} seconds (buffer: {buffer_time}s)")
