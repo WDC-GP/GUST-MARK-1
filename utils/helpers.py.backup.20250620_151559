@@ -1,4 +1,4 @@
-﻿"""
+"""
 GUST Bot Enhanced - Helper Functions (ENHANCED TOKEN MANAGEMENT VERSION)
 ========================================================================
 ✅ ENHANCED: Reduced buffer time from 120s to 60s for earlier refresh detection
@@ -799,30 +799,14 @@ def validate_region(region):
     return str(region).upper() in valid_regions
 
 def format_command(command):
-    """
-    Format command for sending to G-Portal console
-    
-    Args:
-        command (str): Raw command input
-        
-    Returns:
-        str: Properly formatted command (WITHOUT slash prefix)
-    """
+    """Format command for sending"""
     if not command:
         return ''
     
     command = command.strip()
+    if not command.startswith('/'):
+        command = f"/{command}"
     
-    # ✅ FIXED: DO NOT ADD SLASH PREFIX - G-Portal commands should be sent as-is
-    # Commands like 'serverinfo', 'global.say "message"' should be sent without "/"
-    
-    # Handle special formatting for 'say' commands only
-    if command.startswith('say ') and not command.startswith('global.say'):
-        # Convert "say message" to "global.say \"message\""
-        message = command[4:].strip()  # Remove 'say ' prefix
-        return f'global.say "{message}"'
-    
-    # For all other commands (serverinfo, global.*, etc.) - return as-is WITHOUT slash
     return command
 
 def create_server_data(server_id, name, region='US', server_type='Standard'):
@@ -848,6 +832,7 @@ def create_server_data(server_id, name, region='US', server_type='Standard'):
         'isFavorite': False,
         'addedAt': datetime.now().isoformat()
     }
+
 def get_countdown_announcements(minutes_left):
     """Get countdown announcements for events"""
     announcements = []
