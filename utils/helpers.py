@@ -1,11 +1,14 @@
 """
-GUST Bot Enhanced - Helper Functions (ULTRA-AGGRESSIVE TOKEN FIX + COMPLETE FUNCTIONS)
-=======================================================================================
+GUST Bot Enhanced - Helper Functions (ULTRA-AGGRESSIVE TOKEN FIX + AUTO-AUTHENTICATION)
+=========================================================================================
 ✅ CRITICAL: Buffer time reduced to 30 seconds for maximum G-Portal compatibility  
 ✅ ENHANCED: Ultra-aggressive token refresh strategy
 ✅ ENHANCED: Priority token operations bypass rate limiting
 ✅ ENHANCED: Better error recovery and automatic re-login detection
 ✅ ENHANCED: Coordination with optimization systems
+✅ NEW: Auto-authentication integration with credential fallback
+✅ NEW: Background authentication support
+✅ NEW: Enhanced auth status monitoring for seamless re-authentication
 ✅ FIXED: All existing functionality preserved
 ✅ FIXED: All missing functions restored for complete compatibility
 """
@@ -23,6 +26,21 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+# Import auto-auth components (graceful fallback if not available)
+try:
+    from utils.credential_manager import credential_manager
+    CREDENTIAL_MANAGER_AVAILABLE = True
+except ImportError:
+    CREDENTIAL_MANAGER_AVAILABLE = False
+    logger.debug("Credential manager not available - auto-auth features disabled")
+
+try:
+    from config import Config
+    CONFIG_AVAILABLE = True
+except ImportError:
+    CONFIG_AVAILABLE = False
+    logger.warning("Config not available - using defaults")
+
 # Cross-platform file locking
 try:
     import msvcrt
@@ -38,7 +56,30 @@ except ImportError:
         FILE_LOCKING_TYPE = 'none'
 
 # ================================================================
-# ENHANCED FILE LOCKING UTILITIES
+# AUTO-AUTHENTICATION GLOBAL STATE
+# ================================================================
+
+# Global authentication state for auto-auth integration
+_auth_lock = None
+_last_auth_attempt = 0
+_auth_failure_count = 0
+_auth_in_progress = False
+
+def _init_auth_state():
+    """Initialize authentication state"""
+    global _auth_lock
+    if _auth_lock is None:
+        import threading
+        _auth_lock = threading.Lock()
+
+def _get_config_value(key, default):
+    """Get configuration value with fallback"""
+    if CONFIG_AVAILABLE and hasattr(Config, key):
+        return getattr(Config, key)
+    return default
+
+# ================================================================
+# ENHANCED FILE LOCKING UTILITIES (PRESERVED)
 # ================================================================
 
 def acquire_file_lock(file_handle, timeout=5):
@@ -83,18 +124,19 @@ def release_file_lock(file_handle):
         logger.debug(f"⚠️ Error releasing file lock: {e}")
 
 # ================================================================
-# ULTRA-AGGRESSIVE TOKEN MANAGEMENT FUNCTIONS
+# ENHANCED TOKEN MANAGEMENT WITH AUTO-AUTHENTICATION
 # ================================================================
 
 def load_token():
     """
-    ✅ ULTRA-AGGRESSIVE FIX: Load and return ONLY the access token as string
+    ✅ ULTRA-AGGRESSIVE FIX + AUTO-AUTH: Load and return ONLY the access token as string
     
     CRITICAL CHANGES:
     - Buffer time reduced to 30 seconds (was 60) for maximum G-Portal compatibility
     - Enhanced priority handling for token operations
     - Better coordination with rate limiting systems
     - Ultra-aggressive refresh strategy
+    - AUTO-AUTH: Automatic credential fallback when tokens fail
     
     Returns:
         str: Valid access token string or empty string if unavailable
@@ -105,6 +147,11 @@ def load_token():
         # Check if file exists
         if not os.path.exists(token_file):
             logger.debug("📁 Token file not found")
+            # AUTO-AUTH: Attempt automatic re-authentication if available
+            if CREDENTIAL_MANAGER_AVAILABLE and credential_manager.credentials_exist():
+                logger.info("🔐 Token file missing, attempting auto-authentication...")
+                if attempt_credential_reauth():
+                    return load_token()  # Recursive call after successful auth
             return ''
             
         with open(token_file, 'r', encoding='utf-8') as f:
@@ -144,14 +191,15 @@ def load_token():
                 logger.error(f"❌ Access token validation failed: length={len(access_token.strip()) if access_token else 0}")
                 return ''
         else:
-            # Token expired or expiring soon, attempt ultra-aggressive refresh
-            logger.info(f"🚀 Ultra-aggressive refresh: Token expires in {time_until_expiry:.1f}s, attempting immediate refresh...")
+            # Token expired or expiring soon, attempt enhanced refresh with auto-auth fallback
+            logger.info(f"🚀 Enhanced refresh: Token expires in {time_until_expiry:.1f}s, attempting refresh with auto-auth fallback...")
             
             # Set priority flag for rate limiter bypass
             _set_token_operation_priority(True)
             
             try:
-                if refresh_token():
+                # Try enhanced refresh first
+                if enhanced_refresh_token():
                     # Refresh successful, reload and return new token
                     try:
                         with open(token_file, 'r', encoding='utf-8') as f:
@@ -161,7 +209,7 @@ def load_token():
                         
                         # Validate refreshed token
                         if is_valid_jwt_token(new_token):
-                            logger.info("✅ Ultra-aggressive token refresh successful, returning new token")
+                            logger.info("✅ Enhanced token refresh successful, returning new token")
                             return new_token.strip()
                         else:
                             logger.error(f"❌ Refreshed token failed validation: length={len(new_token)}")
@@ -169,7 +217,7 @@ def load_token():
                     except Exception as e:
                         logger.error(f"❌ Error reading refreshed token: {e}")
                 
-                logger.warning("❌ Ultra-aggressive token refresh failed or no valid token available")
+                logger.warning("❌ Enhanced token refresh failed or no valid token available")
                 return ''
             finally:
                 # Always clear priority flag
@@ -177,6 +225,11 @@ def load_token():
             
     except FileNotFoundError:
         logger.debug("📁 Token file not found")
+        # AUTO-AUTH: Attempt automatic re-authentication if available
+        if CREDENTIAL_MANAGER_AVAILABLE and credential_manager.credentials_exist():
+            logger.info("🔐 Token file missing, attempting auto-authentication...")
+            if attempt_credential_reauth():
+                return load_token()  # Recursive call after successful auth
         return ''
     except json.JSONDecodeError as e:
         logger.error(f"❌ Invalid JSON in token file: {e}")
@@ -185,9 +238,145 @@ def load_token():
         logger.error(f"❌ Unexpected error loading token: {e}")
         return ''
 
+def enhanced_refresh_token():
+    """
+    ✅ ENHANCED: Token refresh with automatic credential fallback
+    
+    Returns:
+        bool: True if refresh successful, False otherwise
+    """
+    global _last_auth_attempt, _auth_failure_count, _auth_in_progress
+    
+    _init_auth_state()
+    
+    with _auth_lock:
+        try:
+            # Prevent concurrent auth attempts
+            if _auth_in_progress:
+                logger.debug("Auth attempt already in progress, skipping")
+                return False
+            
+            # Rate limiting for auth attempts
+            current_time = time.time()
+            rate_limit_window = _get_config_value('AUTO_AUTH_RATE_LIMIT_WINDOW', 30)
+            
+            if current_time - _last_auth_attempt < rate_limit_window:
+                logger.debug(f"Auth rate limiting in effect, {rate_limit_window}s cooldown")
+                return False
+            
+            _last_auth_attempt = current_time
+            _auth_in_progress = True
+            
+            # Attempt standard token refresh first
+            logger.debug("Attempting standard token refresh")
+            if refresh_token():  # Your existing function
+                _auth_failure_count = 0  # Reset failure count on success
+                logger.info("Token refreshed successfully via standard method")
+                return True
+            
+            # If standard refresh failed and auto-auth is available, try credential re-auth
+            if CREDENTIAL_MANAGER_AVAILABLE and credential_manager.credentials_exist():
+                max_retries = _get_config_value('AUTO_AUTH_MAX_RETRIES', 3)
+                if _auth_failure_count < max_retries:
+                    logger.warning("Standard token refresh failed, attempting credential re-authentication")
+                    return attempt_credential_reauth()
+                else:
+                    logger.error(f"Max auth retries ({max_retries}) reached, skipping credential re-auth")
+                    return False
+            else:
+                logger.warning("Token refresh failed and auto-auth not available")
+                _auth_failure_count += 1
+                return False
+                
+        except Exception as e:
+            _auth_failure_count += 1
+            logger.error(f"Enhanced refresh error: {e}")
+            return False
+        finally:
+            _auth_in_progress = False
+
+def attempt_credential_reauth():
+    """
+    ✅ NEW: Attempt re-authentication using stored credentials
+    
+    Returns:
+        bool: True if re-authentication successful, False otherwise
+    """
+    global _auth_failure_count
+    
+    try:
+        if not CREDENTIAL_MANAGER_AVAILABLE:
+            logger.error("Credential manager not available for re-authentication")
+            return False
+        
+        # Load stored credentials
+        credentials = credential_manager.load_credentials()
+        if not credentials:
+            logger.warning("No stored credentials available for re-authentication")
+            return False
+        
+        username = credentials['username']
+        password = credentials['password']
+        
+        logger.info(f"Attempting credential re-authentication for {username}")
+        
+        # Use the same authentication logic as login
+        auth_data = {
+            'grant_type': 'password',
+            'username': username,
+            'password': password,
+            'client_id': 'website'
+        }
+        
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Origin': 'https://www.g-portal.com',
+            'Referer': 'https://www.g-portal.com/'
+        }
+        
+        # Get auth URL from config or use default
+        auth_url = _get_config_value('GPORTAL_AUTH_URL', 'https://www.g-portal.com/ngpapi/oauth/token')
+        
+        response = requests.post(
+            auth_url,
+            data=auth_data,
+            headers=headers,
+            timeout=15
+        )
+        
+        if response.status_code == 200:
+            tokens = response.json()
+            
+            if 'access_token' in tokens and 'refresh_token' in tokens:
+                # Save new tokens using existing function
+                if save_token(tokens, username):
+                    _auth_failure_count = 0
+                    logger.info("✅ Credential re-authentication successful")
+                    return True
+        
+        _auth_failure_count += 1
+        logger.error(f"❌ Credential re-authentication failed: HTTP {response.status_code}")
+        
+        # Check if we've hit max retries
+        max_retries = _get_config_value('AUTO_AUTH_MAX_RETRIES', 3)
+        failure_cooldown = _get_config_value('AUTO_AUTH_FAILURE_COOLDOWN', 600)
+        
+        if _auth_failure_count >= max_retries:
+            logger.error(f"Max auth retries ({max_retries}) reached, entering cooldown for {failure_cooldown}s")
+            time.sleep(failure_cooldown)
+            _auth_failure_count = 0  # Reset after cooldown
+        
+        return False
+        
+    except Exception as e:
+        _auth_failure_count += 1
+        logger.error(f"❌ Credential re-auth error: {e}")
+        return False
+
 def refresh_token():
     """
-    ✅ ULTRA-AGGRESSIVE FIX: Enhanced token refresh with bypass capabilities
+    ✅ ULTRA-AGGRESSIVE FIX: Enhanced token refresh with bypass capabilities (PRESERVED)
     
     Returns:
         bool: True if refresh successful, False otherwise
@@ -258,7 +447,7 @@ def refresh_token():
                     'X-Token-Operation': 'refresh'  # Custom operation header
                 }
                 
-                gportal_auth_url = 'https://www.g-portal.com/ngpapi/oauth/token'
+                gportal_auth_url = _get_config_value('GPORTAL_AUTH_URL', 'https://www.g-portal.com/ngpapi/oauth/token')
                 
                 logger.info("🚀 Attempting ultra-aggressive token refresh...")
                 
@@ -319,7 +508,8 @@ def refresh_token():
                             'expires_in': expires_in,
                             'refresh_expires_in': refresh_expires_in,
                             'ultra_aggressive_mode': True,  # Flag for monitoring
-                            'buffer_time_used': 30  # Track buffer time used
+                            'buffer_time_used': 30,  # Track buffer time used
+                            'auto_auth_available': CREDENTIAL_MANAGER_AVAILABLE  # Track auto-auth capability
                         })
                         
                         # Atomic file write with rollback capability
@@ -416,6 +606,211 @@ def refresh_token():
         # Always clear priority flag
         _set_token_operation_priority(False)
 
+# ================================================================
+# AUTO-AUTHENTICATION STATUS AND MONITORING
+# ================================================================
+
+def get_auth_status_enhanced():
+    """✅ NEW: Enhanced authentication status with auto-auth info"""
+    try:
+        # Import auth decorators function if available
+        try:
+            from utils.auth_decorators import get_auth_status
+            base_status = get_auth_status()
+        except ImportError:
+            # Fallback basic status
+            base_status = {
+                'logged_in': bool(load_token()),
+                'demo_mode': False,
+                'username': 'unknown'
+            }
+        
+        # Add auto-auth specific status
+        auto_auth_status = {
+            'auto_auth_enabled': _get_config_value('AUTO_AUTH_ENABLED', False),
+            'auto_auth_available': CREDENTIAL_MANAGER_AVAILABLE and _get_config_value('AUTO_AUTH_ENABLED', False),
+            'credentials_stored': credential_manager.credentials_exist() if CREDENTIAL_MANAGER_AVAILABLE else False,
+            'auth_failure_count': _auth_failure_count,
+            'last_auth_attempt': _last_auth_attempt,
+            'auth_in_progress': _auth_in_progress,
+            'rate_limit_window': _get_config_value('AUTO_AUTH_RATE_LIMIT_WINDOW', 30),
+            'renewal_interval': _get_config_value('AUTO_AUTH_RENEWAL_INTERVAL', 180),
+            'max_retries': _get_config_value('AUTO_AUTH_MAX_RETRIES', 3)
+        }
+        
+        return {**base_status, **auto_auth_status}
+        
+    except Exception as e:
+        logger.error(f"Error getting enhanced auth status: {e}")
+        return {
+            'logged_in': False,
+            'auto_auth_available': False,
+            'error': str(e)
+        }
+
+def get_frontend_auth_status():
+    """✅ NEW: Get auth status formatted for frontend consumption"""
+    try:
+        stats = get_auth_statistics()
+        
+        return {
+            'authenticated': bool(load_token()),
+            'auto_auth_enabled': _get_config_value('AUTO_AUTH_ENABLED', False),
+            'auto_auth_available': CREDENTIAL_MANAGER_AVAILABLE and _get_config_value('AUTO_AUTH_ENABLED', False),
+            'credentials_stored': stats['credentials_available'],
+            'failure_count': stats['failure_count'],
+            'rate_limited': stats['rate_limited'],
+            'cooldown_active': stats['cooldown_active'],
+            'last_attempt_ago': stats['last_attempt_ago'],
+            'renewal_interval': _get_config_value('AUTO_AUTH_RENEWAL_INTERVAL', 180),
+            'status_message': _get_auth_status_message(stats)
+        }
+    except Exception as e:
+        logger.error(f"Error getting frontend auth status: {e}")
+        return {
+            'authenticated': False,
+            'auto_auth_available': False,
+            'error': str(e)
+        }
+
+def get_auth_statistics():
+    """✅ NEW: Get detailed authentication statistics"""
+    current_time = time.time()
+    rate_limit_window = _get_config_value('AUTO_AUTH_RATE_LIMIT_WINDOW', 30)
+    max_retries = _get_config_value('AUTO_AUTH_MAX_RETRIES', 3)
+    
+    return {
+        'failure_count': _auth_failure_count,
+        'last_attempt_time': _last_auth_attempt,
+        'last_attempt_ago': current_time - _last_auth_attempt if _last_auth_attempt > 0 else None,
+        'in_progress': _auth_in_progress,
+        'rate_limited': (current_time - _last_auth_attempt) < rate_limit_window,
+        'cooldown_active': _auth_failure_count >= max_retries,
+        'auto_auth_configured': CREDENTIAL_MANAGER_AVAILABLE and _get_config_value('AUTO_AUTH_ENABLED', False),
+        'credentials_available': credential_manager.credentials_exist() if CREDENTIAL_MANAGER_AVAILABLE else False
+    }
+
+def _get_auth_status_message(stats):
+    """Generate human-readable auth status message"""
+    if not _get_config_value('AUTO_AUTH_ENABLED', False):
+        return "Auto-authentication disabled"
+    
+    if not CREDENTIAL_MANAGER_AVAILABLE:
+        return "Auto-authentication not available (missing dependencies)"
+    
+    if not stats['credentials_available']:
+        return "No stored credentials (login to enable auto-auth)"
+    
+    if stats['cooldown_active']:
+        return f"Authentication in cooldown (too many failures)"
+    
+    if stats['rate_limited']:
+        return "Rate limited (attempting too frequently)"
+    
+    if stats['failure_count'] > 0:
+        return f"Authentication issues ({stats['failure_count']} failures)"
+    
+    return "Auto-authentication active"
+
+def reset_auth_failures():
+    """✅ NEW: Reset authentication failure count (for manual recovery)"""
+    global _auth_failure_count
+    _auth_failure_count = 0
+    logger.info("Authentication failure count reset")
+
+def monitor_auth_health():
+    """✅ NEW: Monitor authentication health and log statistics"""
+    try:
+        status = get_auth_status_enhanced()
+        
+        # Log auth health periodically
+        if _auth_failure_count > 0:
+            logger.warning(f"Auth health check: {_auth_failure_count} failures, "
+                         f"last attempt {time.time() - _last_auth_attempt:.0f}s ago")
+        else:
+            # Only log success every 5 minutes to avoid spam
+            success_log_interval = _get_config_value('AUTO_AUTH_SUCCESS_LOG_INTERVAL', 300)
+            if int(time.time()) % success_log_interval == 0:
+                logger.info("Auth health check: All systems operational")
+        
+        return status
+        
+    except Exception as e:
+        logger.error(f"Auth health monitoring error: {e}")
+        return None
+
+# ================================================================
+# ENHANCED TOKEN UTILITIES WITH AUTO-AUTH SUPPORT
+# ================================================================
+
+def validate_token_with_auto_refresh():
+    """
+    ✅ NEW: Validate current token and attempt auto-refresh if needed
+    
+    Returns:
+        str: Valid access token or None if authentication failed
+    """
+    try:
+        # First try to load existing token
+        current_token = load_token()
+        
+        if current_token:
+            # Token exists, assume it's valid for now
+            return current_token
+        
+        # No token available, try enhanced refresh
+        logger.info("No valid token found, attempting enhanced refresh")
+        if enhanced_refresh_token():
+            return load_token()
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"Token validation with auto-refresh failed: {e}")
+        return None
+
+def safe_api_call_with_auto_auth(api_function, *args, **kwargs):
+    """
+    ✅ NEW: Wrapper for API calls that automatically handles authentication
+    
+    Args:
+        api_function: The API function to call
+        *args, **kwargs: Arguments to pass to the API function
+    
+    Returns:
+        API function result or None if authentication failed
+    """
+    try:
+        # Ensure we have a valid token
+        token = validate_token_with_auto_refresh()
+        if not token:
+            logger.error("Cannot make API call: authentication failed")
+            return None
+        
+        # Try the API call
+        return api_function(*args, **kwargs)
+        
+    except requests.exceptions.HTTPError as e:
+        if e.response and e.response.status_code == 401:  # Unauthorized
+            logger.warning("API call failed with 401, attempting token refresh")
+            
+            # Try to refresh token and retry once
+            if enhanced_refresh_token():
+                return api_function(*args, **kwargs)
+            else:
+                logger.error("Token refresh failed, API call aborted")
+                return None
+        else:
+            # Re-raise other HTTP errors
+            raise
+    except Exception as e:
+        logger.error(f"Safe API call error: {e}")
+        return None
+
+# ================================================================
+# EXISTING FUNCTIONS (PRESERVED)
+# ================================================================
+
 def _set_token_operation_priority(enabled):
     """
     Set priority flag for token operations to bypass rate limiting
@@ -460,7 +855,7 @@ def is_token_operation_priority():
 
 def is_valid_jwt_token(token):
     """
-    ✅ ENHANCED: JWT-compatible token validation
+    ✅ ENHANCED: JWT-compatible token validation (PRESERVED)
     
     Args:
         token (str): Token to validate
@@ -485,15 +880,11 @@ def is_valid_jwt_token(token):
     if not all(c in allowed_chars for c in token):
         return False
     
-    # JWT tokens typically have dots (.) separating header, payload, signature
-    # OAuth bearer tokens may not have dots but should still be valid
-    # Both patterns are acceptable
-    
     return True
 
 def save_token(tokens, username='unknown'):
     """
-    ✅ ENHANCED: Save tokens with comprehensive validation
+    ✅ ENHANCED: Save tokens with comprehensive validation (PRESERVED + ENHANCED)
     
     Args:
         tokens (dict): Token data from G-Portal API
@@ -545,7 +936,9 @@ def save_token(tokens, username='unknown'):
                 'saved_at': datetime.now().isoformat(),
                 'token_version': '2.2',
                 'ultra_aggressive_mode': True,  # Flag for monitoring
-                'buffer_time_used': 30  # Track buffer time used
+                'buffer_time_used': 30,  # Track buffer time used
+                'auto_auth_available': CREDENTIAL_MANAGER_AVAILABLE,  # Track auto-auth capability
+                'config_available': CONFIG_AVAILABLE  # Track config availability
             }
         
         # Atomic file write with backup
@@ -579,7 +972,7 @@ def save_token(tokens, username='unknown'):
             if os.path.exists(backup_file):
                 os.remove(backup_file)
             
-            logger.info(f"✅ Token saved successfully for {username} (ultra-aggressive mode)")
+            logger.info(f"✅ Token saved successfully for {username} (ultra-aggressive mode + auto-auth)")
             return True
             
         except Exception as e:
@@ -597,12 +990,12 @@ def save_token(tokens, username='unknown'):
         logger.error(f"❌ Error saving token: {e}")
         return False
 
-# ================================================================
-# TOKEN HEALTH MONITORING (ENHANCED)
-# ================================================================
+# ALL EXISTING FUNCTIONS PRESERVED BELOW...
+# (Including monitor_token_health, validate_token_file, parse_console_response, etc.)
+# [The rest of your existing helper functions remain exactly the same]
 
 def monitor_token_health():
-    """Ultra-aggressive token health monitoring"""
+    """Ultra-aggressive token health monitoring (PRESERVED)"""
     try:
         token_file = 'gp-session.json'
         current_time = time.time()
@@ -615,17 +1008,28 @@ def monitor_token_health():
             'details': {},
             'recommendations': [],
             'timestamp': datetime.now().isoformat(),
-            'ultra_aggressive_mode': True
+            'ultra_aggressive_mode': True,
+            'auto_auth_available': CREDENTIAL_MANAGER_AVAILABLE  # NEW: Auto-auth availability
         }
         
         if not os.path.exists(token_file):
-            health_status.update({
-                'status': 'missing',
-                'action': 'login_required',
-                'message': 'No token file found - login required',
-                'details': {'file_exists': False},
-                'recommendations': ['Login with G-Portal credentials']
-            })
+            # AUTO-AUTH ENHANCEMENT: Check if we can auto-recover
+            if CREDENTIAL_MANAGER_AVAILABLE and credential_manager.credentials_exist():
+                health_status.update({
+                    'status': 'missing_recoverable',
+                    'action': 'auto_recovery_available',
+                    'message': 'No token file found but auto-recovery available',
+                    'details': {'file_exists': False, 'auto_recovery': True},
+                    'recommendations': ['Auto-authentication will attempt recovery', 'Or login manually with G-Portal credentials']
+                })
+            else:
+                health_status.update({
+                    'status': 'missing',
+                    'action': 'login_required',
+                    'message': 'No token file found - login required',
+                    'details': {'file_exists': False, 'auto_recovery': False},
+                    'recommendations': ['Login with G-Portal credentials']
+                })
             return health_status
         
         try:
@@ -678,7 +1082,9 @@ def monitor_token_health():
             'access_expires_at': datetime.fromtimestamp(access_exp).isoformat() if access_exp else None,
             'refresh_expires_at': datetime.fromtimestamp(refresh_exp).isoformat() if refresh_exp else None,
             'ultra_aggressive_buffer': 30,
-            'ultra_aggressive_mode': data.get('ultra_aggressive_mode', False)
+            'ultra_aggressive_mode': data.get('ultra_aggressive_mode', False),
+            'auto_auth_available': CREDENTIAL_MANAGER_AVAILABLE,
+            'auto_recovery': CREDENTIAL_MANAGER_AVAILABLE and credential_manager.credentials_exist()
         }
         
         # Determine health status with ultra-aggressive thresholds
@@ -687,29 +1093,38 @@ def monitor_token_health():
         if not access_valid:
             health_status.update({
                 'status': 'invalid_access_token',
-                'action': 'login_required',
+                'action': 'login_required' if not details['auto_recovery'] else 'auto_recovery_available',
                 'message': 'Access token is invalid or malformed',
                 'details': details
             })
-            recommendations.extend(['Login again', 'Check token file integrity'])
+            if details['auto_recovery']:
+                recommendations.extend(['Auto-authentication will attempt recovery', 'Or login again manually'])
+            else:
+                recommendations.extend(['Login again', 'Check token file integrity'])
             
         elif not refresh_valid:
             health_status.update({
                 'status': 'invalid_refresh_token',
-                'action': 'login_required',
+                'action': 'login_required' if not details['auto_recovery'] else 'auto_recovery_available',
                 'message': 'Refresh token is invalid or malformed',
                 'details': details
             })
-            recommendations.extend(['Login again', 'Check token file integrity'])
+            if details['auto_recovery']:
+                recommendations.extend(['Auto-authentication will attempt recovery', 'Or login again manually'])
+            else:
+                recommendations.extend(['Login again', 'Check token file integrity'])
             
         elif refresh_time_left <= 0:
             health_status.update({
                 'status': 'refresh_expired',
-                'action': 'login_required',
-                'message': 'Refresh token has expired - re-login required',
+                'action': 'login_required' if not details['auto_recovery'] else 'auto_recovery_available',
+                'message': 'Refresh token has expired - re-login or auto-recovery required',
                 'details': details
             })
-            recommendations.extend(['Login with G-Portal credentials'])
+            if details['auto_recovery']:
+                recommendations.extend(['Auto-authentication will attempt credential re-auth'])
+            else:
+                recommendations.extend(['Login with G-Portal credentials'])
             
         elif access_time_left <= 0:
             if refresh_time_left > 300:  # 5 minutes
@@ -724,11 +1139,14 @@ def monitor_token_health():
             else:
                 health_status.update({
                     'status': 'refresh_expiring_soon',
-                    'action': 'login_required',
-                    'message': 'Both tokens expiring soon - re-login recommended',
+                    'action': 'login_required' if not details['auto_recovery'] else 'auto_recovery_available',
+                    'message': 'Both tokens expiring soon - re-login or auto-recovery recommended',
                     'details': details
                 })
-                recommendations.extend(['Login again before tokens expire'])
+                if details['auto_recovery']:
+                    recommendations.extend(['Auto-authentication will attempt credential re-auth'])
+                else:
+                    recommendations.extend(['Login again before tokens expire'])
                 
         elif access_time_left < 120:  # Ultra-aggressive: warn at 2 minutes instead of 10
             health_status.update({
@@ -738,14 +1156,14 @@ def monitor_token_health():
                 'message': f'ULTRA-AGGRESSIVE: Access token expires in {int(access_time_left)} seconds',
                 'details': details
             })
-            recommendations.extend(['Refresh token immediately'])
+            recommendations.extend(['Refresh token immediately', 'Auto-auth will handle renewal if enabled'])
             
         else:
             health_status.update({
                 'healthy': True,
                 'status': 'healthy',
                 'action': 'none',
-                'message': f'Tokens healthy - {int(access_time_left)} seconds remaining (ultra-aggressive monitoring)',
+                'message': f'Tokens healthy - {int(access_time_left)} seconds remaining (ultra-aggressive monitoring + auto-auth)',
                 'details': details
             })
         
@@ -759,14 +1177,14 @@ def monitor_token_health():
             'status': 'error',
             'action': 'check_system',
             'message': f'Error checking token health: {e}',
-            'details': {},
+            'details': {'auto_auth_available': CREDENTIAL_MANAGER_AVAILABLE},
             'recommendations': ['Check logs for errors'],
             'timestamp': datetime.now().isoformat(),
             'ultra_aggressive_mode': True
         }
 
 def validate_token_file():
-    """Ultra-aggressive token file validation"""
+    """Ultra-aggressive token file validation (PRESERVED + ENHANCED)"""
     token_file = 'gp-session.json'
     
     result = {
@@ -783,12 +1201,17 @@ def validate_token_file():
         'issues': [],
         'expires_at': None,
         'refresh_expires_at': None,
-        'ultra_aggressive_buffer': 30
+        'ultra_aggressive_buffer': 30,
+        'auto_auth_available': CREDENTIAL_MANAGER_AVAILABLE,  # NEW
+        'auto_recovery_possible': CREDENTIAL_MANAGER_AVAILABLE and credential_manager.credentials_exist() if CREDENTIAL_MANAGER_AVAILABLE else False  # NEW
     }
     
     try:
         if not os.path.exists(token_file):
-            result['issues'].append('Token file does not exist')
+            if result['auto_recovery_possible']:
+                result['issues'].append('Token file does not exist but auto-recovery available')
+            else:
+                result['issues'].append('Token file does not exist')
             return result
             
         result['exists'] = True
@@ -873,11 +1296,11 @@ def validate_token_file():
         return result
 
 # ================================================================
-# CONSOLE AND COMMAND PARSING FUNCTIONS
+# ALL OTHER EXISTING FUNCTIONS PRESERVED EXACTLY AS THEY WERE
 # ================================================================
 
 def parse_console_response(response_data):
-    """Parse G-Portal GraphQL response for console commands"""
+    """Parse G-Portal GraphQL response for console commands (PRESERVED)"""
     logger.debug(f"parse_console_response called with: {response_data}")
     
     if not response_data or not isinstance(response_data, dict):
@@ -905,7 +1328,7 @@ def parse_console_response(response_data):
         return False, f"Error parsing response: {e}"
 
 def classify_message(message):
-    """Enhanced message classification"""
+    """Enhanced message classification (PRESERVED)"""
     if not message:
         return 'unknown'
     
@@ -927,7 +1350,7 @@ def classify_message(message):
         return 'unknown'
 
 def get_type_icon(message_type):
-    """Enhanced icon mapping"""
+    """Enhanced icon mapping (PRESERVED)"""
     icons = {
         'join': '🟢',
         'leave': '🔴', 
@@ -943,7 +1366,7 @@ def get_type_icon(message_type):
     return icons.get(message_type, '❓')
 
 def format_console_message(message, timestamp=None):
-    """Enhanced console message formatting"""
+    """Enhanced console message formatting (PRESERVED)"""
     if not message:
         return ''
     
@@ -960,7 +1383,7 @@ def format_console_message(message, timestamp=None):
         return f"{icon} {message}"
 
 def format_command(command):
-    """Enhanced command formatting for G-Portal console"""
+    """Enhanced command formatting for G-Portal console (PRESERVED)"""
     if not command:
         return ''
     
@@ -974,11 +1397,11 @@ def format_command(command):
     return command
 
 # ================================================================
-# VALIDATION FUNCTIONS
+# VALIDATION FUNCTIONS (PRESERVED)
 # ================================================================
 
 def validate_server_id(server_id):
-    """Enhanced server ID validation"""
+    """Enhanced server ID validation (PRESERVED)"""
     if not server_id:
         return False, None
     
@@ -998,7 +1421,7 @@ def validate_server_id(server_id):
     return False, None
 
 def validate_region(region):
-    """Enhanced region validation"""
+    """Enhanced region validation (PRESERVED)"""
     if not region:
         return False
     
@@ -1006,7 +1429,7 @@ def validate_region(region):
     return str(region).strip() in valid_regions
 
 def is_valid_steam_id(steam_id):
-    """Validate Steam ID format"""
+    """Validate Steam ID format (PRESERVED)"""
     if not steam_id:
         return False
     
@@ -1014,7 +1437,7 @@ def is_valid_steam_id(steam_id):
     return str(steam_id).isdigit() and len(str(steam_id)) == 17
 
 def validate_email(email):
-    """Basic email validation"""
+    """Basic email validation (PRESERVED)"""
     if not email or not isinstance(email, str):
         return False
     
@@ -1022,7 +1445,7 @@ def validate_email(email):
     return bool(re.match(pattern, email.strip()))
 
 def validate_url(url):
-    """Basic URL validation"""
+    """Basic URL validation (PRESERVED)"""
     if not url or not isinstance(url, str):
         return False
     
@@ -1030,11 +1453,11 @@ def validate_url(url):
     return url.startswith(('http://', 'https://')) and len(url) > 10
 
 # ================================================================
-# DATA CREATION AND UTILITY FUNCTIONS
+# DATA CREATION AND UTILITY FUNCTIONS (PRESERVED)
 # ================================================================
 
 def create_server_data(server_id, name, region='US', server_type='Standard'):
-    """Enhanced server data structure creation"""
+    """Enhanced server data structure creation (PRESERVED)"""
     return {
         'serverId': str(server_id),
         'serverName': str(name),
@@ -1050,7 +1473,7 @@ def create_server_data(server_id, name, region='US', server_type='Standard'):
     }
 
 def get_countdown_announcements(minutes_left):
-    """Enhanced countdown announcements"""
+    """Enhanced countdown announcements (PRESERVED)"""
     announcements = []
     
     if minutes_left == 30:
@@ -1071,11 +1494,11 @@ def get_countdown_announcements(minutes_left):
     return announcements
 
 # ================================================================
-# STRING AND FORMAT UTILITY FUNCTIONS
+# STRING AND FORMAT UTILITY FUNCTIONS (PRESERVED)
 # ================================================================
 
 def escape_html(text):
-    """Enhanced HTML escaping"""
+    """Enhanced HTML escaping (PRESERVED)"""
     if not text:
         return ''
     
@@ -1088,7 +1511,7 @@ def escape_html(text):
             .replace('/', '&#x2F;'))
 
 def safe_int(value, default=0):
-    """Enhanced safe integer conversion"""
+    """Enhanced safe integer conversion (PRESERVED)"""
     try:
         if isinstance(value, (int, float)):
             return int(value)
@@ -1103,7 +1526,7 @@ def safe_int(value, default=0):
         return default
 
 def safe_float(value, default=0.0):
-    """Enhanced safe float conversion"""
+    """Enhanced safe float conversion (PRESERVED)"""
     try:
         if isinstance(value, (int, float)):
             return float(value)
@@ -1118,7 +1541,7 @@ def safe_float(value, default=0.0):
         return default
 
 def format_timestamp(timestamp):
-    """Enhanced timestamp formatting"""
+    """Enhanced timestamp formatting (PRESERVED)"""
     if not timestamp:
         return ''
     
@@ -1137,7 +1560,7 @@ def format_timestamp(timestamp):
         return str(timestamp)
 
 def sanitize_filename(filename):
-    """Sanitize filename for safe filesystem use"""
+    """Sanitize filename for safe filesystem use (PRESERVED)"""
     if not filename:
         return 'unknown'
     
@@ -1149,22 +1572,22 @@ def sanitize_filename(filename):
     return filename.strip()
 
 def generate_random_string(length=8):
-    """Generate random string"""
+    """Generate random string (PRESERVED)"""
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 def truncate_string(text, max_length=100, suffix='...'):
-    """Truncate string to maximum length"""
+    """Truncate string to maximum length (PRESERVED)"""
     if not text or len(text) <= max_length:
         return text
     
     return text[:max_length - len(suffix)] + suffix
 
 # ================================================================
-# STATUS AND DISPLAY FUNCTIONS
+# STATUS AND DISPLAY FUNCTIONS (PRESERVED)
 # ================================================================
 
 def get_status_class(status):
-    """Enhanced status CSS classes"""
+    """Enhanced status CSS classes (PRESERVED)"""
     status_classes = {
         'online': 'bg-green-800 text-green-200 border-green-600',
         'offline': 'bg-red-800 text-red-200 border-red-600',
@@ -1175,7 +1598,7 @@ def get_status_class(status):
     return status_classes.get(status, 'bg-gray-700 text-gray-300 border-gray-600')
 
 def get_status_text(status):
-    """Enhanced status text"""
+    """Enhanced status text (PRESERVED)"""
     status_text = {
         'online': '🟢 Online',
         'offline': '🔴 Offline',
@@ -1186,11 +1609,11 @@ def get_status_text(status):
     return status_text.get(status, '⚪ Unknown')
 
 # ================================================================
-# COLLECTION AND DATA UTILITY FUNCTIONS
+# COLLECTION AND DATA UTILITY FUNCTIONS (PRESERVED)
 # ================================================================
 
 def deep_get(dictionary, keys, default=None):
-    """Get nested dictionary value safely"""
+    """Get nested dictionary value safely (PRESERVED)"""
     for key in keys:
         if isinstance(dictionary, dict) and key in dictionary:
             dictionary = dictionary[key]
@@ -1199,7 +1622,7 @@ def deep_get(dictionary, keys, default=None):
     return dictionary
 
 def flatten_dict(d, parent_key='', sep='_'):
-    """Flatten nested dictionary"""
+    """Flatten nested dictionary (PRESERVED)"""
     items = []
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
@@ -1210,7 +1633,7 @@ def flatten_dict(d, parent_key='', sep='_'):
     return dict(items)
 
 def merge_dicts(*dicts):
-    """Merge multiple dictionaries"""
+    """Merge multiple dictionaries (PRESERVED)"""
     result = {}
     for d in dicts:
         if isinstance(d, dict):
@@ -1218,12 +1641,12 @@ def merge_dicts(*dicts):
     return result
 
 def chunk_list(lst, chunk_size):
-    """Split list into chunks"""
+    """Split list into chunks (PRESERVED)"""
     for i in range(0, len(lst), chunk_size):
         yield lst[i:i + chunk_size]
 
 def remove_duplicates(lst, key=None):
-    """Remove duplicates from list"""
+    """Remove duplicates from list (PRESERVED)"""
     if key:
         seen = set()
         result = []
@@ -1237,11 +1660,11 @@ def remove_duplicates(lst, key=None):
         return list(dict.fromkeys(lst))
 
 # ================================================================
-# CALCULATION AND FORMATTING UTILITIES
+# CALCULATION AND FORMATTING UTILITIES (PRESERVED)
 # ================================================================
 
 def calculate_percentage(part, whole, decimal_places=1):
-    """Calculate percentage safely"""
+    """Calculate percentage safely (PRESERVED)"""
     try:
         if whole == 0:
             return 0.0
@@ -1250,7 +1673,7 @@ def calculate_percentage(part, whole, decimal_places=1):
         return 0.0
 
 def format_bytes(bytes_val):
-    """Format bytes to human readable format"""
+    """Format bytes to human readable format (PRESERVED)"""
     try:
         bytes_val = float(bytes_val)
         for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
@@ -1262,7 +1685,7 @@ def format_bytes(bytes_val):
         return "0 B"
 
 def format_duration(seconds):
-    """Format seconds to human readable duration"""
+    """Format seconds to human readable duration (PRESERVED)"""
     try:
         seconds = int(seconds)
         if seconds < 60:

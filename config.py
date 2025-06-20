@@ -1,14 +1,17 @@
 """
-GUST Bot Enhanced - Configuration Settings (OPTIMIZED + AUTHENTICATION FIXES)
-==============================================================================
+GUST Bot Enhanced - Configuration Settings (OPTIMIZED + AUTO-AUTHENTICATION)
+=============================================================================
 ✅ OPTIMIZED: Console refresh interval: 3s → 15s (80% reduction)
 ✅ OPTIMIZED: Server list polling: Configured for 30s intervals
 ✅ OPTIMIZED: Added request throttling and batching settings
 ✅ OPTIMIZED: WebSocket reconnection delays increased for stability
 ✅ FIXED: Added missing logs_polling_interval and other optimization keys
+✅ NEW: Auto-authentication system with secure credential storage
+✅ NEW: Background token renewal service (every 3 minutes)
+✅ NEW: Encrypted credential management with Fernet encryption
 ✅ PRESERVED: All functionality while dramatically reducing API calls
 
-Expected Impact: 70-80% reduction in concurrent API requests
+Expected Impact: 70-80% reduction in concurrent API requests + seamless auth
 """
 
 # Standard library imports
@@ -31,9 +34,15 @@ try:
 except ImportError:
     MONGODB_AVAILABLE = False
 
+try:
+    from cryptography.fernet import Fernet
+    CRYPTOGRAPHY_AVAILABLE = True
+except ImportError:
+    CRYPTOGRAPHY_AVAILABLE = False
+
 # Application Configuration
 class Config:
-    """Main configuration class with optimized intervals"""
+    """Main configuration class with optimized intervals and auto-authentication"""
     
     # Flask settings
     SECRET_KEY = secrets.token_hex(32)
@@ -42,6 +51,57 @@ class Config:
     TOKEN_FILE = 'gp-session.json'
     DATA_DIR = 'data'
     TEMPLATES_DIR = 'templates'
+    
+    # ============================================================================
+    # 🔐 AUTO-AUTHENTICATION SETTINGS (NEW)
+    # ============================================================================
+    
+    # Auto-authentication configuration
+    AUTO_AUTH_ENABLED = os.environ.get('AUTO_AUTH_ENABLED', 'true').lower() == 'true'
+    AUTO_AUTH_ENCRYPTION_KEY = os.environ.get('AUTO_AUTH_KEY', None)
+    AUTO_AUTH_RENEWAL_INTERVAL = int(os.environ.get('AUTO_AUTH_INTERVAL', '180'))  # 3 minutes
+    AUTO_AUTH_MAX_RETRIES = int(os.environ.get('AUTO_AUTH_MAX_RETRIES', '3'))
+    AUTO_AUTH_FAILURE_COOLDOWN = int(os.environ.get('AUTO_AUTH_COOLDOWN', '600'))  # 10 minutes
+    
+    # Credential storage paths
+    CREDENTIALS_FILE = os.path.join('data', 'secure_credentials.enc')
+    AUTH_KEY_FILE = os.path.join('data', '.auth_key')
+    
+    # Auto-auth monitoring and safety
+    AUTO_AUTH_MAX_CONCURRENT_ATTEMPTS = 1    # Prevent multiple auth attempts
+    AUTO_AUTH_RATE_LIMIT_WINDOW = 30         # 30 seconds between auth attempts
+    AUTO_AUTH_SUCCESS_LOG_INTERVAL = 300     # Log success every 5 minutes
+    
+    @classmethod
+    def get_encryption_key(cls):
+        """Get or generate encryption key for credentials"""
+        if not CRYPTOGRAPHY_AVAILABLE:
+            raise ImportError("Cryptography package required for auto-authentication. Run: pip install cryptography")
+        
+        if cls.AUTO_AUTH_ENCRYPTION_KEY:
+            return cls.AUTO_AUTH_ENCRYPTION_KEY.encode()
+        
+        # Generate new key if not exists
+        key_file = cls.AUTH_KEY_FILE
+        if os.path.exists(key_file):
+            with open(key_file, 'rb') as f:
+                return f.read()
+        else:
+            key = Fernet.generate_key()
+            os.makedirs('data', exist_ok=True)
+            with open(key_file, 'wb') as f:
+                f.write(key)
+            # Make file read-only (Windows compatible)
+            try:
+                os.chmod(key_file, 0o600)
+            except OSError:
+                pass  # Windows may not support chmod
+            return key
+    
+    @classmethod
+    def is_auto_auth_available(cls):
+        """Check if auto-authentication is available"""
+        return CRYPTOGRAPHY_AVAILABLE and cls.AUTO_AUTH_ENABLED
     
     # ============================================================================
     # OPTIMIZED RATE LIMITING SETTINGS
@@ -101,6 +161,7 @@ class Config:
     DEBOUNCE_SERVER_REFRESH = 5000          # 5 seconds for server list refresh
     DEBOUNCE_SERVER_HEALTH = 10000          # 10 seconds for health checks
     DEBOUNCE_LOGS = 2000                    # 2 seconds for logs refresh (NEW)
+    DEBOUNCE_AUTO_AUTH = 30000              # 30 seconds for auto-auth attempts (NEW)
     
     # ============================================================================
     # OPTIMIZED CACHING SETTINGS (NEW)
@@ -111,6 +172,7 @@ class Config:
     CONSOLE_STATUS_CACHE_TTL = 15000        # 15 seconds for console status
     SERVER_STATUS_CACHE_TTL = 30000         # 30 seconds for server status
     TOKEN_STATUS_CACHE_TTL = 300000         # 5 minutes for token status
+    AUTH_STATUS_CACHE_TTL = 180000          # 3 minutes for auth status (NEW)
     
     # ============================================================================
     # ORIGINAL SETTINGS (PRESERVED)
@@ -174,7 +236,10 @@ def check_dependencies():
     if not MONGODB_AVAILABLE:
         missing_deps.append("pymongo (for persistent storage)")
     
-    return WEBSOCKETS_AVAILABLE, MONGODB_AVAILABLE, missing_deps
+    if not CRYPTOGRAPHY_AVAILABLE:
+        missing_deps.append("cryptography (for auto-authentication)")
+    
+    return WEBSOCKETS_AVAILABLE, MONGODB_AVAILABLE, CRYPTOGRAPHY_AVAILABLE, missing_deps
 
 def ensure_directories():
     """Create necessary directories"""
@@ -221,11 +286,23 @@ def print_optimization_summary():
     print(f"   Before: Variable/Frequent  →  After: {Config.LOGS_POLLING_INTERVAL}ms ({Config.LOGS_POLLING_INTERVAL/1000}s)")
     print(f"   Cache TTL: {Config.LOGS_CACHE_TTL/1000}s")
     print()
+    print("🔐 AUTO-AUTHENTICATION:")
+    if Config.is_auto_auth_available():
+        print(f"   • Status: ✅ Enabled (renewal every {Config.AUTO_AUTH_RENEWAL_INTERVAL}s)")
+        print(f"   • Max retries: {Config.AUTO_AUTH_MAX_RETRIES}")
+        print(f"   • Failure cooldown: {Config.AUTO_AUTH_FAILURE_COOLDOWN}s")
+        print(f"   • Rate limiting: {Config.AUTO_AUTH_RATE_LIMIT_WINDOW}s between attempts")
+    else:
+        print(f"   • Status: ❌ Disabled (config: {Config.AUTO_AUTH_ENABLED}, crypto: {CRYPTOGRAPHY_AVAILABLE})")
+        if not CRYPTOGRAPHY_AVAILABLE:
+            print(f"   • Missing: pip install cryptography")
+    print()
     print("🎯 NEW OPTIMIZATIONS:")
     print(f"   • Request Throttling: Max {Config.MAX_CONCURRENT_API_CALLS} concurrent requests")
     print(f"   • Request Batching: {Config.REQUEST_BATCH_SIZE} requests per batch")
     print(f"   • Intelligent Caching: {Config.DEFAULT_CACHE_TTL/1000}s default TTL")
     print(f"   • Debouncing: Up to {Config.DEBOUNCE_SERVER_HEALTH/1000}s for health checks")
+    print(f"   • Auto-auth Debouncing: {Config.DEBOUNCE_AUTO_AUTH/1000}s for auth attempts")
     print()
     print("📈 EXPECTED RESULTS:")
     
@@ -239,6 +316,7 @@ def print_optimization_summary():
     print(f"   • Estimated API call reduction: {average_reduction * 100:.0f}%")
     print(f"   • Target reduction: {Config.TARGET_API_REDUCTION_PERCENT}%")
     print(f"   • Token refresh conflicts: Should be eliminated")
+    print(f"   • Auto re-authentication: Seamless background renewal")
     print(f"   • Server performance: Significantly improved")
     print()
     print("🔧 MONITORING:")
@@ -247,21 +325,25 @@ def print_optimization_summary():
     print(f"   • Target interval: {Config.TARGET_AVG_REQUEST_INTERVAL/1000}s between requests")
     print("=" * 80)
 
-def print_startup_info(websockets_available, mongodb_available):
-    """Print detailed startup information with optimization details"""
+def print_startup_info():
+    """Print detailed startup information with optimization and auto-auth details"""
+    websockets_available, mongodb_available, crypto_available, missing_deps = check_dependencies()
+    
     print("=" * 80)
-    print("🚀 GUST Bot Standalone - Enhanced with OPTIMIZED Auto Live Console")
+    print("🚀 GUST Bot Enhanced - OPTIMIZED + AUTO-AUTHENTICATION")
     print("=" * 80)
     print("✅ FEATURES COMBINED:")
     print("   • Fixed KOTH system (vanilla Rust compatible)")
     print("   • Working GraphQL command sending")
     print("   • OPTIMIZED auto live console monitoring (reduced intervals)")
+    print("   • AUTO-AUTHENTICATION (seamless re-login)")
     print("   • Enhanced web interface with 9 functional tabs")
     print("   • Message classification and filtering")
     print("   • Multi-server management with optimized polling")
     print("   • Economy & gambling systems")
     print("   • Clan management tools")
     print("   • User administration & bans")
+    print("   • Server logs management with direct G-Portal integration")
     print()
     print("✅ KOTH EVENTS (FIXED):")
     print("   • Works with any vanilla Rust server")
@@ -270,6 +352,21 @@ def print_startup_info(websockets_available, mongodb_available):
     print("   • Automatic combat supply distribution")
     print("   • Reward distribution to participants")
     print("   • No plugins required")
+    print()
+    print("🔐 AUTO-AUTHENTICATION:")
+    if crypto_available and Config.AUTO_AUTH_ENABLED:
+        print("   • Status: ✅ ENABLED")
+        print("   • Secure credential storage with Fernet encryption")
+        print(f"   • Background renewal every {Config.AUTO_AUTH_RENEWAL_INTERVAL} seconds")
+        print(f"   • Maximum {Config.AUTO_AUTH_MAX_RETRIES} retries before cooldown")
+        print("   • Seamless fallback to credential re-authentication")
+        print("   • Zero user intervention required")
+    elif not crypto_available:
+        print("   • Status: ❌ DISABLED (missing cryptography)")
+        print("   • Install with: pip install cryptography")
+    elif not Config.AUTO_AUTH_ENABLED:
+        print("   • Status: ❌ DISABLED (config setting)")
+        print("   • Enable with: AUTO_AUTH_ENABLED=true in .env")
     print()
     print("⚡ OPTIMIZED AUTO LIVE CONSOLE:")
     if websockets_available:
@@ -287,6 +384,7 @@ def print_startup_info(websockets_available, mongodb_available):
     print(f"   • Server list updates: {Config.SERVER_LIST_REFRESH_INTERVAL/1000}s")
     print(f"   • Player count polling: {Config.PLAYER_COUNT_REFRESH_INTERVAL/1000}s")
     print(f"   • Logs API polling: {Config.LOGS_POLLING_INTERVAL/1000}s")
+    print(f"   • Auto-auth renewal: {Config.AUTO_AUTH_RENEWAL_INTERVAL}s")
     print(f"   • Maximum concurrent requests: {Config.MAX_CONCURRENT_API_CALLS}")
     
     if mongodb_available:
@@ -294,24 +392,30 @@ def print_startup_info(websockets_available, mongodb_available):
     else:
         print("   • MongoDB: ⚠️ In-memory storage (install pymongo for persistence)")
     
+    if missing_deps:
+        print()
+        print("⚠️ MISSING OPTIONAL DEPENDENCIES:")
+        for dep in missing_deps:
+            print(f"   • {dep}")
+    
     print_optimization_summary()
     
     print()
-    print("🚀 Starting OPTIMIZED enhanced GUST bot...")
+    print("🚀 Starting OPTIMIZED enhanced GUST bot with AUTO-AUTHENTICATION...")
     print("Press Ctrl+C to stop the server")
     print("=" * 80)
 
 def get_optimization_config():
     """
-    ✅ FIXED: Return a complete dictionary of optimization settings for use in other modules
+    ✅ ENHANCED: Return a complete dictionary of optimization settings including auto-auth
     """
     return {
         # Core polling intervals
         'console_refresh_interval': Config.CONSOLE_AUTO_REFRESH_INTERVAL,
         'server_list_interval': Config.SERVER_LIST_REFRESH_INTERVAL,
         'player_count_interval': Config.PLAYER_COUNT_REFRESH_INTERVAL,
-        'logs_polling_interval': Config.LOGS_POLLING_INTERVAL,  # ✅ FIXED: Added missing key
-        'server_health_interval': Config.SERVER_HEALTH_CHECK_INTERVAL,  # ✅ FIXED: Added missing key
+        'logs_polling_interval': Config.LOGS_POLLING_INTERVAL,
+        'server_health_interval': Config.SERVER_HEALTH_CHECK_INTERVAL,
         
         # WebSocket settings
         'websocket_reconnect_delay': Config.WEBSOCKET_RECONNECT_DELAY,
@@ -326,22 +430,33 @@ def get_optimization_config():
         
         # Caching settings
         'default_cache_ttl': Config.DEFAULT_CACHE_TTL,
-        'logs_cache_ttl': Config.LOGS_CACHE_TTL,  # ✅ FIXED: Added missing key
-        'player_count_cache_ttl': Config.PLAYER_COUNT_CACHE_TTL,  # ✅ FIXED: Added missing key
+        'logs_cache_ttl': Config.LOGS_CACHE_TTL,
+        'player_count_cache_ttl': Config.PLAYER_COUNT_CACHE_TTL,
         'console_status_cache_ttl': Config.CONSOLE_STATUS_CACHE_TTL,
         'server_status_cache_ttl': Config.SERVER_STATUS_CACHE_TTL,
         'token_status_cache_ttl': Config.TOKEN_STATUS_CACHE_TTL,
+        'auth_status_cache_ttl': Config.AUTH_STATUS_CACHE_TTL,
         
         # Debouncing settings
         'debounce_console': Config.DEBOUNCE_CONSOLE_REFRESH,
         'debounce_player_count': Config.DEBOUNCE_PLAYER_COUNT,
         'debounce_server_refresh': Config.DEBOUNCE_SERVER_REFRESH,
-        'debounce_logs': Config.DEBOUNCE_LOGS,  # ✅ FIXED: Added missing key
+        'debounce_logs': Config.DEBOUNCE_LOGS,
         'debounce_server_health': Config.DEBOUNCE_SERVER_HEALTH,
+        'debounce_auto_auth': Config.DEBOUNCE_AUTO_AUTH,
         
         # Player count specific settings
-        'player_count_batch_size': Config.PLAYER_COUNT_BATCH_SIZE,  # ✅ FIXED: Added missing key
-        'player_count_batch_delay': Config.PLAYER_COUNT_BATCH_DELAY,  # ✅ FIXED: Added missing key
+        'player_count_batch_size': Config.PLAYER_COUNT_BATCH_SIZE,
+        'player_count_batch_delay': Config.PLAYER_COUNT_BATCH_DELAY,
+        
+        # Auto-authentication settings
+        'auto_auth_enabled': Config.AUTO_AUTH_ENABLED,
+        'auto_auth_available': Config.is_auto_auth_available(),
+        'auto_auth_renewal_interval': Config.AUTO_AUTH_RENEWAL_INTERVAL,
+        'auto_auth_max_retries': Config.AUTO_AUTH_MAX_RETRIES,
+        'auto_auth_failure_cooldown': Config.AUTO_AUTH_FAILURE_COOLDOWN,
+        'auto_auth_rate_limit_window': Config.AUTO_AUTH_RATE_LIMIT_WINDOW,
+        'auto_auth_max_concurrent': Config.AUTO_AUTH_MAX_CONCURRENT_ATTEMPTS,
         
         # Performance targets
         'target_reduction_percent': Config.TARGET_API_REDUCTION_PERCENT,
@@ -350,8 +465,8 @@ def get_optimization_config():
         'optimization_warning_threshold': Config.OPTIMIZATION_WARNING_THRESHOLD,
         
         # Logs specific settings
-        'logs_batch_processing': Config.LOGS_BATCH_PROCESSING,  # ✅ FIXED: Added missing key
-        'logs_max_batch_size': Config.LOGS_MAX_BATCH_SIZE,  # ✅ FIXED: Added missing key
+        'logs_batch_processing': Config.LOGS_BATCH_PROCESSING,
+        'logs_max_batch_size': Config.LOGS_MAX_BATCH_SIZE,
         'logs_directory': Config.LOGS_DIRECTORY,
         'max_log_files': Config.MAX_LOG_FILES,
         'log_retention_days': Config.LOG_RETENTION_DAYS
@@ -360,47 +475,85 @@ def get_optimization_config():
 def validate_optimization_settings():
     """Validate that optimization settings are reasonable"""
     issues = []
+    warnings = []
     
     # Check for intervals that might be too long
     if Config.CONSOLE_AUTO_REFRESH_INTERVAL > 60000:  # 1 minute
-        issues.append("Console refresh interval might be too long for good UX")
+        warnings.append("Console refresh interval might be too long for good UX")
     
     if Config.SERVER_LIST_REFRESH_INTERVAL > 120000:  # 2 minutes
-        issues.append("Server list refresh interval might be too long")
+        warnings.append("Server list refresh interval might be too long")
     
     if Config.LOGS_POLLING_INTERVAL > 60000:  # 1 minute
-        issues.append("Logs polling interval might be too long")
+        warnings.append("Logs polling interval might be too long")
     
     # Check for intervals that might be too short (defeating optimization)
     if Config.CONSOLE_AUTO_REFRESH_INTERVAL < 5000:  # 5 seconds
-        issues.append("Console refresh interval might be too short for optimization")
+        warnings.append("Console refresh interval might be too short for optimization")
     
     if Config.SERVER_LIST_REFRESH_INTERVAL < 10000:  # 10 seconds
-        issues.append("Server list refresh interval might be too short for optimization")
+        warnings.append("Server list refresh interval might be too short for optimization")
     
     if Config.LOGS_POLLING_INTERVAL < 15000:  # 15 seconds
-        issues.append("Logs polling interval might be too short for optimization")
+        warnings.append("Logs polling interval might be too short for optimization")
     
     # Check concurrency limits
     if Config.MAX_CONCURRENT_API_CALLS > 5:
-        issues.append("Max concurrent API calls might be too high")
+        warnings.append("Max concurrent API calls might be too high")
     
     if Config.MAX_CONCURRENT_API_CALLS < 1:
         issues.append("Max concurrent API calls must be at least 1")
     
     # Check cache TTL values
     if Config.DEFAULT_CACHE_TTL < 30000:  # 30 seconds
-        issues.append("Default cache TTL might be too short for effective caching")
+        warnings.append("Default cache TTL might be too short for effective caching")
     
+    # Auto-authentication validation
+    if Config.AUTO_AUTH_ENABLED and not CRYPTOGRAPHY_AVAILABLE:
+        issues.append("Auto-authentication enabled but cryptography package not installed")
+    
+    if Config.AUTO_AUTH_RENEWAL_INTERVAL < 120:  # 2 minutes
+        warnings.append("Auto-auth renewal interval might be too short (recommended: 3+ minutes)")
+    
+    if Config.AUTO_AUTH_RENEWAL_INTERVAL > 600:  # 10 minutes
+        warnings.append("Auto-auth renewal interval might be too long (tokens may expire)")
+    
+    if Config.AUTO_AUTH_MAX_RETRIES > 5:
+        warnings.append("Auto-auth max retries might be too high")
+    
+    if Config.AUTO_AUTH_MAX_RETRIES < 1:
+        issues.append("Auto-auth max retries must be at least 1")
+    
+    # Print results
     if issues:
-        print("⚠️ OPTIMIZATION CONFIGURATION WARNINGS:")
+        print("❌ CONFIGURATION ISSUES (must fix):")
         for issue in issues:
             print(f"   • {issue}")
         print()
-    else:
-        print("✅ Optimization configuration validated successfully")
+    
+    if warnings:
+        print("⚠️ CONFIGURATION WARNINGS:")
+        for warning in warnings:
+            print(f"   • {warning}")
+        print()
+    
+    if not issues and not warnings:
+        print("✅ All optimization and auto-auth settings validated successfully")
     
     return len(issues) == 0
+
+def get_auto_auth_status():
+    """Get detailed auto-authentication status"""
+    return {
+        'enabled': Config.AUTO_AUTH_ENABLED,
+        'available': Config.is_auto_auth_available(),
+        'cryptography_installed': CRYPTOGRAPHY_AVAILABLE,
+        'credentials_file': Config.CREDENTIALS_FILE,
+        'renewal_interval': Config.AUTO_AUTH_RENEWAL_INTERVAL,
+        'max_retries': Config.AUTO_AUTH_MAX_RETRIES,
+        'failure_cooldown': Config.AUTO_AUTH_FAILURE_COOLDOWN,
+        'rate_limit_window': Config.AUTO_AUTH_RATE_LIMIT_WINDOW
+    }
 
 # Run validation when module is imported
 if __name__ != "__main__":
