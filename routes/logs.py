@@ -1,14 +1,12 @@
 """
-GUST Bot Enhanced - Logs Management Routes (FINAL AUTHENTICATION FIX)
-======================================================================
-✅ FIXED: Removed ALL problematic fallback functions completely
-✅ FIXED: Uses ONLY centralized token management from utils.helpers
-✅ FIXED: Consistent string token format handling
-✅ FIXED: Proper JWT token validation throughout
-✅ FIXED: Enhanced error handling for authentication failures
-✅ FIXED: Robust G-Portal API integration with retry logic
-✅ ENHANCED: Better logging and player count parsing
-✅ ENHANCED: Atomic file operations for log storage
+GUST Bot Enhanced - Logs Management Routes (OPTIMIZED + 30s BUFFER FIX)
+========================================================================
+✅ FIXED: Reduced buffer time to 30 seconds for maximum G-Portal compatibility  
+✅ ENHANCED: Integration with optimized config.py settings
+✅ ENHANCED: Request throttling and batching based on config
+✅ ENHANCED: Rate limiting integration to prevent token conflicts
+✅ ENHANCED: Improved error handling for authentication failures
+✅ ENHANCED: Better caching and debouncing for reduced API load
 ✅ PRESERVED: All existing functionality and features
 """
 
@@ -26,12 +24,15 @@ from collections import defaultdict
 from flask import Blueprint, request, jsonify, send_file, session
 import requests
 
-# Local imports - Use ONLY centralized authentication
-from routes.auth import require_auth
+# Local imports
+from routes.auth import require_auth, require_live_mode
 
-# ✅ FINAL FIX: Use ONLY the centralized token management functions
-# NO fallback functions - these cause authentication failures
+# ✅ OPTIMIZED: Use centralized token management with enhanced validation
 from utils.helpers import load_token, refresh_token, monitor_token_health, validate_token_file
+
+# ✅ NEW: Import optimized configuration and rate limiter
+from config import Config, get_optimization_config
+from utils.rate_limiter import RateLimiter
 
 # GUST database optimization imports (graceful fallback)
 try:
@@ -48,19 +49,31 @@ logger = logging.getLogger(__name__)
 
 logs_bp = Blueprint('logs', __name__)
 
-# Backend command scheduling state
+# ✅ OPTIMIZED: Enhanced state management with config integration
+optimization_config = get_optimization_config()
+
 backend_scheduler_state = {
     'enabled': False,
     'thread': None,
     'running': False,
-    'interval': 30,
+    'interval': optimization_config['logs_polling_interval'] // 1000,  # Convert to seconds
     'last_run': None,
-    'command_stats': defaultdict(int)
+    'command_stats': defaultdict(int),
+    'request_cache': {},
+    'cache_ttl': optimization_config['default_cache_ttl'] // 1000,
+    'last_api_call': 0,
+    'throttle_delay': optimization_config['request_batch_delay'] // 1000
 }
 
-class GPortalLogAPI:
+# ✅ NEW: Rate limiter for API calls
+api_rate_limiter = RateLimiter(
+    max_calls=Config.RATE_LIMIT_MAX_CALLS,
+    time_window=Config.RATE_LIMIT_TIME_WINDOW
+)
+
+class OptimizedGPortalLogAPI:
     """
-    ✅ FINAL FIX: G-Portal API client with robust JWT authentication handling
+    ✅ OPTIMIZED: G-Portal API client with 30s buffer time and enhanced optimization
     """
     
     def __init__(self):
@@ -69,13 +82,62 @@ class GPortalLogAPI:
         self.max_retries = 2
         self.retry_delay = 2
         
-    def get_server_logs(self, server_id, region="us"):
+        # ✅ OPTIMIZED: Integration with config settings
+        self.max_concurrent = Config.MAX_CONCURRENT_API_CALLS
+        self.batch_size = Config.REQUEST_BATCH_SIZE
+        self.batch_delay = Config.REQUEST_BATCH_DELAY / 1000
+        
+        # ✅ OPTIMIZED: Request caching
+        self.cache = {}
+        self.cache_ttl = Config.DEFAULT_CACHE_TTL / 1000
+        
+    def _is_cache_valid(self, cache_key):
+        """Check if cached data is still valid"""
+        if cache_key not in self.cache:
+            return False
+        
+        cache_data = self.cache[cache_key]
+        return (time.time() - cache_data['timestamp']) < self.cache_ttl
+    
+    def _get_from_cache(self, cache_key):
+        """Get data from cache if valid"""
+        if self._is_cache_valid(cache_key):
+            logger.debug(f"📋 Using cached data for {cache_key}")
+            return self.cache[cache_key]['data']
+        return None
+    
+    def _store_in_cache(self, cache_key, data):
+        """Store data in cache"""
+        self.cache[cache_key] = {
+            'data': data,
+            'timestamp': time.time()
+        }
+        logger.debug(f"💾 Cached data for {cache_key}")
+    
+    def _wait_for_rate_limit(self):
+        """Wait if necessary to respect rate limits"""
+        api_rate_limiter.wait_if_needed('logs_api')
+        
+        # ✅ OPTIMIZED: Additional throttling based on config
+        current_time = time.time()
+        time_since_last = current_time - backend_scheduler_state.get('last_api_call', 0)
+        min_interval = optimization_config.get('debounce_logs', 2000) / 1000
+        
+        if time_since_last < min_interval:
+            sleep_time = min_interval - time_since_last
+            logger.debug(f"⏳ Throttling API call for {sleep_time:.1f}s")
+            time.sleep(sleep_time)
+        
+        backend_scheduler_state['last_api_call'] = time.time()
+        
+    def get_server_logs(self, server_id, region="us", use_cache=True):
         """
-        ✅ FINAL FIX: Retrieve logs with robust JWT authentication and retry logic
+        ✅ OPTIMIZED: Retrieve logs with caching, throttling, and 30s buffer time
         
         Args:
             server_id (str): Server ID
             region (str): Server region
+            use_cache (bool): Whether to use caching
             
         Returns:
             dict: API response with success status and data
@@ -95,8 +157,19 @@ class GPortalLogAPI:
                 'error': 'Authentication required - please login first'
             }
         
-        # ✅ FINAL FIX: Get token using centralized function (returns string or empty string)
-        token = load_token()
+        # ✅ OPTIMIZED: Check cache first
+        cache_key = f"logs_{server_id}_{region}"
+        if use_cache:
+            cached_data = self._get_from_cache(cache_key)
+            if cached_data:
+                backend_scheduler_state['command_stats']['cache_hits'] += 1
+                return cached_data
+        
+        # ✅ OPTIMIZED: Rate limiting and throttling
+        self._wait_for_rate_limit()
+        
+        # ✅ CRITICAL FIX: Use load_token with 30s buffer enhancement
+        token = self._get_optimized_token()
         if not token:
             logger.warning(f"❌ No authentication token available for server {server_id}")
             return {
@@ -104,7 +177,7 @@ class GPortalLogAPI:
                 'error': 'No authentication token available. Please re-login to G-Portal.'
             }
         
-        # ✅ FINAL FIX: Enhanced JWT token validation
+        # ✅ ENHANCED: JWT token validation
         if len(token) < 20 or not self._is_valid_jwt_token(token):
             logger.error(f"❌ Invalid JWT token format for server {server_id}")
             return {
@@ -138,22 +211,31 @@ class GPortalLogAPI:
                 
                 if response.status_code == 200:
                     logger.info(f"✅ Successfully retrieved logs for server {server_id}")
-                    return {
+                    
+                    result = {
                         'success': True,
                         'data': response.text,
                         'server_id': server_id,
                         'timestamp': datetime.now().isoformat(),
                         'content_length': len(response.text),
-                        'attempt': attempt + 1
+                        'attempt': attempt + 1,
+                        'cached': False
                     }
+                    
+                    # ✅ OPTIMIZED: Store in cache
+                    if use_cache:
+                        self._store_in_cache(cache_key, result)
+                    
+                    backend_scheduler_state['command_stats']['successful_requests'] += 1
+                    return result
                     
                 elif response.status_code == 401:
                     logger.warning(f"🔐 Authentication failed for server {server_id}, attempting token refresh")
                     
-                    # ✅ FINAL FIX: Use centralized token refresh
-                    if refresh_token():
+                    # ✅ OPTIMIZED: Use enhanced token refresh with 30s buffer
+                    if self._refresh_token_with_optimization():
                         logger.info("✅ Token refresh successful, retrying request")
-                        new_token = load_token()
+                        new_token = self._get_optimized_token()
                         if new_token and new_token != token:
                             headers['Authorization'] = f'Bearer {new_token}'
                             token = new_token
@@ -182,7 +264,10 @@ class GPortalLogAPI:
                 elif response.status_code == 429:
                     logger.warning(f"⚠️ Rate limited for server {server_id}")
                     if attempt < self.max_retries:
-                        continue  # Retry with delay
+                        # ✅ OPTIMIZED: Exponential backoff for rate limiting
+                        sleep_time = self.retry_delay * (2 ** attempt)
+                        time.sleep(sleep_time)
+                        continue
                     return {
                         'success': False,
                         'error': 'Rate limited. Please wait before trying again.'
@@ -225,20 +310,96 @@ class GPortalLogAPI:
                 }
         
         # If we get here, all retries failed
+        backend_scheduler_state['command_stats']['failed_requests'] += 1
         return {
             'success': False,
             'error': f'Failed to retrieve logs after {self.max_retries + 1} attempts'
         }
     
+    def _get_optimized_token(self):
+        """
+        ✅ CRITICAL OPTIMIZATION: Enhanced token loading with 30s buffer time
+        """
+        try:
+            # Check token health first
+            token_health = monitor_token_health()
+            
+            if not token_health['healthy']:
+                logger.warning(f"⚠️ Token health check failed: {token_health['message']}")
+                
+                # Try refresh if possible
+                if token_health['action'] == 'refresh_now':
+                    if self._refresh_token_with_optimization():
+                        logger.info("✅ Token refreshed successfully during health check")
+                    else:
+                        logger.error("❌ Token refresh failed during health check")
+                        return ''
+                elif token_health['action'] == 'login_required':
+                    logger.error("❌ Login required - token cannot be refreshed")
+                    return ''
+            
+            # Get token using centralized function
+            token = load_token()
+            
+            # ✅ ENHANCED: Additional validation with 30s buffer check
+            if token:
+                validation = validate_token_file()
+                if validation['time_left'] < 30:  # 30 second buffer
+                    logger.info(f"🔄 Token expires in {validation['time_left']}s, proactive refresh...")
+                    if self._refresh_token_with_optimization():
+                        token = load_token()  # Get refreshed token
+                        logger.info("✅ Proactive token refresh successful")
+                    else:
+                        logger.warning("❌ Proactive token refresh failed")
+            
+            return token
+            
+        except Exception as e:
+            logger.error(f"❌ Error in optimized token loading: {e}")
+            return ''
+    
+    def _refresh_token_with_optimization(self):
+        """
+        ✅ OPTIMIZED: Enhanced token refresh with rate limiting
+        """
+        try:
+            # Rate limit token refresh attempts
+            if not api_rate_limiter.is_allowed('token_refresh'):
+                logger.warning("⚠️ Token refresh rate limited")
+                time.sleep(1)
+                return False
+            
+            success = refresh_token()
+            
+            if success:
+                backend_scheduler_state['command_stats']['successful_refreshes'] += 1
+                # Clear relevant caches after token refresh
+                self._clear_auth_related_cache()
+            else:
+                backend_scheduler_state['command_stats']['failed_refreshes'] += 1
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"❌ Error in optimized token refresh: {e}")
+            backend_scheduler_state['command_stats']['failed_refreshes'] += 1
+            return False
+    
+    def _clear_auth_related_cache(self):
+        """Clear cache entries that might be affected by token refresh"""
+        keys_to_remove = []
+        for key in self.cache:
+            if 'logs_' in key:  # Clear all logs cache after auth refresh
+                keys_to_remove.append(key)
+        
+        for key in keys_to_remove:
+            del self.cache[key]
+        
+        logger.debug(f"🧹 Cleared {len(keys_to_remove)} cache entries after token refresh")
+    
     def _is_valid_jwt_token(self, token):
         """
-        ✅ FINAL FIX: JWT-compatible token validation for logs API
-        
-        Args:
-            token (str): Token to validate
-            
-        Returns:
-            bool: True if token format is valid for JWT/OAuth
+        ✅ ENHANCED: JWT-compatible token validation for logs API
         """
         if not token or not isinstance(token, str):
             return False
@@ -258,12 +419,6 @@ class GPortalLogAPI:
     def format_log_entries(self, raw_logs):
         """
         ✅ ENHANCED: Format raw log text into structured entries with better parsing
-        
-        Args:
-            raw_logs (str): Raw log content
-            
-        Returns:
-            list: Formatted log entries
         """
         formatted_logs = []
         
@@ -343,13 +498,6 @@ class GPortalLogAPI:
     def parse_player_count_from_logs(self, raw_logs, max_entries=100):
         """
         ✅ ENHANCED: Parse player count with comprehensive pattern matching
-        
-        Args:
-            raw_logs (str): Raw log content
-            max_entries (int): Maximum entries to scan
-            
-        Returns:
-            dict or None: Player count data if found
         """
         if not raw_logs:
             return None
@@ -433,24 +581,22 @@ class GPortalLogAPI:
 
 def init_logs_routes(app, db, logs_storage):
     """
-    ✅ FINAL FIX: Initialize logs routes with comprehensive error handling
-    
-    Args:
-        app: Flask application instance
-        db: Database connection (optional)
-        logs_storage: Storage system for logs
-        
-    Returns:
-        Blueprint: Configured logs blueprint
+    ✅ OPTIMIZED: Initialize logs routes with comprehensive optimization and 30s buffer
     """
     
-    api_client = GPortalLogAPI()
+    api_client = OptimizedGPortalLogAPI()
     
     @logs_bp.route('/api/logs/servers')
     @require_auth
     def get_servers():
         """Get list of servers with better error handling"""
         try:
+            # ✅ OPTIMIZED: Add caching for server list
+            cache_key = 'servers_list'
+            cached_servers = api_client._get_from_cache(cache_key)
+            if cached_servers:
+                return jsonify(cached_servers)
+            
             servers = []
             if (hasattr(app, 'gust_bot') and 
                 hasattr(app.gust_bot, 'servers') and 
@@ -466,12 +612,18 @@ def init_logs_routes(app, db, logs_storage):
                     if server.get('serverId')
                 ]
             
-            logger.info(f"📋 Retrieved {len(servers)} servers for logs dropdown")
-            return jsonify({
+            result = {
                 'success': True,
                 'servers': servers,
-                'count': len(servers)
-            })
+                'count': len(servers),
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            # Cache the result
+            api_client._store_in_cache(cache_key, result)
+            
+            logger.info(f"📋 Retrieved {len(servers)} servers for logs dropdown")
+            return jsonify(result)
             
         except Exception as e:
             logger.error(f"❌ Error retrieving servers for logs: {e}")
@@ -532,7 +684,8 @@ def init_logs_routes(app, db, logs_storage):
                     'total_pages': total_pages,
                     'has_next': page < total_pages,
                     'has_prev': page > 1
-                }
+                },
+                'optimization_stats': backend_scheduler_state['command_stats']
             })
             
         except Exception as e:
@@ -545,11 +698,13 @@ def init_logs_routes(app, db, logs_storage):
     
     @logs_bp.route('/api/logs/download', methods=['POST'])
     @require_auth
+    @require_live_mode  # ✅ OPTIMIZED: Require live mode for log downloads
     def download_logs():
-        """✅ FINAL FIX: Download logs with comprehensive error handling"""
+        """✅ OPTIMIZED: Download logs with 30s buffer time and comprehensive optimization"""
         try:
             data = request.json or {}
             server_id = data.get('server_id')
+            use_cache = data.get('use_cache', True)
             
             # Auto-select first server if none provided
             if not server_id:
@@ -580,8 +735,8 @@ def init_logs_routes(app, db, logs_storage):
             
             logger.info(f"📥 Downloading logs for {server_name} ({server_id}) in region {region}")
             
-            # ✅ FINAL FIX: Download logs using enhanced API client with JWT support
-            result = api_client.get_server_logs(server_id, region)
+            # ✅ OPTIMIZED: Download logs using enhanced API client with 30s buffer
+            result = api_client.get_server_logs(server_id, region, use_cache)
             
             if result['success']:
                 # Format logs
@@ -592,7 +747,7 @@ def init_logs_routes(app, db, logs_storage):
                 output_file = f"parsed_logs_{server_id}_{timestamp}.json"
                 
                 # Ensure logs directory exists
-                logs_dir = 'data/logs'
+                logs_dir = 'logs'  # Use relative path as per config
                 os.makedirs(logs_dir, exist_ok=True)
                 output_path = os.path.join(logs_dir, output_file)
                 
@@ -625,7 +780,8 @@ def init_logs_routes(app, db, logs_storage):
                     'file_size': os.path.getsize(output_path),
                     'recent_entries': formatted_logs[-10:] if formatted_logs else [],
                     'download_attempt': result.get('attempt', 1),
-                    'content_length': result.get('content_length', 0)
+                    'content_length': result.get('content_length', 0),
+                    'cached': result.get('cached', False)
                 }
                 
                 # Store log entry
@@ -647,7 +803,9 @@ def init_logs_routes(app, db, logs_storage):
                     'entries_count': len(formatted_logs),
                     'download_file': output_file,
                     'file_size': log_entry['file_size'],
-                    'server_name': server_name
+                    'server_name': server_name,
+                    'cached': log_entry['cached'],
+                    'optimization_stats': backend_scheduler_state['command_stats']
                 })
                 
             else:
@@ -715,13 +873,13 @@ def init_logs_routes(app, db, logs_storage):
             # Optional cleanup of old files
             cleanup = request.json.get('cleanup', False) if request.json else False
             
+            cleanup_count = 0
             if cleanup:
-                cleanup_count = 0
-                logs_dir = 'data/logs'
+                logs_dir = 'logs'
                 if os.path.exists(logs_dir):
                     try:
-                        # Remove files older than 7 days
-                        cutoff_time = time.time() - (7 * 24 * 60 * 60)
+                        # Remove files older than retention period
+                        cutoff_time = time.time() - (Config.LOG_RETENTION_DAYS * 24 * 60 * 60)
                         
                         for filename in os.listdir(logs_dir):
                             file_path = os.path.join(logs_dir, filename)
@@ -736,6 +894,10 @@ def init_logs_routes(app, db, logs_storage):
                     except Exception as cleanup_error:
                         logger.warning(f"⚠️ Cleanup error: {cleanup_error}")
             
+            # Clear API cache
+            api_client.cache.clear()
+            logger.info("🧹 Cleared API cache")
+            
             # Get updated logs list
             if db and hasattr(db, 'logs'):
                 logs = list(db.logs.find({}, {'_id': 0}).sort('timestamp', -1))
@@ -747,8 +909,10 @@ def init_logs_routes(app, db, logs_storage):
                 'success': True,
                 'logs': logs,
                 'total': len(logs),
-                'cleanup_count': cleanup_count if cleanup else 0,
-                'refreshed_at': datetime.now().isoformat()
+                'cleanup_count': cleanup_count,
+                'cache_cleared': True,
+                'refreshed_at': datetime.now().isoformat(),
+                'optimization_stats': backend_scheduler_state['command_stats']
             })
             
         except Exception as e:
@@ -763,7 +927,7 @@ def init_logs_routes(app, db, logs_storage):
     @require_auth
     def get_player_count_from_logs(server_id):
         """
-        ✅ FINAL FIX: Get player count with robust JWT authentication and error handling
+        ✅ OPTIMIZED: Get player count with 30s buffer time and comprehensive optimization
         """
         try:
             logger.info(f"📊 Getting player count from logs for server {server_id}")
@@ -801,6 +965,13 @@ def init_logs_routes(app, db, logs_storage):
                     'message': f'Demo player count: {current}/{max_players} ({percentage}%)'
                 })
             
+            # ✅ OPTIMIZED: Check cache first for player count
+            cache_key = f"player_count_{server_id}"
+            cached_data = api_client._get_from_cache(cache_key)
+            if cached_data:
+                backend_scheduler_state['command_stats']['player_count_cache_hits'] += 1
+                return jsonify(cached_data)
+            
             # Find server configuration
             server_found = False
             region = 'us'
@@ -820,9 +991,9 @@ def init_logs_routes(app, db, logs_storage):
             if not server_found:
                 logger.warning(f"⚠️ Server {server_id} not found in configuration, using defaults")
             
-            # ✅ FINAL FIX: Try to get fresh logs for analysis using JWT authentication
+            # ✅ OPTIMIZED: Try to get fresh logs for analysis using 30s buffer
             logger.info(f"📥 Fetching fresh logs for player count analysis...")
-            result = api_client.get_server_logs(server_id, region)
+            result = api_client.get_server_logs(server_id, region, use_cache=True)
             
             if not result['success']:
                 logger.warning(f"⚠️ Fresh log fetch failed: {result['error']}")
@@ -850,12 +1021,13 @@ def init_logs_routes(app, db, logs_storage):
                     logger.info("📋 Using existing logs for player count analysis")
                     result = {'success': True, 'data': existing_logs}
                 else:
-                    return jsonify({
+                    error_response = {
                         'success': False,
                         'error': f'Unable to fetch logs for server {server_id}: {result["error"]}',
                         'server_id': server_id,
                         'server_name': server_name
-                    }), 400
+                    }
+                    return jsonify(error_response), 400
             
             # Parse player count from logs
             player_data = api_client.parse_player_count_from_logs(result['data'])
@@ -865,13 +1037,19 @@ def init_logs_routes(app, db, logs_storage):
                 
                 backend_scheduler_state['command_stats']['successful_queries'] += 1
                 
-                return jsonify({
+                response_data = {
                     'success': True,
                     'data': player_data,
                     'server_id': server_id,
                     'server_name': server_name,
-                    'message': f'Player count: {player_data["current"]}/{player_data["max"]} ({player_data["percentage"]}%)'
-                })
+                    'message': f'Player count: {player_data["current"]}/{player_data["max"]} ({player_data["percentage"]}%)',
+                    'cached': result.get('cached', False)
+                }
+                
+                # ✅ OPTIMIZED: Cache player count result
+                api_client._store_in_cache(cache_key, response_data)
+                
+                return jsonify(response_data)
                 
             else:
                 logger.info(f"ℹ️ No player count found in logs for {server_id}")
@@ -888,14 +1066,23 @@ def init_logs_routes(app, db, logs_storage):
                     'note': 'No recent player count data found in logs'
                 }
                 
-                return jsonify({
+                response_data = {
                     'success': True,
                     'data': default_data,
                     'server_id': server_id,
                     'server_name': server_name,
                     'message': 'No recent player count data found in server logs',
-                    'recommendation': 'Run "serverinfo" command to populate logs with current data'
-                })
+                    'recommendation': 'Run "serverinfo" command to populate logs with current data',
+                    'cached': False
+                }
+                
+                # ✅ OPTIMIZED: Cache default result with shorter TTL
+                api_client.cache[cache_key] = {
+                    'data': response_data,
+                    'timestamp': time.time() - (api_client.cache_ttl * 0.5)  # Half TTL for empty results
+                }
+                
+                return jsonify(response_data)
                 
         except Exception as e:
             logger.error(f"❌ Error getting player count from logs for {server_id}: {e}")
@@ -911,12 +1098,14 @@ def init_logs_routes(app, db, logs_storage):
     @logs_bp.route('/api/logs/health')
     @require_auth
     def logs_health_check():
-        """Health check endpoint for logs system"""
+        """✅ OPTIMIZED: Health check endpoint with comprehensive monitoring"""
         try:
             health_status = {
                 'healthy': True,
                 'timestamp': datetime.now().isoformat(),
-                'components': {}
+                'components': {},
+                'optimization_stats': backend_scheduler_state['command_stats'],
+                'buffer_time': '30_seconds'  # Indicate the buffer time being used
             }
             
             # Check token health using centralized function
@@ -924,11 +1113,12 @@ def init_logs_routes(app, db, logs_storage):
             health_status['components']['authentication'] = {
                 'healthy': token_health['healthy'],
                 'status': token_health['status'],
-                'message': token_health['message']
+                'message': token_health['message'],
+                'buffer_optimization': '30s_proactive_refresh'
             }
             
             # Check logs directory
-            logs_dir = 'data/logs'
+            logs_dir = 'logs'
             if os.path.exists(logs_dir):
                 log_files = [f for f in os.listdir(logs_dir) if f.endswith('.json')]
                 health_status['components']['storage'] = {
@@ -944,11 +1134,13 @@ def init_logs_routes(app, db, logs_storage):
                 }
                 health_status['healthy'] = False
             
-            # Check API client
+            # Check API client with optimization status
             health_status['components']['api_client'] = {
                 'healthy': True,
                 'max_retries': api_client.max_retries,
-                'retry_delay': api_client.retry_delay
+                'retry_delay': api_client.retry_delay,
+                'cache_size': len(api_client.cache),
+                'rate_limiter_status': api_rate_limiter.get_status('logs_api')
             }
             
             # Check database/storage
@@ -974,6 +1166,17 @@ def init_logs_routes(app, db, logs_storage):
                     'log_count': len(logs_storage) if logs_storage else 0
                 }
             
+            # ✅ NEW: Add optimization metrics
+            health_status['optimization'] = {
+                'config_integration': True,
+                'buffer_time_optimization': '30_seconds',
+                'caching_enabled': True,
+                'rate_limiting_enabled': True,
+                'request_throttling': True,
+                'cache_hit_rate': _calculate_cache_hit_rate(),
+                'target_reduction': optimization_config.get('target_reduction_percent', 75)
+            }
+            
             return jsonify(health_status)
             
         except Exception as e:
@@ -981,7 +1184,59 @@ def init_logs_routes(app, db, logs_storage):
             return jsonify({
                 'healthy': False,
                 'error': str(e),
+                'timestamp': datetime.now().isoformat(),
+                'buffer_time': '30_seconds'
+            }), 500
+
+    @logs_bp.route('/api/logs/optimization/stats')
+    @require_auth
+    def get_optimization_stats():
+        """✅ NEW: Get detailed optimization statistics"""
+        try:
+            stats = backend_scheduler_state['command_stats'].copy()
+            
+            # Calculate additional metrics
+            total_requests = stats.get('successful_requests', 0) + stats.get('failed_requests', 0)
+            success_rate = (stats.get('successful_requests', 0) / max(total_requests, 1)) * 100
+            
+            cache_requests = stats.get('cache_hits', 0) + stats.get('successful_requests', 0)
+            cache_hit_rate = (stats.get('cache_hits', 0) / max(cache_requests, 1)) * 100
+            
+            return jsonify({
+                'success': True,
+                'stats': stats,
+                'metrics': {
+                    'total_requests': total_requests,
+                    'success_rate': round(success_rate, 2),
+                    'cache_hit_rate': round(cache_hit_rate, 2),
+                    'buffer_time': '30_seconds',
+                    'optimization_level': 'enhanced'
+                },
+                'rate_limiter': {
+                    'logs_api': api_rate_limiter.get_status('logs_api'),
+                    'token_refresh': api_rate_limiter.get_status('token_refresh')
+                },
+                'api_client_cache_size': len(api_client.cache),
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting optimization stats: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
+
+    def _calculate_cache_hit_rate():
+        """Calculate cache hit rate from stats"""
+        stats = backend_scheduler_state['command_stats']
+        cache_hits = stats.get('cache_hits', 0) + stats.get('player_count_cache_hits', 0)
+        total_requests = stats.get('successful_requests', 0) + cache_hits
+        
+        if total_requests == 0:
+            return 0.0
+        
+        return round((cache_hits / total_requests) * 100, 2)
 
     return logs_bp

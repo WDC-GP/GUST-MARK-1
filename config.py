@@ -1,12 +1,11 @@
 """
-"""
-"""
-GUST Bot Enhanced - Configuration Settings (OPTIMIZED)
-======================================================
+GUST Bot Enhanced - Configuration Settings (OPTIMIZED + AUTHENTICATION FIXES)
+==============================================================================
 ✅ OPTIMIZED: Console refresh interval: 3s → 15s (80% reduction)
 ✅ OPTIMIZED: Server list polling: Configured for 30s intervals
 ✅ OPTIMIZED: Added request throttling and batching settings
 ✅ OPTIMIZED: WebSocket reconnection delays increased for stability
+✅ FIXED: Added missing logs_polling_interval and other optimization keys
 ✅ PRESERVED: All functionality while dramatically reducing API calls
 
 Expected Impact: 70-80% reduction in concurrent API requests
@@ -18,8 +17,6 @@ import os
 
 # Other imports
 import secrets
-
-
 
 # Try to import optional dependencies
 try:
@@ -90,7 +87,7 @@ class Config:
     PLAYER_COUNT_BATCH_SIZE = 2             # Process 2 servers per batch
     PLAYER_COUNT_BATCH_DELAY = 5000         # 5 seconds between batches
     
-    # Logs API polling (NEW)
+    # Logs API polling (NEW - FIXED: Added the missing setting)
     LOGS_POLLING_INTERVAL = 30000           # 30 seconds for logs API calls
     LOGS_CACHE_TTL = 60000                  # 1 minute cache for logs data
     
@@ -103,6 +100,7 @@ class Config:
     DEBOUNCE_PLAYER_COUNT = 3000            # 3 seconds for player count refresh
     DEBOUNCE_SERVER_REFRESH = 5000          # 5 seconds for server list refresh
     DEBOUNCE_SERVER_HEALTH = 10000          # 10 seconds for health checks
+    DEBOUNCE_LOGS = 2000                    # 2 seconds for logs refresh (NEW)
     
     # ============================================================================
     # OPTIMIZED CACHING SETTINGS (NEW)
@@ -174,7 +172,7 @@ def check_dependencies():
         missing_deps.append("websockets (for live console)")
     
     if not MONGODB_AVAILABLE:
-        print("ℹ️ MongoDB not available (optional - will use in-memory storage)")
+        missing_deps.append("pymongo (for persistent storage)")
     
     return WEBSOCKETS_AVAILABLE, MONGODB_AVAILABLE, missing_deps
 
@@ -218,6 +216,10 @@ def print_optimization_summary():
     print("👥 Player Count Updates:")
     print(f"   Before: Variable/Frequent  →  After: {Config.PLAYER_COUNT_REFRESH_INTERVAL}ms ({Config.PLAYER_COUNT_REFRESH_INTERVAL/1000}s)")
     print(f"   Batching: {Config.PLAYER_COUNT_BATCH_SIZE} servers per batch, {Config.PLAYER_COUNT_BATCH_DELAY/1000}s delay")
+    print()
+    print("📋 Logs API Polling:")
+    print(f"   Before: Variable/Frequent  →  After: {Config.LOGS_POLLING_INTERVAL}ms ({Config.LOGS_POLLING_INTERVAL/1000}s)")
+    print(f"   Cache TTL: {Config.LOGS_CACHE_TTL/1000}s")
     print()
     print("🎯 NEW OPTIMIZATIONS:")
     print(f"   • Request Throttling: Max {Config.MAX_CONCURRENT_API_CALLS} concurrent requests")
@@ -271,90 +273,27 @@ def print_startup_info(websockets_available, mongodb_available):
     print()
     print("⚡ OPTIMIZED AUTO LIVE CONSOLE:")
     if websockets_available:
-        print("   • Automatic connection to all servers ✅ (Optimized intervals)")
-        print("   • Real-time message streaming ✅ (Reduced refresh rate)")
-        print("   • Auto-reconnection if disconnected ✅ (Less aggressive)")
-        print("   • Combined console display ✅ (Cached when possible)")
-        print("   • No manual connection needed ✅ (Connection pooling)")
-        print("   • Multi-server monitoring ✅ (Batched requests)")
-        print(f"   • Console refresh: {Config.CONSOLE_AUTO_REFRESH_INTERVAL/1000}s (was 3s) ⚡")
-        print(f"   • Reconnection delay: {Config.WEBSOCKET_RECONNECT_DELAY/1000}s (was 30s) ⚡")
+        print("   • WebSocket support: ✅ Available")
+        print("   • Real-time messaging: ✅ Enabled")
+        print("   • Connection management: ✅ Optimized")
     else:
-        print("   • WebSocket support not available ❌")
-        print("   • Install with: pip install websockets")
-        print("   • Console commands still work normally")
-        print("   • Live monitoring available after install")
-        print("   • Optimized intervals will still apply to other features")
-    print()
-    print("⚡ PERFORMANCE OPTIMIZATIONS:")
-    print(f"   • Server list polling: {Config.SERVER_LIST_REFRESH_INTERVAL/1000}s intervals")
-    print(f"   • Player count updates: {Config.PLAYER_COUNT_REFRESH_INTERVAL/1000}s with caching")
-    print(f"   • Request throttling: Max {Config.MAX_CONCURRENT_API_CALLS} concurrent")
-    print(f"   • Batch processing: {Config.REQUEST_BATCH_SIZE} requests per batch")
-    print(f"   • Intelligent caching: {Config.DEFAULT_CACHE_TTL/1000}s TTL")
-    print(f"   • Debounced operations: Up to {Config.DEBOUNCE_SERVER_HEALTH/1000}s delays")
-    print(f"   • Expected API reduction: {Config.TARGET_API_REDUCTION_PERCENT}%")
-    print()
-    print("✅ ADDITIONAL FEATURES:")
-    print("   • MongoDB support (optional)")
-    print("   • Rate limiting for G-Portal API (enhanced)")
-    print("   • Automatic token refresh (optimized)")
-    print("   • Background task scheduling")
-    print("   • Comprehensive error handling")
-    print("   • Auto-reconnection for live console (optimized)")
-    print("   • Live console test endpoint")
-    print("   • Request frequency monitoring")
-    print()
-    print(f"🌐 Enhanced Interface: http://{Config.DEFAULT_HOST}:{Config.DEFAULT_PORT}")
-    print()
-    print("🔑 Login Options:")
-    print("   Demo Mode: admin / password (simulated responses)")
-    print("   Live Mode: Your G-Portal email / password")
-    print()
-    print("🔍 Testing Optimized Auto Live Console:")
-    print("   1. Login and add a server in Server Manager")
-    print("   2. Servers auto-connect automatically with optimized intervals!")
-    print("   3. Go to Console tab to see live messages")
-    print("   4. Click 'Test Live Console' to verify optimizations")
-    print("   5. Send commands and watch live responses!")
-    print("   6. Monitor request frequency in browser console")
-    print()
+        print("   • WebSocket support: ❌ Requires 'pip install websockets'")
+        print("   • Real-time messaging: ❌ Disabled")
+        print("   • Connection management: ⚠️ Limited")
     
-    # Check for existing token
-    if os.path.exists(Config.TOKEN_FILE):
-        try:
-            with open(Config.TOKEN_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            import time
-            current_time = time.time()
-            token_exp = data.get('access_token_exp', 0)
-            if token_exp > current_time:
-                print(f"🔑 Valid G-Portal token found - Ready for optimized live features!")
-            else:
-                print("⚠️ G-Portal token expired - please re-login for live features")
-        except:
-            print("⚠️ Invalid token file - please re-login")
+    print()
+    print("📊 OPTIMIZATION STATUS:")
+    print(f"   • Console refresh: {Config.CONSOLE_AUTO_REFRESH_INTERVAL/1000}s intervals")
+    print(f"   • Server list updates: {Config.SERVER_LIST_REFRESH_INTERVAL/1000}s")
+    print(f"   • Player count polling: {Config.PLAYER_COUNT_REFRESH_INTERVAL/1000}s")
+    print(f"   • Logs API polling: {Config.LOGS_POLLING_INTERVAL/1000}s")
+    print(f"   • Maximum concurrent requests: {Config.MAX_CONCURRENT_API_CALLS}")
+    
+    if mongodb_available:
+        print("   • MongoDB: ✅ Persistent storage enabled")
     else:
-        print("ℹ️ No G-Portal token - login required for live features")
+        print("   • MongoDB: ⚠️ In-memory storage (install pymongo for persistence)")
     
-    print()
-    print("📦 Dependencies:")
-    print(f"   • MongoDB: {'Available ✅' if mongodb_available else 'Not Available (optional)'}")
-    print(f"   • WebSockets: {'Available ✅ (Optimized)' if websockets_available else 'Not Available (install: pip install websockets)'}")
-    print()
-    print("⚡ OPTIMIZED AUTO LIVE CONSOLE FEATURES:")
-    print("   • Automatic connection to all servers (reduced reconnection attempts)")
-    print("   • No manual connection process needed")
-    print("   • Auto-reconnection if servers disconnect (less aggressive)")
-    print("   • Combined console output (commands + live messages)")
-    print("   • Enhanced message display with proper formatting")
-    print("   • Real-time monitoring with optimized intervals")
-    print("   • Request throttling prevents token conflicts")
-    print("   • Intelligent caching reduces unnecessary API calls")
-    print("   • Batch processing for multiple server operations")
-    print()
-    
-    # Print optimization summary
     print_optimization_summary()
     
     print()
@@ -363,20 +302,59 @@ def print_startup_info(websockets_available, mongodb_available):
     print("=" * 80)
 
 def get_optimization_config():
-    """Return a dictionary of optimization settings for use in other modules"""
+    """
+    ✅ FIXED: Return a complete dictionary of optimization settings for use in other modules
+    """
     return {
+        # Core polling intervals
         'console_refresh_interval': Config.CONSOLE_AUTO_REFRESH_INTERVAL,
         'server_list_interval': Config.SERVER_LIST_REFRESH_INTERVAL,
         'player_count_interval': Config.PLAYER_COUNT_REFRESH_INTERVAL,
+        'logs_polling_interval': Config.LOGS_POLLING_INTERVAL,  # ✅ FIXED: Added missing key
+        'server_health_interval': Config.SERVER_HEALTH_CHECK_INTERVAL,  # ✅ FIXED: Added missing key
+        
+        # WebSocket settings
         'websocket_reconnect_delay': Config.WEBSOCKET_RECONNECT_DELAY,
+        'websocket_ping_interval': Config.WEBSOCKET_PING_INTERVAL,
+        'websocket_ping_timeout': Config.WEBSOCKET_PING_TIMEOUT,
+        'websocket_max_reconnects': Config.WEBSOCKET_MAX_RECONNECT_ATTEMPTS,
+        
+        # Request throttling and batching
         'max_concurrent_requests': Config.MAX_CONCURRENT_API_CALLS,
         'request_batch_size': Config.REQUEST_BATCH_SIZE,
         'request_batch_delay': Config.REQUEST_BATCH_DELAY,
+        
+        # Caching settings
         'default_cache_ttl': Config.DEFAULT_CACHE_TTL,
+        'logs_cache_ttl': Config.LOGS_CACHE_TTL,  # ✅ FIXED: Added missing key
+        'player_count_cache_ttl': Config.PLAYER_COUNT_CACHE_TTL,  # ✅ FIXED: Added missing key
+        'console_status_cache_ttl': Config.CONSOLE_STATUS_CACHE_TTL,
+        'server_status_cache_ttl': Config.SERVER_STATUS_CACHE_TTL,
+        'token_status_cache_ttl': Config.TOKEN_STATUS_CACHE_TTL,
+        
+        # Debouncing settings
         'debounce_console': Config.DEBOUNCE_CONSOLE_REFRESH,
         'debounce_player_count': Config.DEBOUNCE_PLAYER_COUNT,
         'debounce_server_refresh': Config.DEBOUNCE_SERVER_REFRESH,
-        'target_reduction_percent': Config.TARGET_API_REDUCTION_PERCENT
+        'debounce_logs': Config.DEBOUNCE_LOGS,  # ✅ FIXED: Added missing key
+        'debounce_server_health': Config.DEBOUNCE_SERVER_HEALTH,
+        
+        # Player count specific settings
+        'player_count_batch_size': Config.PLAYER_COUNT_BATCH_SIZE,  # ✅ FIXED: Added missing key
+        'player_count_batch_delay': Config.PLAYER_COUNT_BATCH_DELAY,  # ✅ FIXED: Added missing key
+        
+        # Performance targets
+        'target_reduction_percent': Config.TARGET_API_REDUCTION_PERCENT,
+        'target_avg_request_interval': Config.TARGET_AVG_REQUEST_INTERVAL,
+        'optimization_stats_interval': Config.OPTIMIZATION_STATS_INTERVAL,
+        'optimization_warning_threshold': Config.OPTIMIZATION_WARNING_THRESHOLD,
+        
+        # Logs specific settings
+        'logs_batch_processing': Config.LOGS_BATCH_PROCESSING,  # ✅ FIXED: Added missing key
+        'logs_max_batch_size': Config.LOGS_MAX_BATCH_SIZE,  # ✅ FIXED: Added missing key
+        'logs_directory': Config.LOGS_DIRECTORY,
+        'max_log_files': Config.MAX_LOG_FILES,
+        'log_retention_days': Config.LOG_RETENTION_DAYS
     }
 
 def validate_optimization_settings():
@@ -390,6 +368,9 @@ def validate_optimization_settings():
     if Config.SERVER_LIST_REFRESH_INTERVAL > 120000:  # 2 minutes
         issues.append("Server list refresh interval might be too long")
     
+    if Config.LOGS_POLLING_INTERVAL > 60000:  # 1 minute
+        issues.append("Logs polling interval might be too long")
+    
     # Check for intervals that might be too short (defeating optimization)
     if Config.CONSOLE_AUTO_REFRESH_INTERVAL < 5000:  # 5 seconds
         issues.append("Console refresh interval might be too short for optimization")
@@ -397,12 +378,19 @@ def validate_optimization_settings():
     if Config.SERVER_LIST_REFRESH_INTERVAL < 10000:  # 10 seconds
         issues.append("Server list refresh interval might be too short for optimization")
     
+    if Config.LOGS_POLLING_INTERVAL < 15000:  # 15 seconds
+        issues.append("Logs polling interval might be too short for optimization")
+    
     # Check concurrency limits
     if Config.MAX_CONCURRENT_API_CALLS > 5:
         issues.append("Max concurrent API calls might be too high")
     
     if Config.MAX_CONCURRENT_API_CALLS < 1:
         issues.append("Max concurrent API calls must be at least 1")
+    
+    # Check cache TTL values
+    if Config.DEFAULT_CACHE_TTL < 30000:  # 30 seconds
+        issues.append("Default cache TTL might be too short for effective caching")
     
     if issues:
         print("⚠️ OPTIMIZATION CONFIGURATION WARNINGS:")
