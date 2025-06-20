@@ -283,39 +283,6 @@ class ServerHealthStorage:
                 "last_check": datetime.utcnow().isoformat()
             }
     
-    def get_performance_trends_summary(self, server_id: Optional[str] = None) -> Dict[str, Any]:
-        """Get comprehensive performance summary for trends section"""
-        try:
-            current = self.get_current_metrics(server_id)
-            averages_24h = self.calculate_averages(server_id, 24)
-            averages_7d = self.calculate_averages(server_id, 168)  # 7 days
-            
-            # Calculate trend indicators
-            def get_trend_indicator(current_val: float, avg_val: float) -> str:
-                if current_val > avg_val * 1.1:
-                    return "📈"  # Improved
-                elif current_val < avg_val * 0.9:
-                    return "📉"  # Declined
-                else:
-                    return "➡️"  # Stable
-            
-            return {
-                "current": current,
-                "averages_24h": averages_24h,
-                "averages_7d": averages_7d,
-                "trends": {
-                    "response_time": get_trend_indicator(current["response_time"], averages_24h["response_time"]),
-                    "memory_usage": get_trend_indicator(current["memory_usage"], averages_24h["memory_usage"]),
-                    "fps": get_trend_indicator(current["fps"], averages_24h["fps"]),
-                    "player_count": get_trend_indicator(current["player_count"], averages_24h["player_count"])
-                },
-                "calculated_at": datetime.utcnow().isoformat()
-            }
-            
-        except Exception as e:
-            logger.error(f"[Server Health Storage] Get performance trends summary error: {e}")
-            return {"current": {}, "averages_24h": {}, "averages_7d": {}, "trends": {}}
-    
     # ===== VERIFIED SYSTEM INTEGRATION =====
     
     def integrate_with_health_check(self):
@@ -368,3 +335,129 @@ class ServerHealthStorage:
         except Exception as e:
             logger.error(f"[Server Health Storage] Cleanup error: {e}")
             return False
+
+    # ===== ADDITIONAL METHODS FROM PASTE.TXT =====
+
+    def get_system_health(self) -> Dict[str, Any]:
+        """Get overall system health score (called by app.py health endpoint)"""
+        try:
+            # Get recent health data
+            recent_snapshots = self.health_snapshots[-10:] if self.health_snapshots else []
+            
+            if not recent_snapshots:
+                return {
+                    "overall_score": 95,
+                    "status": "healthy",
+                    "last_check": datetime.utcnow().isoformat(),
+                    "metrics_count": 0
+                }
+            
+            # Calculate average health from recent snapshots
+            total_score = 0
+            healthy_count = 0
+            
+            for snapshot in recent_snapshots:
+                health_data = snapshot.get('health_data', {})
+                status = health_data.get('status', 'unknown')
+                
+                if status == 'healthy':
+                    total_score += 95
+                    healthy_count += 1
+                elif status == 'warning':
+                    total_score += 70
+                elif status == 'critical':
+                    total_score += 30
+                else:
+                    total_score += 50
+            
+            avg_score = total_score // len(recent_snapshots) if recent_snapshots else 95
+            
+            return {
+                "overall_score": avg_score,
+                "status": "healthy" if avg_score >= 80 else "warning" if avg_score >= 60 else "critical",
+                "last_check": recent_snapshots[-1].get('timestamp', datetime.utcnow().isoformat()),
+                "metrics_count": len(recent_snapshots),
+                "healthy_percentage": (healthy_count / len(recent_snapshots)) * 100 if recent_snapshots else 0
+            }
+            
+        except Exception as e:
+            logger.error(f"[Server Health Storage] Get system health error: {e}")
+            return {
+                "overall_score": 50,
+                "status": "error", 
+                "last_check": datetime.utcnow().isoformat(),
+                "metrics_count": 0,
+                "error": str(e)
+            }
+
+    def store_system_health(self, health_data: Dict[str, Any]):
+        """Store system health data (called by app.py background task)"""
+        try:
+            system_health_entry = {
+                "system_health_id": str(uuid.uuid4()),
+                "health_data": health_data,
+                "timestamp": datetime.utcnow(),
+                "created_at": datetime.utcnow().isoformat()
+            }
+            
+            collection = self._get_collection('system_health_snapshots')
+            if collection:
+                # MongoDB storage
+                collection.insert_one(system_health_entry)
+            else:
+                # Memory fallback - store in health_snapshots
+                self._store_memory_fallback("health", {
+                    **system_health_entry,
+                    "timestamp": system_health_entry["timestamp"].isoformat()
+                })
+            
+            logger.info(f"[Server Health Storage] System health stored successfully")
+            return True
+            
+        except Exception as e:
+            logger.error(f"[Server Health Storage] Store system health error: {e}")
+            return False
+
+    def get_performance_trends_summary(self, server_id: Optional[str] = None) -> Dict[str, Any]:
+        """Get performance trends summary for enhanced analysis"""
+        try:
+            # Get recent trends
+            trends_24h = self.get_health_trends(server_id, 24)
+            trends_7d = self.get_health_trends(server_id, 168)  # 7 days
+            
+            # Calculate trend indicators
+            def get_trend_indicator(current_avg, old_avg):
+                if old_avg == 0:
+                    return "➡️"
+                change = ((current_avg - old_avg) / old_avg) * 100
+                if change > 5:
+                    return "📈"
+                elif change < -5:
+                    return "📉"
+                else:
+                    return "➡️"
+            
+            # Calculate averages
+            avg_24h = self.calculate_averages(server_id, 24)
+            avg_7d = self.calculate_averages(server_id, 168)
+            
+            return {
+                "trends": {
+                    "response_time": get_trend_indicator(avg_24h["response_time"], avg_7d["response_time"]),
+                    "memory_usage": get_trend_indicator(avg_24h["memory_usage"], avg_7d["memory_usage"]),
+                    "fps": get_trend_indicator(avg_24h["fps"], avg_7d["fps"]),
+                    "player_count": get_trend_indicator(avg_24h["player_count"], avg_7d["player_count"])
+                },
+                "data_points_24h": trends_24h["data_points"],
+                "data_points_7d": trends_7d["data_points"],
+                "last_updated": datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"[Server Health Storage] Get performance trends summary error: {e}")
+            return {
+                "trends": {"response_time": "➡️", "memory_usage": "➡️", "fps": "➡️", "player_count": "➡️"},
+                "data_points_24h": 0,
+                "data_points_7d": 0,
+                "last_updated": datetime.utcnow().isoformat()
+            }

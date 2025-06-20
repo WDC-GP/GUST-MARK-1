@@ -95,32 +95,105 @@
             return;
         }
         
-        // Clear existing options
-        serverSelect.innerHTML = '<option value="">Select a server...</option>';
+        // Clear existing options and show loading
+        serverSelect.innerHTML = '<option value="">Loading servers...</option>';
         
-        // Use existing managedServers from main system
-        if (window.managedServers && window.managedServers.length > 0) {
-            window.managedServers.forEach(server => {
-                if (server.isActive) {
-                    const option = document.createElement('option');
-                    option.value = server.serverId;
-                    option.textContent = `${server.serverName} (${server.serverId})`;
-                    serverSelect.appendChild(option);
-                }
-            });
+        // Function to populate servers
+        function populateServers() {
+            console.log('🔍 Server Health: Attempting to populate server selector...');
             
-            // Auto-select first server
-            if (window.managedServers.length > 0) {
-                const firstServer = window.managedServers.find(s => s.isActive);
-                if (firstServer) {
+            // FIXED: Check managedServers instead of window.managedServers
+            if (typeof managedServers !== 'undefined' && managedServers && managedServers.length > 0) {
+                console.log(`✅ Server Health: Found ${managedServers.length} managed servers`);
+                
+                // Clear loading message
+                serverSelect.innerHTML = '<option value="">Select a server...</option>';
+                
+                // Add servers to dropdown
+                managedServers.forEach(server => {
+                    if (server.isActive) {
+                        const option = document.createElement('option');
+                        option.value = server.serverId;
+                        option.textContent = `${server.serverName} (${server.serverId})`;
+                        serverSelect.appendChild(option);
+                    }
+                });
+                
+                // Auto-select first server if available
+                const activeServers = managedServers.filter(s => s.isActive);
+                if (activeServers.length > 0) {
+                    const firstServer = activeServers[0];
                     serverSelect.value = firstServer.serverId;
                     serverHealthData.currentServer = firstServer.serverId;
+                    console.log(`🎯 Server Health: Auto-selected server: ${firstServer.serverName} (${firstServer.serverId})`);
+                    
+                    // Load data for the selected server after a brief delay
+                    setTimeout(() => {
+                        refreshHealthData();
+                    }, 1000);
+                }
+                
+                return true; // Success
+            }
+            
+            console.log('⏳ Server Health: managedServers not ready yet...');
+            return false; // Not ready yet
+        }
+        
+        // Try to populate immediately
+        if (populateServers()) {
+            console.log('✅ Server Health: Servers populated immediately');
+        } else {
+            console.log('⏳ Server Health: Servers not ready, setting up watchers...');
+            
+            // Strategy 1: Polling watcher with reasonable timeout
+            let attempts = 0;
+            const maxAttempts = 20; // 10 seconds total (500ms * 20)
+            
+            const serverWatcher = setInterval(() => {
+                attempts++;
+                console.log(`🔍 Server Health: Attempt ${attempts}/${maxAttempts}: Checking for servers...`);
+                
+                if (populateServers()) {
+                    console.log('✅ Server Health: Servers found and populated!');
+                    clearInterval(serverWatcher);
+                } else if (attempts >= maxAttempts) {
+                    console.warn('⚠️ Server Health: Timeout waiting for servers');
+                    serverSelect.innerHTML = '<option value="">No servers found - Try refreshing</option>';
+                    clearInterval(serverWatcher);
+                    showNoServersMessage();
+                }
+            }, 500);
+            
+            // Strategy 2: Try to trigger server loading if function exists
+            if (typeof loadManagedServers === 'function') {
+                console.log('🚀 Server Health: Calling loadManagedServers directly...');
+                try {
+                    const result = loadManagedServers();
+                    if (result && typeof result.then === 'function') {
+                        // It's a promise
+                        result.then(() => {
+                            console.log('✅ Server Health: Direct server loading completed');
+                            setTimeout(() => {
+                                if (populateServers()) {
+                                    clearInterval(serverWatcher);
+                                }
+                            }, 1000);
+                        }).catch(error => {
+                            console.error('❌ Server Health: Error in direct server loading:', error);
+                        });
+                    } else {
+                        // Synchronous call
+                        setTimeout(() => {
+                            if (populateServers()) {
+                                clearInterval(serverWatcher);
+                            }
+                        }, 1000);
+                    }
+                } catch (error) {
+                    console.error('❌ Server Health: Error calling loadManagedServers:', error);
                 }
             }
-        } else {
-            console.warn('⚠️ No managed servers found for Server Health');
-            // Show message to add servers first
-            showNoServersMessage();
         }
         
         // Add change event listener
@@ -274,6 +347,9 @@
             return;
         }
         
+        // IMPORTANT: Destroy existing charts before creating new ones
+        destroyExistingCharts();
+        
         // Chart configuration for dark theme
         const chartOptions = {
             responsive: true,
@@ -305,44 +381,92 @@
         // Initialize FPS chart
         const fpsCanvas = document.getElementById('fps-chart');
         if (fpsCanvas) {
-            serverHealthData.charts.fps = new Chart(fpsCanvas, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'FPS',
-                        data: [],
-                        borderColor: '#22c55e',
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: chartOptions
-            });
+            try {
+                serverHealthData.charts.fps = new Chart(fpsCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'FPS',
+                            data: [],
+                            borderColor: '#22c55e',
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: chartOptions
+                });
+                console.log('✅ FPS chart created');
+            } catch (error) {
+                console.error('❌ Error creating FPS chart:', error);
+            }
         }
         
         // Initialize Players chart
         const playersCanvas = document.getElementById('players-chart');
         if (playersCanvas) {
-            serverHealthData.charts.players = new Chart(playersCanvas, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Players',
-                        data: [],
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: chartOptions
-            });
+            try {
+                serverHealthData.charts.players = new Chart(playersCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Players',
+                            data: [],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: chartOptions
+                });
+                console.log('✅ Players chart created');
+            } catch (error) {
+                console.error('❌ Error creating Players chart:', error);
+            }
         }
         
         console.log('✅ Health charts initialized');
+    }
+    
+    function destroyExistingCharts() {
+        console.log('🧹 Destroying existing charts...');
+        
+        // Destroy existing Chart.js instances
+        Object.keys(serverHealthData.charts).forEach(chartKey => {
+            const chart = serverHealthData.charts[chartKey];
+            if (chart && typeof chart.destroy === 'function') {
+                try {
+                    chart.destroy();
+                    console.log(`✅ Destroyed ${chartKey} chart`);
+                } catch (error) {
+                    console.warn(`⚠️ Error destroying ${chartKey} chart:`, error);
+                }
+            }
+        });
+        
+        // Clear the charts object
+        serverHealthData.charts = {};
+        
+        // Also destroy any orphaned Chart.js instances on the canvas elements
+        const canvasElements = ['fps-chart', 'players-chart'];
+        canvasElements.forEach(canvasId => {
+            const canvas = document.getElementById(canvasId);
+            if (canvas) {
+                // Check if there's a Chart.js instance attached
+                const existingChart = Chart.getChart(canvas);
+                if (existingChart) {
+                    try {
+                        existingChart.destroy();
+                        console.log(`✅ Destroyed orphaned chart on ${canvasId}`);
+                    } catch (error) {
+                        console.warn(`⚠️ Error destroying orphaned chart on ${canvasId}:`, error);
+                    }
+                }
+            }
+        });
     }
     
     async function loadHealthCharts() {
@@ -569,6 +693,15 @@
         loadCommandFeed();
     }
     
+    // Add a manual refresh function for troubleshooting
+    function refreshServerHealth() {
+        console.log('🔄 Server Health: Manual refresh triggered');
+        setupServerSelector();
+        if (serverHealthData.currentServer) {
+            refreshHealthData();
+        }
+    }
+    
     // ============================================================================
     // UTILITY FUNCTIONS
     // ============================================================================
@@ -659,16 +792,50 @@
     }
     
     function showNoServersMessage() {
-        const healthContainer = document.getElementById('server-health-content');
-        if (healthContainer) {
-            healthContainer.innerHTML = `
-                <div class="text-center py-12">
-                    <div class="text-6xl mb-4">🏥</div>
-                    <h3 class="text-xl font-semibold mb-2">No Servers Available</h3>
-                    <p class="text-gray-400 mb-4">Add servers in the Server Manager to monitor their health.</p>
-                    <button onclick="showTab('server-manager')" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">
+        // Update status cards to show no server selected
+        const statusCards = document.querySelectorAll('.health-status-card');
+        statusCards.forEach(card => {
+            const valueElement = card.querySelector('.status-value');
+            const labelElement = card.querySelector('.status-label');
+            if (valueElement) valueElement.textContent = '--';
+            if (labelElement && labelElement.textContent.includes('Status')) {
+                valueElement.textContent = 'No Server';
+                valueElement.className = 'status-value text-gray-400';
+            }
+        });
+        
+        // Update charts area with helpful message
+        const chartsContainer = document.querySelector('.health-charts-container') ||
+                              document.querySelector('.flex-1.lg\\:w-3\\/4');
+        if (chartsContainer) {
+            chartsContainer.innerHTML = `
+                <div class="bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg p-6 text-center">
+                    <div class="text-yellow-400 text-4xl mb-4">⚠️</div>
+                    <h3 class="text-white text-lg font-semibold mb-2">No Servers Available</h3>
+                    <p class="text-yellow-200 mb-4">
+                        No managed servers found for health monitoring.
+                    </p>
+                    <div class="space-y-2 text-sm text-yellow-300">
+                        <p>• Go to the <strong>Server Manager</strong> tab to add servers</p>
+                        <p>• Or wait for servers to finish loading</p>
+                        <p>• Then return to this tab</p>
+                    </div>
+                    <button onclick="window.showTab('server-manager')" 
+                            class="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded transition-colors">
                         Go to Server Manager
                     </button>
+                </div>
+            `;
+        }
+        
+        // Update command feed
+        const commandFeed = document.getElementById('command-feed');
+        if (commandFeed) {
+            commandFeed.innerHTML = `
+                <div class="text-center text-gray-400 py-8">
+                    <div class="text-2xl mb-2">📭</div>
+                    <p>No server selected</p>
+                    <p class="text-xs mt-1">Select a server to view commands</p>
                 </div>
             `;
         }
@@ -744,13 +911,8 @@
             serverHealthData.refreshInterval = null;
         }
         
-        // Destroy charts
-        Object.values(serverHealthData.charts).forEach(chart => {
-            if (chart && typeof chart.destroy === 'function') {
-                chart.destroy();
-            }
-        });
-        serverHealthData.charts = {};
+        // Destroy charts properly
+        destroyExistingCharts();
         
         console.log('✅ Server Health module unloaded');
     }
@@ -764,6 +926,7 @@
     window.unloadServerHealth = unloadServerHealth;
     window.refreshHealthData = refreshHealthData;
     window.filterCommands = filterCommands;
+    window.refreshServerHealth = refreshServerHealth; // Manual refresh for troubleshooting
     
     console.log('✅ Server Health JavaScript module loaded successfully');
     console.log('🏥 Functions available: loadServerHealth, refreshHealthData, filterCommands');
