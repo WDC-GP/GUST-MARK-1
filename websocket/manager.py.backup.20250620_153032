@@ -1,4 +1,4 @@
-﻿"""
+"""
 GUST Bot Enhanced - Enhanced WebSocket Manager (STABILITY FIX)
 =============================================================
 ✅ ENHANCED: Pre-connection token validation and timeout handling
@@ -7,7 +7,6 @@ GUST Bot Enhanced - Enhanced WebSocket Manager (STABILITY FIX)
 ✅ ENHANCED: Automatic cleanup of disconnected connections
 ✅ ENHANCED: Enhanced message handling with proper JSON parsing
 ✅ ENHANCED: Comprehensive error handling and logging
-✅ FIXED: Removed missing client import dependency
 """
 
 # Standard library imports
@@ -24,6 +23,7 @@ from config import WEBSOCKETS_AVAILABLE
 # Conditional WebSocket imports
 if WEBSOCKETS_AVAILABLE:
     import websockets
+    from .client import GPortalWebSocketClient
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,7 @@ class EnhancedWebSocketManager:
             self.start()
         
         # ✅ ENHANCED: Pre-connection token validation
-        if not token or len(str(token)) < 10:
+        if not token or len(token) < 10:
             logger.error(f"❌ Invalid token for server {server_id} connection")
             return None
         
@@ -531,7 +531,7 @@ if WEBSOCKETS_AVAILABLE:
             """
             self.server_id = server_id
             self.region = region
-            self.token = str(token).strip() if token else ""
+            self.token = token
             self.message_callback = message_callback
             self.max_reconnect_attempts = max_reconnect_attempts
             self.reconnect_delays = reconnect_delays or [2, 4, 8, 16, 32, 60]
@@ -576,18 +576,17 @@ if WEBSOCKETS_AVAILABLE:
                 logger.info(f"✅ Enhanced WebSocket connected for server {self.server_id}")
                 
                 # Send subscription
-                clean_server_id = str(self.server_id).split('_')[0]
                 subscription = {
                     "type": "start",
                     "payload": {
-                        "query": f"""
-                        subscription {{
-                          consoleMessage(rsid: {{id: {clean_server_id}, region: {self.region}}}) {{
+                        "query": """
+                        subscription {
+                          consoleMessage(rsid: {id: %d, region: %s}) {
                             message
                             timestamp
-                          }}
-                        }}
-                        """
+                          }
+                        }
+                        """ % (int(str(self.server_id).split('_')[0]), self.region)
                     }
                 }
                 

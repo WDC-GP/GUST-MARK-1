@@ -7,7 +7,6 @@ GUST Bot Enhanced - Main Flask Application (ENHANCED WITH RATE LIMITING)
 ✅ ENHANCED: Enhanced GraphQL command sending with comprehensive error handling
 ✅ ENHANCED: Background server health monitoring integration
 ✅ PRESERVED: All existing functionality
-✅ FIXED: All indentation and syntax errors resolved
 """
 
 import os
@@ -713,277 +712,130 @@ class GustBotEnhanced:
     
     def setup_live_console_routes(self):
         """Setup live console routes when WebSockets are available"""
-        
-        @self.app.route('/api/console/live/connect', methods=['POST'])
+        @self.app.route('/api/console/connect', methods=['POST'])
         def connect_live_console():
-            """Connect to live console for a server"""
+            """Connect to live console"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
             try:
-                data = request.json if request.json else {}
-                server_id = data.get('serverId')
-                region = data.get('region', 'US')
+                data = request.json or {}
+                server_id = data.get('serverId', '').strip()
+                region = data.get('region', 'US').strip().upper()
                 
                 if not server_id:
-                    return jsonify({'success': False, 'error': 'Server ID required'})
+                    return jsonify({'success': False, 'error': 'Server ID required'}), 400
                 
-                if session.get('demo_mode', True):
-                    return jsonify({
-                        'success': False, 
-                        'error': 'Live console requires G-Portal authentication. Please login with real credentials.'
-                    })
+                demo_mode = session.get('demo_mode', True)
                 
-                # Load token
-                try:
-                    token_data = load_token()
-                    if not token_data:
-                        return jsonify({
-                            'success': False,
-                            'error': 'No valid G-Portal token. Please re-login.'
-                        })
-                except Exception as token_error:
-                    logger.error(f"❌ Token loading error in live connect: {token_error}")
-                    return jsonify({
-                        'success': False,
-                        'error': 'Token loading failed. Please re-login.'
-                    })
-                
-                try:
-                    # Add WebSocket connection
-                    future = self.websocket_manager.add_connection(server_id, region, token_data)
+                if demo_mode:
+                    # Demo mode - simulate connection
                     self.live_connections[server_id] = {
+                        'connected': True,
                         'region': region,
-                        'connected_at': datetime.now().isoformat(),
-                        'connected': True
+                        'demo': True,
+                        'timestamp': datetime.now().isoformat()
                     }
-                    
-                    return jsonify({
-                        'success': True,
-                        'message': f'Live console connected for server {server_id}',
-                        'server_id': server_id
-                    })
-                    
-                except Exception as connect_error:
-                    logger.error(f"❌ Error connecting live console: {connect_error}")
-                    return jsonify({
-                        'success': False,
-                        'error': f'Failed to connect: {str(connect_error)}'
-                    })
+                    return jsonify({'success': True, 'demo_mode': True})
+                
+                # Real mode - connect WebSocket
+                token = load_token()
+                if not token:
+                    return jsonify({'success': False, 'error': 'No authentication token'}), 401
+                
+                future = self.websocket_manager.add_connection(server_id, region, token)
+                if future:
+                    self.live_connections[server_id] = {
+                        'connected': True,
+                        'region': region,
+                        'demo': False,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    return jsonify({'success': True, 'demo_mode': False})
+                else:
+                    return jsonify({'success': False, 'error': 'Failed to establish connection'}), 500
                     
             except Exception as e:
                 logger.error(f"❌ Live console connect error: {e}")
-                return jsonify({'success': False, 'error': str(e)})
+                return jsonify({'success': False, 'error': str(e)}), 500
         
-        @self.app.route('/api/console/live/disconnect', methods=['POST'])
+        @self.app.route('/api/console/disconnect', methods=['POST'])
         def disconnect_live_console():
-            """Disconnect live console for a server"""
+            """Disconnect from live console"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
             try:
-                data = request.json if request.json else {}
-                server_id = data.get('serverId')
+                data = request.json or {}
+                server_id = data.get('serverId', '').strip()
                 
+                if not server_id:
+                    return jsonify({'success': False, 'error': 'Server ID required'}), 400
+                
+                # Remove from tracking
                 if server_id in self.live_connections:
-                    try:
-                        self.websocket_manager.remove_connection(server_id)
-                        del self.live_connections[server_id]
-                        
-                        return jsonify({
-                            'success': True,
-                            'message': f'Live console disconnected for server {server_id}'
-                        })
-                    except Exception as disconnect_error:
-                        logger.error(f"❌ Error disconnecting live console: {disconnect_error}")
-                        return jsonify({
-                            'success': False,
-                            'error': f'Failed to disconnect: {str(disconnect_error)}'
-                        })
-                else:
-                    return jsonify({
-                        'success': False,
-                        'error': 'Server not connected'
-                    })
-                    
+                    del self.live_connections[server_id]
+                
+                # Disconnect WebSocket if not demo mode
+                demo_mode = session.get('demo_mode', True)
+                if not demo_mode and self.websocket_manager:
+                    self.websocket_manager.remove_connection(server_id)
+                
+                return jsonify({'success': True})
+                
             except Exception as e:
                 logger.error(f"❌ Live console disconnect error: {e}")
-                return jsonify({'success': False, 'error': str(e)})
+                return jsonify({'success': False, 'error': str(e)}), 500
         
-        @self.app.route('/api/console/live/status')
-        def live_console_status():
-            """Get live console connection status"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                if self.websocket_manager:
-                    try:
-                        status = self.websocket_manager.get_connection_status()
-                    except Exception as status_error:
-                        logger.error(f"❌ Error getting connection status: {status_error}")
-                        status = {}
-                else:
-                    status = {}
-                
-                return jsonify({
-                    'connections': status,
-                    'total_connections': len(status),
-                    'demo_mode': session.get('demo_mode', True),
-                    'websockets_available': WEBSOCKETS_AVAILABLE
-                })
-                
-            except Exception as e:
-                logger.error(f"❌ Live console status error: {e}")
-                return jsonify({'success': False, 'error': str(e)})
-        
-        @self.app.route('/api/console/live/messages')
-        def live_console_messages():
+        @self.app.route('/api/console/messages/<server_id>')
+        def get_live_messages(server_id):
             """Get live console messages"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
             try:
+                limit = int(request.args.get('limit', 50))
+                message_type = request.args.get('type', None)
+                
+                demo_mode = session.get('demo_mode', True)
+                
+                if demo_mode:
+                    # Demo mode - return simulated messages
+                    messages = []
+                    for i in range(min(limit, 10)):
+                        messages.append({
+                            'timestamp': (datetime.now() - timedelta(minutes=i)).isoformat(),
+                            'message': f'[DEMO] Server activity message {i+1}',
+                            'server_id': server_id,
+                            'type': 'system',
+                            'source': 'demo'
+                        })
+                    return jsonify(messages)
+                
+                # Real mode - get messages from WebSocket manager
                 if self.websocket_manager:
-                    status = self.websocket_manager.get_connection_status()
-                    all_messages = []
-                    for server_id in status.keys():
-                        try:
-                            messages = self.websocket_manager.get_messages(server_id, limit=10)
-                            all_messages.extend(messages)
-                        except Exception as msg_error:
-                            logger.error(f"❌ Error getting messages for server {server_id}: {msg_error}")
-                    
-                    return jsonify({
-                        'success': True,
-                        'websockets_available': WEBSOCKETS_AVAILABLE,
-                        'connections': status,
-                        'total_connections': len(status),
-                        'recent_messages': all_messages[-10:],
-                        'message_count': len(all_messages),
-                        'test_timestamp': datetime.now().isoformat(),
-                        'enhanced_console': True,
-                        'pending_commands': 0
-                    })
+                    messages = self.websocket_manager.get_messages(server_id, limit, message_type)
+                    return jsonify(messages)
                 else:
-                    return jsonify({
-                        'success': False,
-                        'error': 'WebSocket manager not available',
-                        'websockets_available': WEBSOCKETS_AVAILABLE
-                    })
+                    return jsonify([])
                     
             except Exception as e:
-                logger.error(f"❌ Live console messages error: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e),
-                    'websockets_available': WEBSOCKETS_AVAILABLE
-                })
-        
-        @self.app.route('/api/console/live/test')
-        def test_live_console():
-            """Test live console functionality"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                if self.websocket_manager:
-                    status = self.websocket_manager.get_connection_status()
-                    all_messages = []
-                    for server_id in status.keys():
-                        try:
-                            messages = self.websocket_manager.get_messages(server_id, limit=10)
-                            all_messages.extend(messages)
-                        except Exception as msg_error:
-                            logger.error(f"❌ Error getting messages for server {server_id}: {msg_error}")
-                    
-                    return jsonify({
-                        'success': True,
-                        'websockets_available': WEBSOCKETS_AVAILABLE,
-                        'connections': status,
-                        'total_connections': len(status),
-                        'recent_messages': all_messages[-10:],
-                        'message_count': len(all_messages),
-                        'test_timestamp': datetime.now().isoformat(),
-                        'enhanced_console': True,
-                        'pending_commands': 0
-                    })
-                else:
-                    return jsonify({
-                        'success': False,
-                        'error': 'WebSocket manager not available',
-                        'websockets_available': WEBSOCKETS_AVAILABLE
-                    })
-                    
-            except Exception as e:
-                logger.error(f"❌ Live console test error: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e),
-                    'websockets_available': WEBSOCKETS_AVAILABLE
-                })
+                logger.error(f"❌ Get live messages error: {e}")
+                return jsonify([])
     
     def setup_stub_console_routes(self):
         """Setup stub console routes when WebSockets are not available"""
+        @self.app.route('/api/console/connect', methods=['POST'])
+        def connect_live_console_stub():
+            return jsonify({'success': False, 'error': 'WebSocket support not available'})
         
-        @self.app.route('/api/console/live/connect', methods=['POST'])
-        def connect_live_console():
-            """Stub route when WebSockets not available"""
-            return jsonify({
-                'success': False,
-                'error': 'WebSocket support not available. Install with: pip install websockets',
-                'websockets_available': False,
-                'demo_mode': session.get('demo_mode', True)
-            })
+        @self.app.route('/api/console/disconnect', methods=['POST'])
+        def disconnect_live_console_stub():
+            return jsonify({'success': True})
         
-        @self.app.route('/api/console/live/disconnect', methods=['POST'])
-        def disconnect_live_console():
-            """Stub route when WebSockets not available"""
-            return jsonify({
-                'success': False,
-                'error': 'WebSocket support not available. Install with: pip install websockets',
-                'websockets_available': False
-            })
-        
-        @self.app.route('/api/console/live/status')
-        def live_console_status():
-            """Stub route when WebSockets not available"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            return jsonify({
-                'connections': {},
-                'total_connections': 0,
-                'demo_mode': session.get('demo_mode', True),
-                'websockets_available': False,
-                'message': 'WebSocket support not available'
-            })
-        
-        @self.app.route('/api/console/live/messages')
-        def live_console_messages():
-            """Stub route when WebSockets not available"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            return jsonify({
-                'success': False,
-                'messages': [],
-                'websockets_available': False,
-                'error': 'WebSocket support not available'
-            })
-        
-        @self.app.route('/api/console/live/test')
-        def test_live_console():
-            """Stub route when WebSockets not available"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            return jsonify({
-                'success': False,
-                'websockets_available': False,
-                'error': 'WebSocket support not available. Install with: pip install websockets',
-                'test_timestamp': datetime.now().isoformat()
-            })
+        @self.app.route('/api/console/messages/<server_id>')
+        def get_live_messages_stub(server_id):
+            return jsonify([])
     
     def start_background_tasks(self):
         """✅ ENHANCED: Start background tasks with server health monitoring"""
