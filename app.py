@@ -1,6 +1,6 @@
 """
-GUST Bot Enhanced - Main Flask Application (COMPLETE FIXED VERSION)
-================================================================================
+GUST Bot Enhanced - Main Flask Application (WEBSOCKET SENSOR INTEGRATION)
+==================================================================================
 ✅ FIXED: Console command sending with correct GraphQL endpoint
 ✅ FIXED: Enhanced error handling and logging
 ✅ FIXED: Complete Server Health integration
@@ -8,6 +8,8 @@ GUST Bot Enhanced - Main Flask Application (COMPLETE FIXED VERSION)
 ✅ FIXED: All GraphQL communication issues resolved
 ✅ NEW: Auto command API endpoint for serverinfo commands
 ✅ NEW: Enhanced authentication and demo mode handling
+✅ NEW: WebSocket sensor bridge integration for real-time monitoring
+✅ NEW: Enhanced WebSocket manager with sensor capabilities
 """
 
 import os
@@ -47,7 +49,7 @@ from routes.server_health import init_server_health_routes
 
 # Import WebSocket components
 if WEBSOCKETS_AVAILABLE:
-    from websocket.manager import WebSocketManager
+    from websocket.manager import EnhancedWebSocketManager
 
 logger = logging.getLogger(__name__)
 
@@ -143,10 +145,10 @@ class InMemoryUserStorage:
             return all_clans
 
 class GustBotEnhanced:
-    """Main GUST Bot Enhanced application class (COMPLETE FIXED VERSION)"""
+    """Main GUST Bot Enhanced application class (WEBSOCKET SENSOR INTEGRATION)"""
     
     def __init__(self):
-        """Initialize the enhanced GUST bot application"""
+        """Initialize the enhanced GUST bot application with WebSocket sensor support"""
         self.app = Flask(__name__)
         self.app.secret_key = Config.SECRET_KEY
         
@@ -188,32 +190,38 @@ class GustBotEnhanced:
         # Initialize systems
         self.vanilla_koth = VanillaKothSystem(self)
         
-        # WebSocket manager for live console (only if websockets available)
+        # ✅ NEW: Enhanced WebSocket manager for sensor data (only if websockets available)
         if WEBSOCKETS_AVAILABLE:
             try:
-                self.websocket_manager = WebSocketManager(self)
+                self.websocket_manager = EnhancedWebSocketManager(self)
                 self.live_connections = {}
                 # Start WebSocket manager
                 self.websocket_manager.start()
-                logger.info("✅ WebSocket manager initialized")
+                logger.info("✅ Enhanced WebSocket manager initialized with sensor support")
+                print("[✅ OK] Enhanced WebSocket manager started with sensor capabilities")
             except Exception as e:
-                logger.error(f"❌ WebSocket manager failed: {e}")
+                logger.error(f"❌ Enhanced WebSocket manager failed: {e}")
                 self.websocket_manager = None
                 self.live_connections = {}
         else:
             self.websocket_manager = None
             self.live_connections = {}
+            logger.warning("⚠️ WebSocket support not available - sensor data will use fallbacks")
         
         # Store reference to self in app context
         self.app.gust_bot = self
         
-        # Setup routes
+        # ✅ NEW: Store websocket_manager reference in app for sensor bridge access
+        self.app.websocket_manager = self.websocket_manager
+        
+        # Setup routes (this will initialize sensor bridge)
         self.setup_routes()
         
         # Background tasks
         self.start_background_tasks()
         
-        logger.info("🚀 GUST Bot Enhanced initialized successfully with complete Server Health integration")
+        logger.info("🚀 GUST Bot Enhanced initialized successfully with WebSocket sensor integration")
+        print("[✅ OK] GUST Bot Enhanced ready with real-time sensor monitoring")
     
     def init_user_storage(self):
         """Initialize user storage system (CRITICAL FIX)"""
@@ -274,15 +282,15 @@ class GustBotEnhanced:
             print('[🔧 EMERGENCY] user_storage was None, creating InMemoryUserStorage')
             self.user_storage = InMemoryUserStorage()
         
-        # COMPLETE: Update Server Health storage with proper database connection
+        # ✅ ENHANCED: Update Server Health storage with proper database connection
         self.server_health_storage = ServerHealthStorage(self.db, self.user_storage)
         print("[✅ OK] Server Health storage initialized with verified database connection")
         
         print(f'[✅ OK] Database initialization complete - Storage: {type(self.user_storage).__name__}')
     
     def setup_routes(self):
-        """Setup Flask routes and blueprints (COMPLETE SERVER HEALTH INTEGRATION)"""
-        print("[DEBUG]: Setting up routes with complete Server Health integration...")
+        """Setup Flask routes and blueprints (WEBSOCKET SENSOR INTEGRATION)"""
+        print("[DEBUG]: Setting up routes with WebSocket sensor integration...")
         
         # Register authentication blueprint (foundation)
         self.app.register_blueprint(auth_bp)
@@ -319,10 +327,22 @@ class GustBotEnhanced:
         self.app.register_blueprint(logs_bp)
         print("[✅ OK] Logs routes registered")
         
-        # COMPLETE: Server Health routes (layout-focused monitoring with verified storage)
-        server_health_bp = init_server_health_routes(self.app, self.db, self.server_health_storage)
-        self.app.register_blueprint(server_health_bp)
-        print("[✅ OK] Server Health routes registered (75/25 layout with verified backend)")
+        # ✅ ENHANCED: Server Health routes with WebSocket sensor integration
+        try:
+            server_health_bp = init_server_health_routes(self.app, self.db, self.server_health_storage)
+            self.app.register_blueprint(server_health_bp)
+            print("[✅ OK] Server Health routes registered with WebSocket sensor integration")
+            
+            # Log WebSocket sensor status
+            if self.websocket_manager:
+                print("[✅ OK] WebSocket sensor bridge will be initialized by server health routes")
+            else:
+                print("[⚠️ WARNING] WebSocket manager not available - sensor data will use fallbacks")
+                
+        except Exception as health_routes_error:
+            logger.error(f"❌ Server Health routes registration failed: {health_routes_error}")
+            print(f"[❌ ERROR] Server Health routes failed: {health_routes_error}")
+            # Continue without server health routes rather than failing completely
         
         # Setup main routes
         @self.app.route('/')
@@ -337,7 +357,7 @@ class GustBotEnhanced:
         # Miscellaneous routes
         self.setup_misc_routes()
         
-        print("[✅ OK] All routes registered successfully including complete Server Health")
+        print("[✅ OK] All routes registered successfully including WebSocket sensor integration")
     
     def setup_console_routes(self):
         """Setup console-related routes"""
@@ -986,7 +1006,7 @@ class GustBotEnhanced:
         
         @self.app.route('/health')
         def health_check():
-            """Enhanced health check endpoint (COMPLETE SERVER HEALTH INTEGRATION)"""
+            """Enhanced health check endpoint (WEBSOCKET SENSOR INTEGRATION)"""
             
             try:
                 # Calculate health metrics
@@ -1003,6 +1023,27 @@ class GustBotEnhanced:
                 except Exception as health_error:
                     logger.warning(f"⚠️ Could not get health score: {health_error}")
                 
+                # ✅ NEW: Check WebSocket sensor status
+                websocket_sensor_status = 'unavailable'
+                sensor_connections = 0
+                
+                if self.websocket_manager:
+                    try:
+                        # Check if websocket manager has sensor bridge capability
+                        if hasattr(self.websocket_manager, 'get_sensor_data'):
+                            websocket_sensor_status = 'available'
+                        else:
+                            websocket_sensor_status = 'no_sensor_bridge'
+                        
+                        # Get connection count
+                        if hasattr(self.websocket_manager, 'get_connection_status'):
+                            connections = self.websocket_manager.get_connection_status()
+                            sensor_connections = len(connections)
+                            
+                    except Exception as sensor_error:
+                        logger.warning(f"⚠️ Could not get sensor status: {sensor_error}")
+                        websocket_sensor_status = 'error'
+                
                 return jsonify({
                     'status': 'healthy',
                     'timestamp': datetime.now().isoformat(),
@@ -1013,11 +1054,13 @@ class GustBotEnhanced:
                     'active_events': len(self.vanilla_koth.get_active_events()),
                     'live_connections': active_connections,
                     'console_buffer_size': len(self.console_output),
-                    'health_score': health_score,  # NEW: Overall system health score
-                    'server_health_storage': type(self.server_health_storage).__name__,  # NEW: Health storage type
+                    'health_score': health_score,
+                    'server_health_storage': type(self.server_health_storage).__name__,
+                    'websocket_sensor_status': websocket_sensor_status,  # ✅ NEW
+                    'sensor_connections': sensor_connections,  # ✅ NEW
                     'features': {
                         'console_commands': True,
-                        'auto_console_commands': True,  # NEW: Auto command feature flag
+                        'auto_console_commands': True,
                         'event_management': True,
                         'koth_events_fixed': True,
                         'economy_system': True,
@@ -1027,11 +1070,13 @@ class GustBotEnhanced:
                         'live_console': WEBSOCKETS_AVAILABLE,
                         'graphql_working': True,
                         'user_storage_working': True,
-                        'server_health_monitoring': True,  # Server Health feature flag
-                        'server_health_layout': '75/25',  # NEW: Layout specification
-                        'server_health_backend': True,  # NEW: Backend integration status
-                        'enhanced_navigation': True,  # NEW: Navigation integration
-                        'health_indicators': True  # NEW: Health status indicators
+                        'server_health_monitoring': True,
+                        'server_health_layout': '75/25',
+                        'server_health_backend': True,
+                        'enhanced_navigation': True,
+                        'health_indicators': True,
+                        'websocket_sensors': websocket_sensor_status == 'available',  # ✅ NEW
+                        'real_time_monitoring': websocket_sensor_status == 'available'  # ✅ NEW
                     }
                 })
             except Exception as e:
@@ -1121,10 +1166,10 @@ class GustBotEnhanced:
                     'error': str(e)
                 })
         
-        # NEW: Server Health specific API endpoint for quick status
+        # ✅ NEW: Server Health specific API endpoint for quick status with sensor data
         @self.app.route('/api/health/status')
         def server_health_status():
-            """Quick server health status endpoint"""
+            """Quick server health status endpoint with WebSocket sensor integration"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
@@ -1140,6 +1185,24 @@ class GustBotEnhanced:
                 if total_servers > 0:
                     connection_ratio = active_connections / total_servers
                     health_score = int(85 + (connection_ratio * 15))  # 85-100 range
+                
+                # ✅ NEW: Check sensor data availability
+                sensor_data_available = False
+                real_time_monitoring = False
+                
+                if self.websocket_manager:
+                    try:
+                        # Check if any servers have sensor data
+                        if hasattr(self.websocket_manager, 'get_sensor_data'):
+                            sensor_data_available = True
+                        if hasattr(self.websocket_manager, 'get_connection_status'):
+                            connections = self.websocket_manager.get_connection_status()
+                            if connections:
+                                real_time_monitoring = True
+                                # Bonus points for real-time monitoring
+                                health_score = min(100, health_score + 5)
+                    except Exception as sensor_check_error:
+                        logger.warning(f"⚠️ Sensor check error: {sensor_check_error}")
                 
                 # Determine status
                 if health_score >= 90:
@@ -1162,7 +1225,9 @@ class GustBotEnhanced:
                         'total_servers': total_servers,
                         'console_buffer_size': len(self.console_output),
                         'websockets_available': WEBSOCKETS_AVAILABLE,
-                        'database_connected': self.db is not None
+                        'database_connected': self.db is not None,
+                        'sensor_data_available': sensor_data_available,  # ✅ NEW
+                        'real_time_monitoring': real_time_monitoring  # ✅ NEW
                     },
                     'timestamp': datetime.now().isoformat()
                 })
@@ -1363,7 +1428,7 @@ class GustBotEnhanced:
             return False
     
     def start_background_tasks(self):
-        """Start background tasks (ENHANCED WITH SERVER HEALTH MONITORING)"""
+        """Start background tasks (ENHANCED WITH WEBSOCKET SENSOR MONITORING)"""
         def run_scheduled():
             while True:
                 try:
@@ -1379,10 +1444,13 @@ class GustBotEnhanced:
         # NEW: Schedule server health monitoring
         schedule.every(2).minutes.do(self.update_server_health_metrics)
         
+        # ✅ NEW: Schedule WebSocket sensor health monitoring
+        schedule.every(1).minutes.do(self.monitor_websocket_sensors)
+        
         thread = threading.Thread(target=run_scheduled, daemon=True)
         thread.start()
         
-        logger.info("📅 Background tasks started (including Server Health monitoring)")
+        logger.info("📅 Background tasks started (including WebSocket sensor monitoring)")
     
     def cleanup_expired_events(self):
         """Clean up expired events"""
@@ -1425,8 +1493,42 @@ class GustBotEnhanced:
         except Exception as health_error:
             logger.error(f"❌ Error updating server health metrics: {health_error}")
     
+    def monitor_websocket_sensors(self):
+        """✅ NEW: Monitor WebSocket sensor connections and data (background task)"""
+        try:
+            if self.websocket_manager:
+                # Check connection health
+                try:
+                    connections = self.websocket_manager.get_connection_status()
+                    active_sensor_connections = 0
+                    
+                    for server_id, connection_info in connections.items():
+                        if connection_info.get('connected', False):
+                            active_sensor_connections += 1
+                            
+                            # Check if sensor data is fresh
+                            if hasattr(self.websocket_manager, 'get_sensor_data'):
+                                try:
+                                    sensor_data = self.websocket_manager.get_sensor_data(server_id)
+                                    if sensor_data:
+                                        logger.debug(f"📊 Sensor data healthy for server {server_id}")
+                                    else:
+                                        logger.warning(f"⚠️ No sensor data for connected server {server_id}")
+                                except Exception as sensor_error:
+                                    logger.warning(f"⚠️ Sensor data error for server {server_id}: {sensor_error}")
+                    
+                    logger.debug(f"📡 WebSocket sensor monitor: {active_sensor_connections} active connections")
+                    
+                except Exception as monitor_error:
+                    logger.warning(f"⚠️ WebSocket sensor monitor error: {monitor_error}")
+            else:
+                logger.debug("📡 WebSocket sensor monitor: No WebSocket manager available")
+                
+        except Exception as sensor_monitor_error:
+            logger.error(f"❌ Error in WebSocket sensor monitoring: {sensor_monitor_error}")
+    
     def run(self, host=None, port=None, debug=False):
-        """Run the enhanced application (COMPLETE SERVER HEALTH INTEGRATION)"""
+        """Run the enhanced application (WEBSOCKET SENSOR INTEGRATION)"""
         host = host or Config.DEFAULT_HOST
         port = port or Config.DEFAULT_PORT
         
@@ -1439,6 +1541,8 @@ class GustBotEnhanced:
         logger.info(f"📊 Health Monitoring: 75/25 layout with real-time metrics and command feed")
         logger.info(f"✅ CRITICAL FIX: GraphQL endpoint correctly configured (no '/graphql' suffix)")
         logger.info(f"🤖 NEW: Auto command API endpoint added for serverinfo commands")
+        logger.info(f"📡 NEW: WebSocket sensor integration {'ENABLED' if self.websocket_manager else 'DISABLED'}")
+        logger.info(f"🔄 NEW: Real-time sensor monitoring {'ACTIVE' if self.websocket_manager else 'INACTIVE'}")
         
         try:
             self.app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)
