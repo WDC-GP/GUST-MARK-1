@@ -6,6 +6,7 @@
      ✅ FIXED: Enhanced module loading with availability checks
      ✅ FIXED: Better error handling and recovery mechanisms
      ✅ FIXED: Non-blocking queue processing with retry logic
+     ✅ CRITICAL FIX: Removed circular dependency between getStats() and isHealthy()
      ============================================================================ -->
 
 <script>
@@ -249,7 +250,7 @@
         }
         
         /**
-         * ✅ ENHANCED: Better statistics and health monitoring
+         * ✅ CRITICAL FIX: getStats() without calling isHealthy() - PREVENTS INFINITE RECURSION
          */
         getStats() {
             return {
@@ -259,7 +260,7 @@
                 successfulRequests: this.successfulRequests,
                 failedRequests: this.failedRequests,
                 successRate: this.successfulRequests / Math.max(1, this.successfulRequests + this.failedRequests),
-                isHealthy: this.isHealthy(),
+                // ✅ REMOVED: isHealthy: this.isHealthy(), // This was causing infinite recursion
                 queueTimeout: this.queueTimeout,
                 maxConcurrent: this.maxConcurrent,
                 minInterval: this.minInterval,
@@ -268,14 +269,16 @@
         }
         
         /**
-         * ✅ ENHANCED: Health check with better criteria
+         * ✅ CRITICAL FIX: isHealthy() without calling getStats() - PREVENTS INFINITE RECURSION
          */
         isHealthy() {
-            const stats = this.getStats();
-            return stats.queueLength < 20 && 
-                   stats.successRate > 0.6 && 
-                   stats.activeRequests <= this.maxConcurrent &&
-                   !this.hasStaleRequests();
+            // Direct property access - NO METHOD CALLS to avoid recursion
+            const queueLengthOk = this.requestQueue.length < 20;
+            const successRateOk = this.successfulRequests / Math.max(1, this.successfulRequests + this.failedRequests) > 0.6;
+            const activeRequestsOk = this.activeRequests <= this.maxConcurrent;
+            const noStaleRequests = !this.hasStaleRequests();
+            
+            return queueLengthOk && successRateOk && activeRequestsOk && noStaleRequests;
         }
         
         /**
@@ -329,21 +332,27 @@
          * ✅ NEW: Health check and auto-recovery
          */
         performHealthCheck() {
-            const stats = this.getStats();
+            // Get health status without causing recursion
+            const healthy = this.isHealthy();
+            const queueLength = this.requestQueue.length;
+            const successRate = this.successfulRequests / Math.max(1, this.successfulRequests + this.failedRequests);
+            const avgWaitTime = this.calculateAverageWaitTime();
+            const activeRequests = this.activeRequests;
+            
             console.log('🏥 Request Queue Health Check:', {
-                healthy: stats.isHealthy,
-                queueLength: stats.queueLength,
-                successRate: `${(stats.successRate * 100).toFixed(1)}%`,
-                avgWaitTime: `${stats.avgWaitTime}ms`,
-                activeRequests: stats.activeRequests
+                healthy: healthy,
+                queueLength: queueLength,
+                successRate: `${(successRate * 100).toFixed(1)}%`,
+                avgWaitTime: `${avgWaitTime}ms`,
+                activeRequests: activeRequests
             });
             
-            if (!this.isHealthy()) {
+            if (!healthy) {
                 console.warn('⚠️ Queue unhealthy, attempting recovery...');
                 this.performRecovery();
             }
             
-            return this.isHealthy();
+            return healthy;
         }
         
         /**
@@ -374,6 +383,19 @@
                 console.log('🔧 Force-starting queue processing during recovery');
                 this.processQueueAsync();
             }
+        }
+        
+        /**
+         * ✅ NEW: Emergency reset method
+         */
+        forceReset() {
+            console.warn('🚨 Force resetting RequestQueue');
+            this.clearQueue('Force reset');
+            this.activeRequests = 0;
+            this.failedRequests = 0;
+            this.successfulRequests = 0;
+            this.lastRequestTime = 0;
+            console.log('✅ RequestQueue force reset complete');
         }
     }
     
@@ -650,17 +672,27 @@
     }
     
     /**
-     * ✅ DEBUG AND MONITORING FUNCTIONS
+     * ✅ DEBUG AND MONITORING FUNCTIONS - FIXED TO AVOID RECURSION
      */
     function getEnhancementStats() {
+        // Get stats safely without triggering recursion
+        const queueStats = {
+            activeRequests: requestQueue.activeRequests,
+            queueLength: requestQueue.requestQueue.length,
+            successfulRequests: requestQueue.successfulRequests,
+            failedRequests: requestQueue.failedRequests,
+            successRate: requestQueue.successfulRequests / Math.max(1, requestQueue.successfulRequests + requestQueue.failedRequests),
+            avgWaitTime: requestQueue.calculateAverageWaitTime()
+        };
+        
         return {
             config: ENHANCED_CONFIG,
-            requestQueue: requestQueue.getStats(),
+            requestQueue: queueStats,
             currentTab: currentTab,
             timestamp: new Date().toISOString(),
             performance: {
                 queueHealthy: requestQueue.isHealthy(),
-                avgWaitTime: requestQueue.calculateAverageWaitTime(),
+                avgWaitTime: queueStats.avgWaitTime,
                 hasStaleRequests: requestQueue.hasStaleRequests()
             }
         };
@@ -680,7 +712,7 @@
         console.log(`Queue timeout: ${ENHANCED_CONFIG.REQUEST_THROTTLING.queueTimeout/1000}s (FIXED from 90s)`);
         
         console.log('Request Queue Stats:');
-        console.log(`  - Active: ${stats.requestQueue.activeRequests}/${stats.requestQueue.maxConcurrent}`);
+        console.log(`  - Active: ${stats.requestQueue.activeRequests}/${ENHANCED_CONFIG.REQUEST_THROTTLING.maxConcurrent}`);
         console.log(`  - Queued: ${stats.requestQueue.queueLength}`);
         console.log(`  - Success Rate: ${(stats.requestQueue.successRate * 100).toFixed(1)}%`);
         console.log(`  - Avg Wait: ${stats.requestQueue.avgWaitTime}ms`);
@@ -696,6 +728,7 @@
         console.log('  - ✅ FIXED: Retry logic with exponential backoff');
         console.log('  - ✅ FIXED: Better health monitoring');
         console.log('  - ✅ FIXED: Auto-recovery procedures');
+        console.log('  - ✅ CRITICAL: Eliminated infinite recursion');
         
         if (!stats.performance.queueHealthy) {
             console.warn('⚠️ Request queue unhealthy - running recovery...');
@@ -722,6 +755,12 @@
     window.getEnhancementStats = getEnhancementStats;
     window.debugEnhancements = debugEnhancements;
     window.ENHANCED_CONFIG = ENHANCED_CONFIG;
+    
+    // ✅ NEW: Emergency functions
+    window.fixRequestQueue = () => {
+        requestQueue.forceReset();
+        console.log('✅ RequestQueue manually reset');
+    };
     
     // Global variables
     window.currentTab = currentTab;
@@ -761,21 +800,33 @@
             }
         });
         
-        // ✅ ENHANCED: Health monitoring with auto-recovery
+        // ✅ ENHANCED: Health monitoring with auto-recovery - SAFE FROM RECURSION
         setInterval(() => {
-            if (!requestQueue.performHealthCheck()) {
-                console.warn('⚠️ Request queue health check failed, recovery attempted');
+            try {
+                if (!requestQueue.performHealthCheck()) {
+                    console.warn('⚠️ Request queue health check failed, recovery attempted');
+                }
+            } catch (error) {
+                console.error('❌ Health check error:', error);
+                // Emergency reset if health check fails
+                requestQueue.forceReset();
             }
         }, 60000); // Check every minute
         
-        // ✅ NEW: Performance monitoring
+        // ✅ NEW: Performance monitoring - SAFE FROM RECURSION
         setInterval(() => {
-            const stats = requestQueue.getStats();
-            if (stats.queueLength > 10) {
-                console.warn(`⚠️ Request queue getting long: ${stats.queueLength} items`);
-            }
-            if (stats.avgWaitTime > 10000) {
-                console.warn(`⚠️ High average wait time: ${stats.avgWaitTime}ms`);
+            try {
+                const queueLength = requestQueue.requestQueue.length;
+                const avgWaitTime = requestQueue.calculateAverageWaitTime();
+                
+                if (queueLength > 10) {
+                    console.warn(`⚠️ Request queue getting long: ${queueLength} items`);
+                }
+                if (avgWaitTime > 10000) {
+                    console.warn(`⚠️ High average wait time: ${avgWaitTime}ms`);
+                }
+            } catch (error) {
+                console.error('❌ Performance monitoring error:', error);
             }
         }, 30000); // Check every 30 seconds
         
@@ -786,6 +837,7 @@
         console.log('  - Retry logic with exponential backoff');
         console.log('  - Auto health monitoring and recovery');
         console.log('  - Enhanced error handling and logging');
+        console.log('  - ✅ CRITICAL: Eliminated infinite recursion bug');
         
         // Show debug info after 3 seconds
         setTimeout(() => {
@@ -793,6 +845,7 @@
         }, 3000);
         
         console.log('🎯 Expected result: No more "Request queue timeout after 90s" errors');
+        console.log('🎯 Expected result: No more "Maximum call stack size exceeded" errors');
     });
     
     console.log('✅ Enhanced Main.js Loaded with Request Queue Fixes');
