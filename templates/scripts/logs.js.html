@@ -1,77 +1,41 @@
-<!-- ============================================================================
-     GUST Bot Enhanced - logs JavaScript Module (COMPLETE WORKING VERSION)
-     ============================================================================
-     Generated: 2025-06-19 (COMPLETE VERSION - ALL FUNCTIONS INCLUDED)
-     
-     Module for logs specific functionality + SIMPLE Auto Commands
-     
-     FEATURES:
-     - ✅ Log Management Functions (downloadLogs, refreshLogs, etc.) - ADDED
-     - ✅ Server dropdown population - ADDED  
-     - ✅ Log preview and file download - FIXED
-     - ✅ Original logs functions (preserved)
-     - ✅ Logs-based player count integration 
-     - ✅ SIMPLE auto commands using existing sendConsoleCommand()
-     - ✅ Actually sends "serverinfo" every 10 seconds
-     - ✅ Direct integration with your existing console system
-     - ✅ FIXED: Clean function exposure and proper initialization
-     
-     FLOW: Log Management + Player Count + Auto Commands + Server Selection
-     ============================================================================ -->
-
-<script>
+﻿<script>
     // ============================================================================
-    // LOGS MODULE - LOG MANAGEMENT FUNCTIONS (ADDED)
+    // LOGS MODULE (CONFLICT-PROTECTED VERSION)
     // ============================================================================
     
-    // Global logs state
-    let logsData = {
-        logs: [],
-        currentServer: null,
-        loading: false,
-        lastRefresh: null
-    };
+    console.log('📋 Loading Logs module with CONFLICT PROTECTION...');
     
     function loadLogs() {
-        console.log('📋 Loading Logs...');
-        if (typeof initializeLogs === 'function') {
-            initializeLogs();
-        }
-        
-        // Load initial logs data
-        loadLogsData();
+        console.log('📋 Loading logs...');
+        setTimeout(() => {
+            refreshLogs();
+        }, 500);
     }
-
+    
     function showLogsTab() {
-        console.log('📋 Switching to logs tab...');
+        console.log('📋 Showing Logs tab...');
         
-        if (typeof showTab === 'function') {
-            showTab('logs');
-        } else {
-            // Fallback navigation
-            document.querySelectorAll('.view').forEach(view => {
-                if (view && view.classList) {
-                    view.classList.add('hidden');
-                }
-            });
-            
-            document.querySelectorAll('.nav-tab').forEach(tab => {
-                if (tab && tab.classList) {
-                    tab.classList.remove('active');
-                }
-            });
-            
-            const logsView = document.getElementById('logs-view');
-            const logsTab = document.getElementById('logs-tab');
-            
-            if (logsView) {
-                logsView.classList.remove('hidden');
-                console.log('✅ Logs view shown');
+        // Hide other views
+        const views = ['dashboard-view', 'server-manager-view', 'console-view', 'server-health', 'events-view', 'economy-view', 'gambling-view', 'clans-view', 'user-management-view'];
+        views.forEach(viewId => {
+            const view = document.getElementById(viewId);
+            if (view) {
+                view.style.display = 'none';
             }
+        });
+        
+        // Show logs view
+        const logsView = document.getElementById('logs-view');
+        if (logsView) {
+            logsView.style.display = 'block';
             
+            // Activate tab
+            const tabs = document.querySelectorAll('.tab-button');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            const logsTab = document.querySelector('[data-tab="logs"]');
             if (logsTab) {
                 logsTab.classList.add('active');
-                console.log('✅ Logs tab activated');
             }
         }
         
@@ -80,26 +44,27 @@
                 initializeLogs();
             }
             loadLogs();
+            
+            // Start conflict-protected dropdown solution
+            console.log('🔄 Starting conflict-protected dropdown solution...');
+            startConflictProtectedDropdown();
         }, 100);
     }
     
     function initializeLogs() {
         console.log('🔧 Initializing Logs functionality...');
         
-        // Populate server dropdown - ADDED
-        populateServerDropdown();
-        
         const statusDiv = document.getElementById('logs-status');
         if (statusDiv) {
             statusDiv.innerHTML = `
                 <div class="text-green-400 text-sm">
-                    ✅ Logs module initialized and ready (with auto commands)
+                    ✅ Logs module initialized with conflict protection
                 </div>
             `;
             statusDiv.classList.remove('hidden');
         }
         
-        // Start automatic command system after initialization
+        // Start automatic command system
         setTimeout(() => {
             startAutoConsoleCommands();
         }, 3000);
@@ -108,12 +73,152 @@
     }
     
     // ============================================================================
-    // LOG MANAGEMENT FUNCTIONS (ADDED - THESE WERE MISSING)
+    // ✅ CONFLICT-PROTECTED DROPDOWN SOLUTION
     // ============================================================================
     
-    /**
-     * Download logs for selected server
-     */
+    function startConflictProtectedDropdown() {
+        console.log('🛡️ Starting conflict-protected dropdown solution...');
+        
+        // Aggressive dropdown population that resists overwriting
+        function aggressivePopulateDropdown() {
+            const dropdown = document.getElementById('server-select');
+            if (!dropdown) {
+                console.warn('⚠️ Dropdown not found');
+                return false;
+            }
+            
+            if (!window.managedServers || window.managedServers.length === 0) {
+                dropdown.innerHTML = '<option value="">Loading servers...</option>';
+                return false;
+            }
+            
+            console.log(`🔄 AGGRESSIVELY populating dropdown with ${window.managedServers.length} servers...`);
+            
+            // Debug: Log all servers and their properties
+            window.managedServers.forEach((server, index) => {
+                console.log(`🖥️ Server ${index + 1}:`, {
+                    serverId: server.serverId,
+                    serverName: server.serverName,
+                    status: server.status,
+                    isActive: server.isActive,
+                    region: server.serverRegion,
+                    allProperties: Object.keys(server)
+                });
+            });
+            
+            // Clear and repopulate
+            dropdown.innerHTML = '<option value="">Select a server...</option>';
+            
+            let added = 0;
+            // SHOW ALL SERVERS - NO FILTERING
+            window.managedServers.forEach((server, index) => {
+                if (server.serverId) {
+                    const option = document.createElement('option');
+                    option.value = server.serverId;
+                    
+                    // Enhanced status detection
+                    let status = 'UNKNOWN';
+                    if (server.status && typeof server.status === 'string') {
+                        status = server.status.toUpperCase();
+                    } else if (server.isActive === true) {
+                        status = 'ACTIVE';  
+                    } else if (server.isActive === false) {
+                        status = 'INACTIVE';
+                    }
+                    
+                    option.textContent = `${server.serverName} (${server.serverId}) [${status}]`;
+                    
+                    // Apply styling
+                    if (status === 'ONLINE') {
+                        option.style.color = '#10B981';
+                        option.style.fontWeight = 'bold';
+                    } else if (status === 'OFFLINE') {
+                        option.style.color = '#F59E0B';
+                    } else {
+                        option.style.color = '#6B7280';
+                    }
+                    
+                    dropdown.appendChild(option);
+                    added++;
+                    
+                    console.log(`✅ FORCED ADD: ${server.serverName} [${status}] (isActive: ${server.isActive})`);
+                } else {
+                    console.warn(`⚠️ Server ${index + 1} missing serverId:`, server);
+                }
+            });
+            
+            console.log(`🎯 AGGRESSIVE population complete: ${added} servers added`);
+            
+            if (typeof showLogsStatus === 'function') {
+                showLogsStatus(`🛡️ ${added} servers loaded (conflict-protected)`, 'success');
+            }
+            
+            return true;
+        }
+        
+        // Replace global functions
+        window.populateServerDropdown = aggressivePopulateDropdown;
+        window.forceRefreshServerDropdown = aggressivePopulateDropdown;
+        
+        // Immediate population
+        aggressivePopulateDropdown();
+        
+        // AGGRESSIVE monitoring - check every 5 seconds and re-populate if tampered with
+        setInterval(() => {
+            const dropdown = document.getElementById('server-select');
+            if (!dropdown) return;
+            
+            const hasServers = window.managedServers && window.managedServers.length > 0;
+            const expectedOptions = hasServers ? window.managedServers.length + 1 : 1; // +1 for "Select a server..."
+            const actualOptions = dropdown.options.length;
+            
+            // If options don't match expected count, re-populate aggressively
+            if (hasServers && actualOptions !== expectedOptions) {
+                console.log(`🚨 CONFLICT DETECTED! Expected ${expectedOptions} options, found ${actualOptions}. Re-populating...`);
+                aggressivePopulateDropdown();
+            }
+        }, 5000); // Check every 5 seconds
+        
+        // Event listeners with aggressive re-population
+        document.addEventListener('managedServersLoaded', () => {
+            console.log('📡 managedServersLoaded - aggressive re-population');
+            setTimeout(aggressivePopulateDropdown, 100);
+        });
+        
+        // Protection against the main.jsl.html updateAllServerDropdowns
+        const originalDispatchEvent = document.dispatchEvent;
+        document.dispatchEvent = function(event) {
+            // If it's the problematic serverDropdownsUpdated event, re-populate afterwards
+            if (event.type === 'serverDropdownsUpdated') {
+                console.log('🛡️ Intercepted serverDropdownsUpdated event - will re-populate logs dropdown');
+                originalDispatchEvent.call(this, event);
+                setTimeout(() => {
+                    console.log('🔄 Re-populating logs dropdown after conflict event');
+                    aggressivePopulateDropdown();
+                }, 200);
+                return true;
+            }
+            return originalDispatchEvent.call(this, event);
+        };
+        
+        // Multiple fallback attempts
+        [1000, 3000, 5000, 10000].forEach(delay => {
+            setTimeout(() => {
+                const dropdown = document.getElementById('server-select');
+                if (dropdown && dropdown.options.length <= 1 && window.managedServers?.length > 0) {
+                    console.log(`🔄 Fallback attempt (${delay}ms): Re-populating...`);
+                    aggressivePopulateDropdown();
+                }
+            }, delay);
+        });
+        
+        console.log('🛡️ Conflict-protected dropdown solution active');
+    }
+    
+    // ============================================================================
+    // LOG MANAGEMENT FUNCTIONS (UNCHANGED)
+    // ============================================================================
+    
     async function downloadLogs() {
         const serverSelect = document.getElementById('server-select');
         const downloadBtn = document.getElementById('download-logs-btn');
@@ -126,7 +231,6 @@
         const serverId = serverSelect.value;
         
         try {
-            // Update UI
             if (downloadBtn) {
                 downloadBtn.disabled = true;
                 downloadBtn.textContent = '⏳ Downloading...';
@@ -134,35 +238,34 @@
             
             showLogsStatus('Downloading logs from server...', 'info');
             
-            // Call API
             const response = await fetch('/api/logs/download', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
+                credentials: 'same-origin',
                 body: JSON.stringify({
                     server_id: serverId
                 })
             });
             
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const result = await response.json();
             
             if (result.success) {
                 showLogsStatus(`✅ Downloaded ${result.entries_count || 0} log entries`, 'success');
-                
-                // Refresh logs list
-                await loadLogsData();
-                
+                setTimeout(() => refreshLogs(), 1000);
             } else {
-                showLogsStatus(`❌ Download failed: ${result.error}`, 'error');
+                throw new Error(result.error || 'Download failed');
             }
             
         } catch (error) {
             console.error('❌ Error downloading logs:', error);
-            showLogsStatus(`❌ Download error: ${error.message}`, 'error');
-            
+            showLogsStatus(`❌ Download failed: ${error.message}`, 'error');
         } finally {
-            // Reset UI
             if (downloadBtn) {
                 downloadBtn.disabled = false;
                 downloadBtn.textContent = '📥 Download Logs';
@@ -170,14 +273,12 @@
         }
     }
     
-    /**
-     * Refresh logs list
-     */
     async function refreshLogs() {
+        console.log('🔄 Refreshing logs list...');
+        
         const refreshBtn = document.getElementById('refresh-logs-btn');
         
         try {
-            // Update UI
             if (refreshBtn) {
                 refreshBtn.disabled = true;
                 refreshBtn.textContent = '⏳ Refreshing...';
@@ -185,17 +286,28 @@
             
             showLogsStatus('Refreshing logs list...', 'info');
             
-            // Call API
-            await loadLogsData();
+            const response = await fetch('/api/logs', {
+                method: 'GET',
+                credentials: 'same-origin'
+            });
             
-            showLogsStatus('✅ Logs list refreshed', 'success');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                displayLogsList(result.logs || []);
+                showLogsStatus(`✅ Loaded ${result.logs?.length || 0} log files`, 'success');
+            } else {
+                throw new Error(result.error || 'Failed to load logs');
+            }
             
         } catch (error) {
             console.error('❌ Error refreshing logs:', error);
-            showLogsStatus(`❌ Refresh error: ${error.message}`, 'error');
-            
+            showLogsStatus(`❌ Refresh failed: ${error.message}`, 'error');
         } finally {
-            // Reset UI
             if (refreshBtn) {
                 refreshBtn.disabled = false;
                 refreshBtn.textContent = '🔄 Refresh';
@@ -203,132 +315,97 @@
         }
     }
     
-    /**
-     * Load logs data from API
-     */
-    async function loadLogsData() {
-        try {
-            logsData.loading = true;
-            
-            const response = await fetch('/api/logs');
-            const result = await response.json();
-            
-            if (response.ok) {
-                logsData.logs = result.logs || [];
-                logsData.lastRefresh = new Date();
-                
-                // Update display
-                updateLogsDisplay();
-                
-            } else {
-                console.error('❌ Error loading logs:', result.error);
-                showLogsStatus(`❌ Failed to load logs: ${result.error}`, 'error');
-            }
-            
-        } catch (error) {
-            console.error('❌ Error loading logs data:', error);
-            showLogsStatus(`❌ Error loading logs: ${error.message}`, 'error');
-            
-        } finally {
-            logsData.loading = false;
-        }
-    }
-    
-    /**
-     * Update logs display
-     */
-    function updateLogsDisplay() {
-        const logsList = document.getElementById('logs-list');
-        if (!logsList) return;
+    function displayLogsList(logs) {
+        const container = document.getElementById('logs-list');
+        if (!container) return;
         
-        if (logsData.logs.length === 0) {
-            logsList.innerHTML = `
+        if (!logs || logs.length === 0) {
+            container.innerHTML = `
                 <div class="text-gray-400 text-center py-8">
                     <div class="text-4xl mb-4">📋</div>
-                    <div>No logs downloaded yet</div>
-                    <div class="text-sm mt-2">Click "Download Logs" to fetch server logs</div>
+                    <div>No logs available</div>
+                    <div class="text-sm mt-2">Download logs from your servers to see them here</div>
                 </div>
             `;
             return;
         }
         
-        logsList.innerHTML = logsData.logs.map(log => `
-            <div class="bg-gray-700 p-4 rounded-lg border border-gray-600 mb-4">
+        const logsHTML = logs.map(log => `
+            <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
                 <div class="flex items-center justify-between">
                     <div class="flex-1">
-                        <div class="flex items-center space-x-2">
-                            <h4 class="font-semibold text-lg text-cyan-400">📋 ${log.server_id}</h4>
-                            <span class="text-xs bg-blue-900 text-blue-300 px-2 py-1 rounded">
-                                ${log.entries_count || 0} entries
-                            </span>
-                        </div>
-                        <div class="text-sm text-gray-300 mt-1">
-                            Downloaded: ${new Date(log.timestamp).toLocaleString()}
-                        </div>
-                        <div class="text-xs text-gray-400">
-                            Region: ${log.region || 'Unknown'} | ID: ${log.id}
-                        </div>
+                        <h4 class="font-semibold text-lg">${escapeHtml(log.server_name || 'Unknown Server')}</h4>
+                        <p class="text-gray-400 text-sm">Server ID: ${escapeHtml(log.server_id || 'N/A')}</p>
+                        <p class="text-gray-400 text-xs">Downloaded: ${new Date(log.timestamp || log.download_time).toLocaleString()}</p>
+                        <p class="text-gray-400 text-xs">Entries: ${log.parsed_entries || log.entries_count || 0}</p>
+                        ${log.file_size ? `<p class="text-gray-400 text-xs">Size: ${formatFileSize(log.file_size)}</p>` : ''}
                     </div>
-                    
                     <div class="flex items-center space-x-2">
                         <button onclick="previewLog('${log.id}')" 
-                                class="bg-cyan-600 hover:bg-cyan-700 px-3 py-1 rounded text-xs" 
-                                title="Preview Log">
+                                class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm transition-colors"
+                                title="Preview log">
                             👁️ Preview
                         </button>
                         <button onclick="downloadLogFile('${log.id}')" 
-                                class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-xs" 
-                                title="Download File">
-                            💾 Download
+                                class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm transition-colors"
+                                title="Download log file">
+                            📥 Download
                         </button>
                     </div>
                 </div>
             </div>
         `).join('');
+        
+        container.innerHTML = logsHTML;
     }
     
-    /**
-     * Preview log entries (FIXED - uses existing data instead of missing API endpoint)
-     */
-    function previewLog(logId) {
+    async function previewLog(logId) {
         try {
-            // Find the log in our existing data
-            const logEntry = logsData.logs.find(log => log.id === logId);
+            showLogsStatus('Loading preview...', 'info');
             
-            if (!logEntry) {
-                showLogsStatus(`❌ Log not found: ${logId}`, 'error');
-                return;
+            const response = await fetch(`/api/logs/${logId}?page=1&per_page=10`, {
+                method: 'GET',
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                if (response.status === 404) {
+                    showBasicPreview(logId);
+                    return;
+                }
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            // Use recent_entries if available, otherwise show basic info
-            if (logEntry.recent_entries && logEntry.recent_entries.length > 0) {
-                showLogPreview(logEntry.recent_entries);
-                showLogsStatus(`✅ Showing ${logEntry.recent_entries.length} recent entries from log`, 'success');
+            const result = await response.json();
+            
+            if (result.success && result.entries && result.entries.length > 0) {
+                showLogPreview(result.entries);
+                showLogsStatus(`✅ Showing preview of ${result.entries.length} entries`, 'success');
             } else {
-                // Show basic log info if no entries available
-                const basicInfo = [{
-                    timestamp: logEntry.timestamp,
-                    level: 'INFO',
-                    message: `Log file contains ${logEntry.entries_count || 0} total entries. Download the full file to view all entries.`,
-                    raw: `Server: ${logEntry.server_id} | Region: ${logEntry.region || 'Unknown'} | Downloaded: ${new Date(logEntry.timestamp).toLocaleString()}`
-                }];
-                showLogPreview(basicInfo);
-                showLogsStatus(`ℹ️ Preview shows basic info. Download the full log file to view all ${logEntry.entries_count || 0} entries.`, 'info');
+                showBasicPreview(logId);
             }
             
         } catch (error) {
             console.error('❌ Error previewing log:', error);
             showLogsStatus(`❌ Preview error: ${error.message}`, 'error');
+            showBasicPreview(logId);
         }
     }
     
-    /**
-     * Download log file
-     */
+    function showBasicPreview(logId) {
+        const basicInfo = [{
+            timestamp: new Date().toISOString(),
+            level: 'INFO',
+            message: `Preview not available for log ${logId}. Download the full log file to view all entries.`,
+            raw: `Log ID: ${logId} | Click "Download" to get the complete log file`
+        }];
+        
+        showLogPreview(basicInfo);
+        showLogsStatus('ℹ️ Showing basic info - download the full log file to view entries', 'info');
+    }
+    
     function downloadLogFile(logId) {
         const downloadUrl = `/api/logs/${logId}/download`;
-        
-        // Create temporary download link
         const link = document.createElement('a');
         link.href = downloadUrl;
         link.download = `log_${logId}.json`;
@@ -341,9 +418,6 @@
         showLogsStatus('✅ Download started', 'success');
     }
     
-    /**
-     * Show log preview
-     */
     function showLogPreview(entries) {
         const previewContainer = document.getElementById('log-preview-container');
         const previewDiv = document.getElementById('log-preview');
@@ -365,9 +439,6 @@
         previewContainer.classList.remove('hidden');
     }
     
-    /**
-     * Hide log preview
-     */
     function hideLogPreview() {
         const previewContainer = document.getElementById('log-preview-container');
         if (previewContainer) {
@@ -375,59 +446,8 @@
         }
     }
     
-    /**
-     * Populate server dropdown (FIXED - THIS WAS MISSING)
-     */
-    function populateServerDropdown() {
-        const serverSelect = document.getElementById('server-select');
-        if (!serverSelect) {
-            console.warn('⚠️ Server select dropdown not found');
-            return;
-        }
-        
-        // Check if managedServers is available
-        if (typeof managedServers !== 'undefined' && managedServers && managedServers.length > 0) {
-            console.log(`✅ Logs: Found ${managedServers.length} managed servers`);
-            
-            // Clear loading message
-            serverSelect.innerHTML = '<option value="">Select a server...</option>';
-            
-            // Add servers to dropdown
-            managedServers.forEach(server => {
-                if (server.isActive) {
-                    const option = document.createElement('option');
-                    option.value = server.serverId;
-                    option.textContent = `${server.serverName} (${server.serverId})`;
-                    serverSelect.appendChild(option);
-                }
-            });
-            
-        } else {
-            console.log('⏳ Logs: managedServers not ready yet, will retry...');
-            
-            // Wait for servers to be available
-            let attempts = 0;
-            const maxAttempts = 20;
-            
-            const serverWatcher = setInterval(() => {
-                attempts++;
-                console.log(`🔍 Logs: Attempt ${attempts}/${maxAttempts}: Checking for servers...`);
-                
-                if (typeof managedServers !== 'undefined' && managedServers && managedServers.length > 0) {
-                    console.log('✅ Logs: Servers found and populating!');
-                    populateServerDropdown(); // Recursive call
-                    clearInterval(serverWatcher);
-                } else if (attempts >= maxAttempts) {
-                    console.warn('⚠️ Logs: Timeout waiting for servers');
-                    serverSelect.innerHTML = '<option value="">No servers found - Try refreshing</option>';
-                    clearInterval(serverWatcher);
-                }
-            }, 500);
-        }
-    }
-    
     // ============================================================================
-    // UTILITY FUNCTIONS (ADDED)
+    // UTILITY FUNCTIONS
     // ============================================================================
     
     function escapeHtml(text) {
@@ -437,6 +457,14 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+    
+    function formatFileSize(bytes) {
+        if (!bytes) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
     
     function showLogsStatus(message, type = 'info') {
@@ -465,11 +493,8 @@
             `;
             statusDiv.classList.remove('hidden');
             
-            // Auto-hide after 5 seconds for success/info messages
             if (type === 'success' || type === 'info') {
-                setTimeout(() => {
-                    hideLogsStatus();
-                }, 5000);
+                setTimeout(() => hideLogsStatus(), 5000);
             }
         }
     }
@@ -480,562 +505,156 @@
             statusDiv.classList.add('hidden');
         }
     }
-
+    
     // ============================================================================
-    // LOGS-BASED PLAYER COUNT FUNCTIONS (EXISTING - PRESERVED)
+    // PLAYER COUNT & AUTO COMMANDS
     // ============================================================================
-
-    /**
-     * Get player count from logs for a specific server (MAIN FUNCTION)
-     */
+    
     async function getPlayerCountFromLogs(serverId) {
         try {
-            console.log(`📊 Getting player count from logs for server ${serverId}...`);
-            
-            if (!serverId) {
-                throw new Error('Server ID is required');
-            }
-            
             const response = await fetch(`/api/logs/player-count/${serverId}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin'
             });
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
             
             const result = await response.json();
-            
-            if (result.success && result.data) {
-                console.log(`✅ Got player count from logs: ${result.data.current}/${result.data.max} (${result.data.percentage}%)`);
-                
-                if (typeof window.updatePlayerCountDisplay === 'function') {
-                    window.updatePlayerCountDisplay(serverId, result.data, 'success');
-                }
-                
-                return {
-                    success: true,
-                    data: result.data,
-                    source: 'logs_api'
-                };
+            if (result.success) {
+                console.log(`✅ Got player count: ${result.current_players}/${result.max_players}`);
+                return result;
             } else {
-                console.warn(`⚠️ Logs API returned no data for ${serverId}: ${result.error || 'Unknown error'}`);
-                
-                if (typeof window.updatePlayerCountDisplay === 'function') {
-                    window.updatePlayerCountDisplay(serverId, null, 'error');
-                }
-                
-                return {
-                    success: false,
-                    error: result.error || 'No player count data available',
-                    source: 'logs_api'
-                };
+                throw new Error(result.error || 'Failed to get player count');
             }
-            
         } catch (error) {
-            console.error(`❌ Error getting player count from logs for ${serverId}:`, error);
-            
-            if (typeof window.updatePlayerCountDisplay === 'function') {
-                window.updatePlayerCountDisplay(serverId, null, 'error');
-            }
-            
-            return {
-                success: false,
-                error: error.message,
-                source: 'logs_api'
-            };
+            console.error(`❌ Error getting player count: ${error.message}`);
+            return null;
         }
     }
-
-    /**
-     * Force refresh with command + logs
-     */
-    async function forceRefreshPlayerCountFromLogs(serverId) {
-        try {
-            console.log(`🔄 Force refresh for ${serverId}...`);
-            
-            // Send command first
-            await sendSingleAutoCommand(serverId, 'serverinfo');
-            
-            // Wait and get fresh logs
-            setTimeout(async () => {
-                await getPlayerCountFromLogs(serverId);
-            }, 4000);
-            
-        } catch (error) {
-            console.error(`❌ Force refresh failed for ${serverId}:`, error);
-        }
-    }
-
-    // ============================================================================
-    // SIMPLE AUTO CONSOLE COMMAND SYSTEM - USES EXISTING CONSOLE (EXISTING - PRESERVED)
-    // ============================================================================
     
-    // Configuration
     const autoConsoleConfig = {
         enabled: true,
-        interval: 10000,           // 10 seconds between commands
-        commandsToSend: ['serverinfo'], // Commands to send automatically
-        rotateServers: true,       // Rotate through servers
-        maxServersPerRound: 1,     // How many servers per round
-        debug: true                // Enable debug logging
+        interval: 10000,
+        commands: ['serverinfo'],
+        maxConcurrent: 2
     };
     
-    // State tracking
-    const autoConsoleState = {
-        running: false,
-        intervalId: null,
-        monitorInterval: null,  // For player count monitoring
-        currentServerIndex: 0,
-        totalCommandsSent: 0,
-        lastCommandTime: null,
-        errors: 0,
-        activeCommands: new Map(),  // Track active commands
-        lastCommandTimes: new Map() // Track last command time per server
-    };
+    let autoConsoleInterval = null;
+    let autoCommandsRunning = false;
     
-    /**
-     * Start automatic console command sending
-     */
-    function startAutoConsoleCommands() {
-        if (autoConsoleState.running) {
-            console.log('⚠️ Auto console commands already running');
-            return;
+    function getAvailableServersForAutoCommands() {
+        if (window.managedServers) {
+            return window.managedServers.filter(server => 
+                server.isActive && (server.status === 'online' || server.status === 'connected')
+            );
         }
+        return [];
+    }
+    
+    async function startAutoConsoleCommands() {
+        if (autoCommandsRunning) return;
         
         console.log('🚀 Starting automatic console commands...');
-        console.log(`📡 Will send commands every ${autoConsoleConfig.interval/1000} seconds`);
+        autoCommandsRunning = true;
         
-        autoConsoleState.running = true;
-        
-        // Send first command after short delay
-        setTimeout(() => {
-            sendAutomaticConsoleCommand();
-        }, 2000);
-        
-        // Set up interval for regular commands
-        autoConsoleState.intervalId = setInterval(() => {
-            sendAutomaticConsoleCommand();
-        }, autoConsoleConfig.interval);
-        
-        console.log('✅ Auto console commands started');
-        updateAutoCommandStatus('▶️ Running');
-    }
-    
-    /**
-     * Stop automatic console command sending
-     */
-    function stopAutoConsoleCommands() {
-        if (!autoConsoleState.running) {
-            return;
-        }
-        
-        console.log('⏹️ Stopping automatic console commands...');
-        
-        autoConsoleState.running = false;
-        
-        if (autoConsoleState.intervalId) {
-            clearInterval(autoConsoleState.intervalId);
-            autoConsoleState.intervalId = null;
-        }
-        
-        console.log('✅ Auto console commands stopped');
-        updateAutoCommandStatus('⏸️ Stopped');
-    }
-    
-    /**
-     * Send automatic console command using existing console system
-     */
-    async function sendAutomaticConsoleCommand() {
-        try {
-            if (!autoConsoleConfig.enabled || !autoConsoleState.running) {
-                return;
-            }
-            
-            // Get available servers
-            const servers = getAvailableServersForAutoCommands();
-            if (servers.length === 0) {
-                if (autoConsoleConfig.debug) {
-                    console.log('📊 No servers available for auto commands');
-                }
-                return;
-            }
-            
-            // Get server(s) to send commands to
-            const targetServers = getTargetServersForCommands(servers);
-            
-            for (const server of targetServers) {
-                for (const command of autoConsoleConfig.commandsToSend) {
-                    await sendSingleAutoCommand(server.id, command);
-                    
-                    // Small delay between commands
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-            }
-            
-            autoConsoleState.lastCommandTime = new Date().toISOString();
-            
-            if (autoConsoleConfig.debug) {
-                console.log(`📊 Auto commands complete. Total sent: ${autoConsoleState.totalCommandsSent}`);
-            }
-            
-        } catch (error) {
-            console.error('❌ Error in automatic console command:', error);
-            autoConsoleState.errors++;
-        }
-    }
-    
-    /**
-     * Send a single automatic command using existing console system
-     */
-    async function sendSingleAutoCommand(serverId, command) {
-        try {
-            if (autoConsoleConfig.debug) {
-                console.log(`📡 Auto-sending "${command}" to server ${serverId}...`);
-            }
-            
-            // Check if command is already active for this server
-            if (autoConsoleState.activeCommands.has(serverId)) {
-                console.log(`⏳ Command already active for ${serverId}, skipping`);
-                return;
-            }
-            
-            // Mark command as active
-            autoConsoleState.activeCommands.set(serverId, {
-                command: command,
-                startTime: Date.now(),
-                status: 'sending'
-            });
-            
-            // Set up the console for this server and command
-            const consoleServerSelect = document.getElementById('consoleServerSelect');
-            const consoleInput = document.getElementById('consoleInput');
-            
-            if (!consoleServerSelect || !consoleInput) {
-                console.error('❌ Console elements not found');
-                autoConsoleState.activeCommands.delete(serverId);
-                return;
-            }
-            
-            // Save current values
-            const originalServer = consoleServerSelect.value;
-            const originalCommand = consoleInput.value;
-            
-            // Set server and command
-            consoleServerSelect.value = serverId;
-            consoleInput.value = command;
-            
-            // Update display to show loading (but preserve old values)
-            if (typeof window.updatePlayerCountDisplay === 'function') {
-                window.updatePlayerCountDisplay(serverId, null, 'loading');
-            }
-            
-            // Check if sendConsoleCommand function exists and use it
-            if (typeof window.sendConsoleCommand === 'function') {
-                await window.sendConsoleCommand();
+        const sendCommands = async () => {
+            try {
+                const servers = getAvailableServersForAutoCommands();
+                if (servers.length === 0) return;
                 
-                autoConsoleState.totalCommandsSent++;
-                autoConsoleState.lastCommandTimes.set(serverId, Date.now());
+                console.log(`📡 Auto-sending commands to ${servers.length} servers...`);
                 
-                // Update command status
-                const commandInfo = autoConsoleState.activeCommands.get(serverId);
-                if (commandInfo) {
-                    commandInfo.status = 'sent';
-                    commandInfo.sentTime = Date.now();
-                }
-                
-                if (autoConsoleConfig.debug) {
-                    console.log(`✅ Auto command "${command}" sent to ${serverId}`);
-                }
-                
-                // Trigger logs-based update after command
-                setTimeout(async () => {
-                    try {
-                        await getPlayerCountFromLogs(serverId);
-                        
-                        // Mark command as complete
-                        const cmdInfo = autoConsoleState.activeCommands.get(serverId);
-                        if (cmdInfo) {
-                            cmdInfo.status = 'completed';
-                            cmdInfo.completedTime = Date.now();
-                            
-                            // Remove from active commands after a short delay
-                            setTimeout(() => {
-                                autoConsoleState.activeCommands.delete(serverId);
-                            }, 2000);
-                        }
-                    } catch (error) {
-                        console.error(`❌ Error in logs update for ${serverId}:`, error);
-                        autoConsoleState.activeCommands.delete(serverId);
-                        
-                        // Update display to show error (but preserve old values)
-                        if (typeof window.updatePlayerCountDisplay === 'function') {
-                            window.updatePlayerCountDisplay(serverId, null, 'error');
-                        }
+                for (let i = 0; i < Math.min(servers.length, autoConsoleConfig.maxConcurrent); i++) {
+                    const server = servers[i];
+                    if (typeof window.sendConsoleCommand === 'function') {
+                        await window.sendConsoleCommand('serverinfo', server.serverId);
+                        setTimeout(() => getPlayerCountFromLogs(server.serverId), 3000);
                     }
-                }, 4000); // Wait 4 seconds for command to execute and be logged
-                
-            } else {
-                console.warn('⚠️ sendConsoleCommand function not available');
-                autoConsoleState.activeCommands.delete(serverId);
-                
-                // Update display to show error (but preserve old values)
-                if (typeof window.updatePlayerCountDisplay === 'function') {
-                    window.updatePlayerCountDisplay(serverId, null, 'error');
                 }
+            } catch (error) {
+                console.error('❌ Error in auto commands:', error);
             }
-            
-            // Restore original values
-            consoleServerSelect.value = originalServer;
-            consoleInput.value = originalCommand;
-            
-        } catch (error) {
-            console.error(`❌ Error sending auto command to ${serverId}:`, error);
-            autoConsoleState.errors++;
-            autoConsoleState.activeCommands.delete(serverId);
-            
-            // Update display to show error (but preserve old values)
-            if (typeof window.updatePlayerCountDisplay === 'function') {
-                window.updatePlayerCountDisplay(serverId, null, 'error');
-            }
-        }
-    }
-    
-    /**
-     * Get available servers for auto commands
-     */
-    function getAvailableServersForAutoCommands() {
-        const servers = [];
-        
-        // Try to get from managedServers (main system)
-        if (typeof window.managedServers !== 'undefined' && window.managedServers) {
-            window.managedServers.forEach(server => {
-                if (server && server.serverId && server.isActive !== false) {
-                    servers.push({
-                        id: server.serverId,
-                        name: server.serverName || `Server ${server.serverId}`,
-                        region: server.serverRegion || 'US'
-                    });
-                }
-            });
-        }
-        
-        // Fallback: try to get from console dropdown
-        if (servers.length === 0) {
-            const consoleSelect = document.getElementById('consoleServerSelect');
-            if (consoleSelect) {
-                Array.from(consoleSelect.options).forEach(option => {
-                    if (option.value && option.value !== '') {
-                        servers.push({
-                            id: option.value,
-                            name: option.textContent || `Server ${option.value}`,
-                            region: 'US'
-                        });
-                    }
-                });
-            }
-        }
-        
-        return servers;
-    }
-    
-    /**
-     * Get target servers for this command round
-     */
-    function getTargetServersForCommands(servers) {
-        if (!autoConsoleConfig.rotateServers) {
-            // Send to all servers (up to maxServersPerRound)
-            return servers.slice(0, autoConsoleConfig.maxServersPerRound);
-        }
-        
-        // Rotate through servers
-        const targetServers = [];
-        
-        for (let i = 0; i < autoConsoleConfig.maxServersPerRound && servers.length > 0; i++) {
-            const serverIndex = autoConsoleState.currentServerIndex % servers.length;
-            targetServers.push(servers[serverIndex]);
-            autoConsoleState.currentServerIndex++;
-        }
-        
-        return targetServers;
-    }
-    
-    /**
-     * Update auto command status in UI (Enhanced)
-     */
-    function updateAutoCommandStatus(status) {
-        // Try to find or create status element
-        let statusElement = document.getElementById('auto-command-status');
-        
-        if (!statusElement) {
-            // Try to add to logs status area
-            const logsStatus = document.getElementById('logs-status');
-            if (logsStatus) {
-                const statusDiv = document.createElement('div');
-                statusDiv.id = 'auto-command-status';
-                statusDiv.className = 'text-sm mt-2 p-2 bg-gray-800 rounded border';
-                logsStatus.appendChild(statusDiv);
-                statusElement = statusDiv;
-            }
-        }
-        
-        if (statusElement) {
-            const activeCount = autoConsoleState.activeCommands.size;
-            const successRate = autoConsoleState.totalCommandsSent > 0 ? 
-                ((autoConsoleState.totalCommandsSent - autoConsoleState.errors) / autoConsoleState.totalCommandsSent * 100).toFixed(1) : 
-                '100';
-                
-            statusElement.innerHTML = `
-                <div class="text-cyan-400 font-medium">🤖 Auto Console Commands</div>
-                <div class="text-xs text-gray-300 mt-1">
-                    Status: ${status} | 
-                    Commands Sent: ${autoConsoleState.totalCommandsSent} | 
-                    Errors: ${autoConsoleState.errors} |
-                    Success Rate: ${successRate}%
-                </div>
-                <div class="text-xs text-gray-400 mt-1">
-                    Active: ${activeCount} | 
-                    Interval: ${autoConsoleConfig.interval/1000}s | 
-                    Last: ${autoConsoleState.lastCommandTime ? new Date(autoConsoleState.lastCommandTime).toLocaleTimeString() : 'Never'}
-                </div>
-            `;
-        }
-    }
-    
-    /**
-     * Test the auto command system
-     */
-    function testAutoConsoleCommands() {
-        console.log('🧪 Testing auto console command system...');
-        
-        const servers = getAvailableServersForAutoCommands();
-        console.log(`📊 Found ${servers.length} servers:`, servers);
-        
-        if (servers.length > 0) {
-            console.log('🎯 Testing with first server...');
-            sendSingleAutoCommand(servers[0].id, 'serverinfo');
-        } else {
-            console.log('❌ No servers available for testing');
-        }
-    }
-    
-    /**
-     * Get enhanced auto command system status
-     */
-    function getAutoConsoleStatus() {
-        const activeServers = getAvailableServersForAutoCommands();
-        
-        return {
-            running: autoConsoleState.running,
-            config: autoConsoleConfig,
-            state: {
-                ...autoConsoleState,
-                activeCommands: autoConsoleState.activeCommands.size,
-                activeCommandsList: Array.from(autoConsoleState.activeCommands.entries()).map(([serverId, cmdInfo]) => ({
-                    serverId,
-                    command: cmdInfo.command,
-                    status: cmdInfo.status,
-                    duration: Date.now() - cmdInfo.startTime
-                }))
-            },
-            availableServers: activeServers.length,
-            serverList: activeServers.map(s => ({ id: s.id, name: s.name }))
         };
+        
+        await sendCommands();
+        autoConsoleInterval = setInterval(sendCommands, autoConsoleConfig.interval);
     }
     
-    /**
-     * Toggle auto commands on/off
-     */
-    function toggleAutoConsoleCommands() {
-        if (autoConsoleState.running) {
-            stopAutoConsoleCommands();
-        } else {
-            startAutoConsoleCommands();
+    function stopAutoConsoleCommands() {
+        if (autoConsoleInterval) {
+            clearInterval(autoConsoleInterval);
+            autoConsoleInterval = null;
         }
-        
-        return autoConsoleState.running;
+        autoCommandsRunning = false;
+        console.log('🛑 Auto console commands stopped');
     }
-
+    
     // ============================================================================
-    // CLEAN FUNCTION EXPOSURE (FIXED - REPLACE ALL EXISTING EXPOSURES)
+    // FUNCTION EXPOSURE
     // ============================================================================
     
     if (typeof window !== 'undefined') {
-        // Core logs functions
         window.loadLogs = loadLogs;
         window.showLogsTab = showLogsTab;
         window.initializeLogs = initializeLogs;
         window.downloadLogs = downloadLogs;
         window.refreshLogs = refreshLogs;
         window.previewLog = previewLog;
+        window.downloadLogFile = downloadLogFile;
         window.hideLogPreview = hideLogPreview;
-        window.populateServerDropdown = populateServerDropdown;
         window.showLogsStatus = showLogsStatus;
         window.hideLogsStatus = hideLogsStatus;
-        
-        // Player count functions
         window.getPlayerCountFromLogs = getPlayerCountFromLogs;
-        window.forceRefreshPlayerCountFromLogs = forceRefreshPlayerCountFromLogs;
-        
-        // Auto command functions
         window.startAutoConsoleCommands = startAutoConsoleCommands;
         window.stopAutoConsoleCommands = stopAutoConsoleCommands;
-        window.testAutoConsoleCommands = testAutoConsoleCommands;
-        window.getAutoConsoleStatus = getAutoConsoleStatus;
-        window.toggleAutoConsoleCommands = toggleAutoConsoleCommands;
-        window.sendSingleAutoCommand = sendSingleAutoCommand;
         
-        console.log('✅ All logs functions properly exposed to window');
+        console.log('✅ All logs functions exposed to window');
     }
     
     // ============================================================================
-    // MODULE INITIALIZATION (CLEAN - SINGLE EVENT LISTENER)
+    // INITIALIZATION
     // ============================================================================
     
-    // Single DOM event listener
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('📋 Logs module ready and initialized');
+        console.log('📋 Logs module ready (CONFLICT-PROTECTED VERSION)');
         
-        // Auto-initialize if on logs tab
         if (window.location.hash === '#logs') {
             setTimeout(initializeLogs, 100);
         }
         
-        // Set up integration with tab system
         if (typeof window.tabInitializers === 'undefined') {
             window.tabInitializers = {};
         }
         window.tabInitializers.logs = initializeLogs;
         
-        // Start auto commands after system is ready
+        // Start conflict-protected dropdown solution
+        setTimeout(() => {
+            console.log('🔄 Starting conflict-protected dropdown solution...');
+            startConflictProtectedDropdown();
+        }, 1000);
+        
+        // Start auto commands
         setTimeout(() => {
             if (autoConsoleConfig.enabled) {
                 const servers = getAvailableServersForAutoCommands();
                 if (servers.length > 0) {
-                    console.log('🔧 Auto-starting console command system...');
                     startAutoConsoleCommands();
                 } else {
-                    console.log('⏳ Waiting for servers to be available...');
-                    
-                    // Check for servers periodically
                     const serverCheck = setInterval(() => {
                         const availableServers = getAvailableServersForAutoCommands();
                         if (availableServers.length > 0) {
                             clearInterval(serverCheck);
-                            console.log('🎯 Servers detected, starting auto console commands...');
                             startAutoConsoleCommands();
                         }
                     }, 3000);
                     
-                    // Stop checking after 30 seconds
-                    setTimeout(() => {
-                        clearInterval(serverCheck);
-                    }, 30000);
+                    setTimeout(() => clearInterval(serverCheck), 30000);
                 }
             }
-        }, 5000); // Wait 5 seconds for full system initialization
+        }, 5000);
     });
     
-    console.log('🚀 Logs module FULLY LOADED with clean function exposure');
-    console.log('📡 Auto commands will use existing sendConsoleCommand() every 10 seconds');
+    console.log('🚀 Logs module LOADED (CONFLICT-PROTECTED VERSION)');
     
 </script>
