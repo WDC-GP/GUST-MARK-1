@@ -1,6 +1,6 @@
 """
-GUST Bot Enhanced - Authentication Routes (COMPLETE COOKIE SUPPORT VERSION)
-============================================================================
+GUST Bot Enhanced - Authentication Routes (COMPLETE COOKIE SUPPORT VERSION + AUTO-AUTH FIX)
+=============================================================================================
 ✅ ENHANCED: Complete OAuth and session cookie authentication support
 ✅ ENHANCED: Detects G-Portal response type (JSON vs HTML) automatically
 ✅ ENHANCED: Comprehensive token status checking with validation
@@ -10,6 +10,7 @@ GUST Bot Enhanced - Authentication Routes (COMPLETE COOKIE SUPPORT VERSION)
 ✅ FIXED: All authentication decorators and utility functions
 ✅ FIXED: Auto-auth component structure for frontend compatibility
 ✅ FIXED: Auto-start auth service when credentials are stored
+🔧 NEW FIX: Auto-auth now works with empty credentials - loads from stored credentials!
 """
 
 # Standard library imports
@@ -107,17 +108,19 @@ def require_live_mode(f):
     return decorated_function
 
 # ================================================================
-# ✅ ENHANCED LOGIN ROUTE WITH COOKIE DETECTION
+# ✅ ENHANCED LOGIN ROUTE WITH COOKIE DETECTION + AUTO-AUTH FIX
 # ================================================================
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """
     ✅ ENHANCED: Handle user login with OAuth and session cookie support
+    🔧 NEW FIX: Auto-auth support for empty credentials!
     
     Automatically detects G-Portal response type and handles both:
     - JSON responses with OAuth tokens
     - HTML responses with session cookies
+    - Empty credentials with auto-auth enabled (loads from stored credentials)
     """
     if request.method == 'GET':
         return render_template('login.html')
@@ -128,12 +131,38 @@ def login():
     password = (data.get('password') or '').strip()
     enable_auto_auth = data.get('enable_auto_auth', False)
     
+    # 🔧 NEW FIX: Handle auto-auth BEFORE rejecting empty credentials
     if not username or not password:
-        log_auth_attempt('login', success=False, details="Missing credentials")
-        return jsonify({
-            'success': False, 
-            'error': 'Please enter username and password'
-        })
+        if enable_auto_auth:
+            logger.info("🔐 Empty credentials with auto-auth enabled - checking stored credentials")
+            try:
+                from utils.credential_manager import credential_manager
+                if credential_manager and credential_manager.credentials_exist():
+                    stored_creds = credential_manager.load_credentials()
+                    if stored_creds and stored_creds.get('username') and stored_creds.get('password'):
+                        username = stored_creds.get('username', '')
+                        password = stored_creds.get('password', '')
+                        logger.info(f"✅ Auto-auth: Successfully loaded stored credentials for {username}")
+                    else:
+                        logger.warning("⚠️ Auto-auth: Stored credentials are incomplete")
+                else:
+                    logger.warning("⚠️ Auto-auth: No stored credentials found")
+            except Exception as e:
+                logger.error(f"❌ Auto-auth credential loading failed: {e}")
+        
+        # If still empty after auto-auth attempt, then reject
+        if not username or not password:
+            log_auth_attempt('login', success=False, details="Missing credentials (auto-auth failed or disabled)")
+            if enable_auto_auth:
+                return jsonify({
+                    'success': False, 
+                    'error': 'Auto-authentication failed: No stored credentials found. Please log in manually first.'
+                })
+            else:
+                return jsonify({
+                    'success': False, 
+                    'error': 'Please enter username and password'
+                })
     
     # Check for demo mode
     demo_usernames = ['demo', 'test', 'admin', 'guest']
@@ -161,7 +190,11 @@ def login():
     
     else:
         # ✅ ENHANCED: G-Portal authentication with automatic response type detection
-        logger.info(f"🔐 Attempting G-Portal authentication for {username}")
+        # 🔧 NEW: Log if this is an auto-auth attempt
+        if enable_auto_auth and data.get('username', '').strip() == '':
+            logger.info(f"🔐 Auto-authentication attempt for stored user: {username}")
+        else:
+            logger.info(f"🔐 Manual G-Portal authentication for {username}")
         
         try:
             # Prepare authentication request
@@ -233,8 +266,13 @@ def login():
                                 session['login_time'] = time.time()
                                 session['login_method'] = 'gportal_oauth'
                                 
-                                log_auth_attempt('login', success=True, details=f"OAuth auth: {username}")
-                                logger.info(f"✅ OAuth authentication successful for {username}")
+                                # 🔧 NEW: Enhanced logging for auto-auth
+                                if enable_auto_auth and data.get('username', '').strip() == '':
+                                    log_auth_attempt('auto_login', success=True, details=f"Auto-auth OAuth: {username}")
+                                    logger.info(f"✅ Auto-authentication successful (OAuth) for {username}")
+                                else:
+                                    log_auth_attempt('login', success=True, details=f"OAuth auth: {username}")
+                                    logger.info(f"✅ Manual OAuth authentication successful for {username}")
                                 
                                 return jsonify({
                                     'success': True,
@@ -243,6 +281,7 @@ def login():
                                     'user_level': 'admin',
                                     'auth_type': 'oauth',
                                     'auto_auth_enabled': enable_auto_auth,
+                                    'auto_auth_used': enable_auto_auth and data.get('username', '').strip() == '',
                                     'token_expires': tokens.get('expires_in', 300),
                                     'login_time': session['login_time']
                                 })
@@ -318,8 +357,13 @@ def login():
                             session['login_time'] = time.time()
                             session['login_method'] = 'gportal_cookie'
                             
-                            log_auth_attempt('login', success=True, details=f"Cookie auth: {username}")
-                            logger.info(f"✅ Cookie authentication successful for {username}")
+                            # 🔧 NEW: Enhanced logging for auto-auth
+                            if enable_auto_auth and data.get('username', '').strip() == '':
+                                log_auth_attempt('auto_login', success=True, details=f"Auto-auth Cookie: {username}")
+                                logger.info(f"✅ Auto-authentication successful (Cookie) for {username}")
+                            else:
+                                log_auth_attempt('login', success=True, details=f"Cookie auth: {username}")
+                                logger.info(f"✅ Manual Cookie authentication successful for {username}")
                             
                             return jsonify({
                                 'success': True,
@@ -328,6 +372,7 @@ def login():
                                 'user_level': 'admin',
                                 'auth_type': 'cookie',
                                 'auto_auth_enabled': enable_auto_auth,
+                                'auto_auth_used': enable_auto_auth and data.get('username', '').strip() == '',
                                 'session_expires': 240,  # 4 minutes until auto-refresh
                                 'login_time': session['login_time']
                             })
@@ -358,10 +403,18 @@ def login():
             elif response.status_code == 401:
                 log_auth_attempt('login', success=False, details=f"Invalid credentials: {username}")
                 logger.warning(f"❌ Invalid credentials for {username}")
-                return jsonify({
-                    'success': False,
-                    'error': 'Invalid username or password'
-                })
+                
+                # 🔧 NEW: Enhanced error message for auto-auth failures
+                if enable_auto_auth and data.get('username', '').strip() == '':
+                    return jsonify({
+                        'success': False,
+                        'error': 'Auto-authentication failed: Stored credentials are no longer valid. Please log in manually.'
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Invalid username or password'
+                    })
             elif response.status_code == 429:
                 log_auth_attempt('login', success=False, details=f"Rate limited: {username}")
                 logger.warning(f"❌ Rate limited authentication attempt for {username}")
@@ -794,4 +847,4 @@ __all__ = [
     'get_auth_status', 'log_auth_attempt'
 ]
 
-logger.info("✅ Enhanced authentication routes loaded with OAuth and cookie support")
+logger.info("✅ Enhanced authentication routes loaded with OAuth and cookie support + AUTO-AUTH FIX")
