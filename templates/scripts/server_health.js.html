@@ -1205,7 +1205,7 @@
     }
     
     // ============================================================================
-    // ✅ OPTIMIZED PLAYER COUNT INTEGRATION
+    // ✅ FIXED: PLAYER COUNT INTEGRATION WITH VARIABLE SCOPE FIX
     // ============================================================================
     
     function updateServerHealthPlayerCount(serverId, playerData, status = 'success') {
@@ -1216,6 +1216,9 @@
         const statusElement = document.getElementById('health-player-status');
         const progressBar = document.getElementById('health-player-bar');
         const sourceElement = document.getElementById('health-player-source');
+        
+        // ✅ FIX: Declare percentage at function scope to avoid ReferenceError
+        let percentage = 0;
         
         if (statusElement) {
             statusElement.className = 'player-count-status text-xs px-2 py-1 rounded';
@@ -1236,15 +1239,22 @@
         }
         
         if (playerData && currentElement && maxElement) {
-            currentElement.textContent = playerData.current || playerData.player_count || '--';
-            maxElement.textContent = playerData.max || playerData.max_players || '--';
+            // Extract values with fallbacks
+            const current = playerData.current || playerData.player_count || 0;
+            const max = playerData.max || playerData.max_players || 100;
+            
+            // ✅ FIX: Calculate percentage without redeclaring (now in proper scope)
+            percentage = playerData.percentage || Math.round((current / max) * 100);
+            
+            // Update display elements
+            currentElement.textContent = current;
+            maxElement.textContent = max;
             
             if (progressBar) {
-                const percentage = playerData.percentage || 
-                                 Math.round(((playerData.current || playerData.player_count || 0) / 
-                                            (playerData.max || playerData.max_players || 100)) * 100);
+                // ✅ FIX: Use percentage variable that's now in proper scope
                 progressBar.style.width = `${percentage}%`;
                 
+                // Update progress bar colors based on capacity
                 progressBar.className = 'player-count-fill rounded-full h-full transition-all duration-500';
                 if (percentage >= 90) {
                     progressBar.className += ' bg-gradient-to-r from-red-500 to-red-600';
@@ -1258,14 +1268,16 @@
             }
             
             if (sourceElement) {
-                sourceElement.textContent = playerData.source === 'server_health_api' ? 'Health API' :
-                                           playerData.source === 'server_logs' ? 'Server Logs' : 
-                                           playerData.source === 'demo_data' ? 'Demo Data' : 
-                                           'Real-time Data';
+                const sourceText = playerData.source === 'server_health_api' ? 'Health API' :
+                                  playerData.source === 'server_logs' ? 'Server Logs' : 
+                                  playerData.source === 'demo_data' ? 'Demo Data' : 
+                                  'Real-time Data';
+                sourceElement.textContent = sourceText;
             }
             
+            // ✅ FIX: percentage is now accessible here (no ReferenceError)
             console.log('✅ OPTIMIZED: Server Health display updated from health API:', 
-                       `${playerData.current || playerData.player_count}/${playerData.max || playerData.max_players} (${percentage}%)`);
+                       `${current}/${max} (${percentage}%)`);
         }
     }
     
@@ -1485,12 +1497,13 @@
         console.log('- Player count cache:', window.playerCountCache);
     };
     
-    console.log('✅ OPTIMIZED Server Health JavaScript module loaded successfully');
+    console.log('✅ FIXED: Server Health JavaScript module loaded successfully');
     console.log('🏥 Functions available: loadServerHealth, refreshHealthData, updateServerHealthPlayerCount, forceServerHealthRefresh');
     console.log('🔧 Debug functions: refreshServerHealth, debugServerHealth, debugTrendsDisplay');
     console.log('🚀 OPTIMIZATION: Player count now integrated with Server Health API as single source of truth');
     console.log('📊 EFFICIENCY: Eliminated redundant API calls - health auto-refresh (30s) provides all data');
     console.log('🎯 PERFORMANCE: 75% reduction in API calls, consistent data across all components');
     console.log('✨ COMPATIBILITY: All existing player count functions redirected to optimized health data');
+    console.log('🔧 FIXED: Variable scope error resolved - percentage now properly scoped');
 
 </script>
