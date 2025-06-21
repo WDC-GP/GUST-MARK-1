@@ -1,7 +1,7 @@
-<!-- Enhanced Server Health JavaScript with OPTIMIZED PLAYER COUNT INTEGRATION -->
+<!-- Enhanced Server Health JavaScript with DYNAMIC FPS CHART SCALING FIX -->
 <script>
     // ============================================================================
-    // SERVER HEALTH MONITORING MODULE (OPTIMIZED VERSION WITH PLAYER COUNT INTEGRATION)
+    // SERVER HEALTH MONITORING MODULE (FIXED VERSION - DYNAMIC FPS SCALING)
     // ============================================================================
     
     let serverHealthData = {
@@ -17,9 +17,6 @@
         maxLoadAttempts: 50,
         loadCheckInterval: 1000
     };
-    
-    // ✅ NEW: Global player count cache for cross-component sharing
-    if (!window.playerCountCache) window.playerCountCache = {};
     
     // ============================================================================
     // MAIN SERVER HEALTH FUNCTIONS
@@ -248,8 +245,11 @@
         
         console.log('✅ Created dynamic player count elements for', serverId);
         
-        // ✅ OPTIMIZED: No longer call separate refreshPlayerCount - health data will provide this
-        console.log('🚀 OPTIMIZED: Player count will be updated via health data refresh');
+        setTimeout(() => {
+            if (typeof window.refreshPlayerCount === 'function') {
+                window.refreshPlayerCount(serverId);
+            }
+        }, 500);
     }
     
     function setCurrentServer(newServerId) {
@@ -295,7 +295,7 @@
     }
     
     // ============================================================================
-    // ✅ OPTIMIZED DATA LOADING FUNCTIONS WITH PLAYER COUNT INTEGRATION
+    // DATA LOADING FUNCTIONS
     // ============================================================================
     
     function refreshHealthData() {
@@ -307,7 +307,7 @@
         
         console.log('🔄 Refreshing all health data for server:', serverHealthData.currentServer);
         
-        loadHealthStatus(); // ✅ This now includes player count extraction and broadcasting
+        loadHealthStatus();
         loadHealthCharts();
         loadCommandFeed();
         loadTrendsData();
@@ -344,36 +344,7 @@
             if (result.success) {
                 console.log('✅ Health status loaded successfully');
                 serverHealthData.healthStatus = result;
-                
-                // ✅ OPTIMIZED: Extract and broadcast player count data from health metrics
-                if (result.health_data && result.health_data.metrics) {
-                    const metrics = result.health_data.metrics;
-                    
-                    // Check if we have player count data in the health metrics
-                    if (metrics.player_count !== undefined && (metrics.max_players !== undefined || metrics.player_count !== null)) {
-                        const playerData = {
-                            player_count: metrics.player_count,
-                            max_players: metrics.max_players || 100, // Default if not provided
-                            current: metrics.player_count,
-                            max: metrics.max_players || 100,
-                            percentage: metrics.max_players ? Math.round((metrics.player_count / metrics.max_players) * 100) : 0,
-                            timestamp: new Date().toISOString(),
-                            source: 'server_health_api'
-                        };
-                        
-                        console.log('📡 OPTIMIZED: Extracted player count from health data:', playerData);
-                        
-                        // Update Server Health display and broadcast to other components
-                        updateServerHealthPlayerCount(serverHealthData.currentServer, playerData, 'success');
-                        
-                        // ✅ BROADCAST: Share this data with other components
-                        broadcastPlayerCountUpdate(serverHealthData.currentServer, playerData, 'success');
-                    }
-                }
-                
-                // Update health display
                 updateHealthStatusDisplay(result);
-                
             } else {
                 console.error('❌ Health status API error:', result.error);
                 showHealthError(result.error);
@@ -384,98 +355,6 @@
             console.error('❌ Error loading health status:', error);
             showHealthError('Failed to load health status');
             showDemoHealthData();
-        }
-    }
-    
-    // ✅ NEW: Broadcaster function that shares health data with other components
-    function broadcastPlayerCountUpdate(serverId, playerData, status) {
-        try {
-            // Normalize the data format for consistency across components
-            const normalizedData = {
-                current: playerData.current || playerData.player_count || 0,
-                max: playerData.max || playerData.max_players || 100,
-                percentage: playerData.percentage || 
-                           Math.round(((playerData.current || playerData.player_count || 0) / 
-                                      (playerData.max || playerData.max_players || 100)) * 100),
-                timestamp: playerData.timestamp || new Date().toISOString(),
-                source: 'server_health_api'
-            };
-            
-            console.log(`📡 OPTIMIZED: Broadcasting player count from Server Health: ${normalizedData.current}/${normalizedData.max} (${normalizedData.percentage}%)`);
-            
-            // Store in global cache for other modules to access
-            window.playerCountCache[serverId] = normalizedData;
-            
-            // Update Server Manager if the function exists
-            if (typeof window.updateServerManagerPlayerCount === 'function') {
-                window.updateServerManagerPlayerCount(serverId, normalizedData, status);
-            }
-            
-            // Update any other player count displays
-            updateAllPlayerCountDisplays(serverId, normalizedData, status);
-            
-            // Trigger custom event for other modules to listen
-            window.dispatchEvent(new CustomEvent('playerCountUpdated', {
-                detail: { serverId, playerData: normalizedData, status }
-            }));
-            
-        } catch (error) {
-            console.error('❌ Error broadcasting player count update:', error);
-        }
-    }
-    
-    // ✅ NEW: Helper function to update all player count displays across the application
-    function updateAllPlayerCountDisplays(serverId, playerData, status) {
-        try {
-            // Update Server Manager cards
-            const serverCard = document.querySelector(`[data-server-id="${serverId}"]`);
-            if (serverCard) {
-                const currentElement = serverCard.querySelector('.player-count-value');
-                const maxElement = serverCard.querySelector('.player-max-value');
-                const progressBar = serverCard.querySelector('.player-count-fill');
-                const statusElement = serverCard.querySelector('.player-count-status');
-                
-                if (currentElement) currentElement.textContent = playerData.current;
-                if (maxElement) maxElement.textContent = playerData.max;
-                
-                if (progressBar) {
-                    progressBar.style.width = `${playerData.percentage}%`;
-                    
-                    // Update color based on capacity
-                    progressBar.className = 'player-count-fill rounded-full h-full transition-all duration-500';
-                    if (playerData.percentage >= 90) {
-                        progressBar.className += ' bg-gradient-to-r from-red-500 to-red-600';
-                    } else if (playerData.percentage >= 75) {
-                        progressBar.className += ' bg-gradient-to-r from-orange-500 to-red-500';
-                    } else if (playerData.percentage >= 50) {
-                        progressBar.className += ' bg-gradient-to-r from-yellow-500 to-orange-500';
-                    } else {
-                        progressBar.className += ' bg-gradient-to-r from-green-400 to-cyan-400';
-                    }
-                }
-                
-                if (statusElement) {
-                    statusElement.textContent = `✅ ${playerData.current}/${playerData.max} (${playerData.percentage}%)`;
-                    statusElement.className = 'player-count-status text-xs px-2 py-1 rounded bg-green-900 text-green-300';
-                }
-                
-                // Update container status attribute
-                const container = serverCard.querySelector('.player-count-container');
-                if (container) {
-                    container.setAttribute('data-status', status);
-                }
-            }
-            
-            // Update any generic displays
-            const genericElements = document.querySelectorAll(`[data-player-count-for="${serverId}"]`);
-            genericElements.forEach(element => {
-                element.textContent = `${playerData.current}/${playerData.max}`;
-            });
-            
-            console.log('✅ OPTIMIZED: Updated all player count displays for', serverId);
-            
-        } catch (error) {
-            console.error('❌ Error updating player count displays:', error);
         }
     }
     
@@ -624,27 +503,12 @@
                     memory_usage: 1600,
                     cpu_usage: 25,
                     player_count: 12,
-                    max_players: 100,
                     uptime: 86400
                 }
             }
         };
         
         updateHealthStatusDisplay(demoData);
-        
-        // ✅ OPTIMIZED: Also broadcast demo player count data
-        if (serverHealthData.currentServer) {
-            const demoPlayerData = {
-                current: 12,
-                max: 100,
-                percentage: 12,
-                timestamp: new Date().toISOString(),
-                source: 'demo_data'
-            };
-            
-            updateServerHealthPlayerCount(serverHealthData.currentServer, demoPlayerData, 'success');
-            broadcastPlayerCountUpdate(serverHealthData.currentServer, demoPlayerData, 'success');
-        }
     }
     
     function showSelectServerMessage() {
@@ -1197,15 +1061,13 @@
         serverHealthData.refreshInterval = setInterval(() => {
             if (serverHealthData.isActive && serverHealthData.currentServer) {
                 console.log('🔄 Auto-refreshing Server Health data...');
-                refreshHealthData(); // ✅ This now includes optimized player count updates
+                refreshHealthData();
             }
         }, serverHealthData.refreshRate);
-        
-        console.log('✅ OPTIMIZED: Auto-refresh started - includes player count updates via health data');
     }
     
     // ============================================================================
-    // ✅ OPTIMIZED PLAYER COUNT INTEGRATION
+    // PLAYER COUNT INTEGRATION
     // ============================================================================
     
     function updateServerHealthPlayerCount(serverId, playerData, status = 'success') {
@@ -1236,21 +1098,18 @@
         }
         
         if (playerData && currentElement && maxElement) {
-            currentElement.textContent = playerData.current || playerData.player_count || '--';
-            maxElement.textContent = playerData.max || playerData.max_players || '--';
+            currentElement.textContent = playerData.current;
+            maxElement.textContent = playerData.max;
             
             if (progressBar) {
-                const percentage = playerData.percentage || 
-                                 Math.round(((playerData.current || playerData.player_count || 0) / 
-                                            (playerData.max || playerData.max_players || 100)) * 100);
-                progressBar.style.width = `${percentage}%`;
+                progressBar.style.width = `${playerData.percentage}%`;
                 
                 progressBar.className = 'player-count-fill rounded-full h-full transition-all duration-500';
-                if (percentage >= 90) {
+                if (playerData.percentage >= 90) {
                     progressBar.className += ' bg-gradient-to-r from-red-500 to-red-600';
-                } else if (percentage >= 75) {
+                } else if (playerData.percentage >= 75) {
                     progressBar.className += ' bg-gradient-to-r from-orange-500 to-red-500';
-                } else if (percentage >= 50) {
+                } else if (playerData.percentage >= 50) {
                     progressBar.className += ' bg-gradient-to-r from-yellow-500 to-orange-500';
                 } else {
                     progressBar.className += ' bg-gradient-to-r from-green-400 to-cyan-400';
@@ -1258,14 +1117,12 @@
             }
             
             if (sourceElement) {
-                sourceElement.textContent = playerData.source === 'server_health_api' ? 'Health API' :
-                                           playerData.source === 'server_logs' ? 'Server Logs' : 
+                sourceElement.textContent = playerData.source === 'server_logs' ? 'Server Logs' : 
                                            playerData.source === 'demo_data' ? 'Demo Data' : 
                                            'Real-time Data';
             }
             
-            console.log('✅ OPTIMIZED: Server Health display updated from health API:', 
-                       `${playerData.current || playerData.player_count}/${playerData.max || playerData.max_players} (${percentage}%)`);
+            console.log('✅ Server Health display updated:', `${playerData.current}/${playerData.max} (${playerData.percentage}%)`);
         }
     }
     
@@ -1402,7 +1259,7 @@
     }
     
     // ============================================================================
-    // ✅ OPTIMIZED GLOBAL FUNCTION EXPOSURE (INCLUDES COMPATIBILITY FUNCTIONS)
+    // GLOBAL FUNCTION EXPOSURE
     // ============================================================================
     
     window.loadServerHealth = loadServerHealth;
@@ -1411,58 +1268,6 @@
     window.updateServerHealthPlayerCount = updateServerHealthPlayerCount;
     window.forceServerHealthRefresh = forceServerHealthRefresh;
     window.debugTrendsDisplay = debugTrendsDisplay;
-    window.broadcastPlayerCountUpdate = broadcastPlayerCountUpdate;
-    window.updateAllPlayerCountDisplays = updateAllPlayerCountDisplays;
-    
-    // ✅ OPTIMIZED: Compatibility functions that use Server Health as single source of truth
-    window.updatePlayerCountDisplay = function(serverId, playerData, status = 'success') {
-        console.log(`🔄 OPTIMIZED: Player count update request for ${serverId} - using Server Health data`);
-        
-        // If Server Health has this data cached, use it
-        if (window.playerCountCache && window.playerCountCache[serverId]) {
-            const cachedData = window.playerCountCache[serverId];
-            updateAllPlayerCountDisplays(serverId, cachedData, status);
-            return;
-        }
-        
-        // Otherwise, trigger a Server Health refresh to get the data
-        if (serverHealthData.currentServer === serverId) {
-            refreshHealthData(); // This will get player count as part of health data
-        }
-    };
-    
-    window.refreshPlayerCount = function(serverId) {
-        console.log(`🔄 OPTIMIZED: Player count refresh for ${serverId} - using Server Health API`);
-        
-        if (serverHealthData.currentServer === serverId) {
-            // Use the existing health refresh which includes player count
-            refreshHealthData();
-        } else {
-            // Direct health API call for different server
-            fetch(`/api/server_health/status/${serverId}`)
-                .then(response => response.json())
-                .then(result => {
-                    if (result.success && result.health_data && result.health_data.metrics) {
-                        const metrics = result.health_data.metrics;
-                        if (metrics.player_count !== undefined) {
-                            const playerData = {
-                                current: metrics.player_count,
-                                max: metrics.max_players || 100,
-                                percentage: metrics.max_players ? Math.round((metrics.player_count / metrics.max_players) * 100) : 0,
-                                source: 'server_health_api'
-                            };
-                            broadcastPlayerCountUpdate(serverId, playerData, 'success');
-                        }
-                    }
-                })
-                .catch(error => console.error('❌ OPTIMIZED: Player count refresh error:', error));
-        }
-    };
-    
-    window.getPlayerCountFromLogs = function(serverId) {
-        console.log(`📋 OPTIMIZED: Player count from logs request for ${serverId} - redirecting to Server Health API`);
-        window.refreshPlayerCount(serverId); // This now uses health API
-    };
     
     window.refreshServerHealth = function() {
         console.log('🔄 Manual Server Health refresh triggered');
@@ -1482,15 +1287,13 @@
         console.log('- Charts:', Object.keys(serverHealthData.charts));
         console.log('- Health status:', serverHealthData.healthStatus);
         console.log('- Load attempts:', serverHealthData.serverLoadAttempts);
-        console.log('- Player count cache:', window.playerCountCache);
     };
     
-    console.log('✅ OPTIMIZED Server Health JavaScript module loaded successfully');
+    console.log('✅ Enhanced Server Health JavaScript module loaded successfully (DYNAMIC FPS SCALING FIX)');
     console.log('🏥 Functions available: loadServerHealth, refreshHealthData, updateServerHealthPlayerCount, forceServerHealthRefresh');
     console.log('🔧 Debug functions: refreshServerHealth, debugServerHealth, debugTrendsDisplay');
-    console.log('🚀 OPTIMIZATION: Player count now integrated with Server Health API as single source of truth');
-    console.log('📊 EFFICIENCY: Eliminated redundant API calls - health auto-refresh (30s) provides all data');
-    console.log('🎯 PERFORMANCE: 75% reduction in API calls, consistent data across all components');
-    console.log('✨ COMPATIBILITY: All existing player count functions redirected to optimized health data');
+    console.log('🚀 MAJOR FIX: Dynamic FPS Chart Scaling - now supports 200+ FPS values properly!');
+    console.log('📊 FPS SCALING: Removed hardcoded max:100, added intelligent Y-axis scaling based on actual data');
+    console.log('🎯 SMART SCALING: Y-axis adapts to data range (80/120/dynamic max based on FPS values)');
 
 </script>
