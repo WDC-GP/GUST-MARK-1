@@ -3,89 +3,267 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GUST Bot - Enhanced Login (MODULAR)</title>
+    <title>GUST Bot - Enhanced Login with Auto-Authentication</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .auto-auth-indicator {
+            transition: all 0.3s ease;
+        }
+        
+        .auto-auth-indicator.active {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+        }
+        
+        .auto-auth-indicator.inactive {
+            background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .auto-auth-checkbox {
+            accent-color: #8b5cf6;
+        }
+        
+        .feature-pill {
+            background: linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%);
+            border-radius: 9999px;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            display: inline-block;
+            margin: 2px;
+        }
+    </style>
 </head>
 <body class="bg-gray-900 text-white">
     <div class="min-h-screen flex items-center justify-center">
         <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-96">
+            <!-- Header -->
             <h1 class="text-3xl font-bold text-center mb-4 text-purple-400">🚀 GUST Enhanced</h1>
-            <div class="text-center text-green-400 text-sm mb-6">✅ Modular Structure + All Features</div>
+            <div class="text-center text-green-400 text-sm mb-6">
+                ✅ Auto-Authentication + All Features
+            </div>
+            
+            <!-- Auto-Auth Status Widget -->
+            <div id="auto-auth-status" class="mb-6 p-3 rounded-lg bg-gray-700 border border-gray-600">
+                <div class="auto-auth-indicator inactive flex items-center space-x-2 p-2 rounded">
+                    <span class="status-dot"></span>
+                    <span class="status-text text-sm font-medium">AUTO-AUTH: Checking...</span>
+                </div>
+                <div id="auto-auth-details" class="mt-2 text-xs text-gray-400 hidden"></div>
+            </div>
+            
+            <!-- Login Form -->
             <form id="loginForm">
                 <div class="mb-4">
                     <label class="block text-sm font-medium mb-2">G-Portal Username</label>
-                    <input type="text" id="username" class="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-purple-500" required>
+                    <input type="text" id="username" 
+                           class="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-purple-500 focus:outline-none" 
+                           required>
                 </div>
-                <div class="mb-6">
+                
+                <div class="mb-4">
                     <label class="block text-sm font-medium mb-2">Password</label>
-                    <input type="password" id="password" class="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-purple-500" required>
+                    <input type="password" id="password" 
+                           class="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-purple-500 focus:outline-none" 
+                           required>
                 </div>
-                <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 p-3 rounded font-medium">
+                
+                <!-- Auto-Authentication Control -->
+                <div id="auto-auth-control" class="mb-6 p-3 bg-gray-700 rounded border border-gray-600">
+                    <div class="flex items-center space-x-3">
+                        <input type="checkbox" id="enableAutoAuth" class="auto-auth-checkbox w-4 h-4">
+                        <label for="enableAutoAuth" class="text-sm font-medium cursor-pointer">
+                            🔐 Enable Auto-Authentication
+                        </label>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-400">
+                        Stay logged in automatically with background token renewal every 3 minutes.
+                        Your credentials will be encrypted and stored securely.
+                    </div>
+                    <div id="auto-auth-warning" class="mt-2 text-xs text-yellow-400 hidden">
+                        ⚠️ Auto-authentication not available: <span id="warning-reason"></span>
+                    </div>
+                </div>
+                
+                <button type="submit" id="loginButton" 
+                        class="w-full bg-purple-600 hover:bg-purple-700 p-3 rounded font-medium transition-colors">
                     Login
                 </button>
             </form>
+            
+            <!-- Error Display -->
             <div id="error" class="mt-4 text-red-500 text-sm hidden"></div>
-            <div class="mt-4 text-xs text-gray-400">
+            
+            <!-- Loading Indicator -->
+            <div id="loading" class="mt-4 text-center hidden">
+                <div class="inline-flex items-center space-x-2">
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
+                    <span class="text-sm">Authenticating...</span>
+                </div>
+            </div>
+            
+            <!-- Feature Info -->
+            <div class="mt-6 text-xs text-gray-400">
                 <div class="bg-gray-700 p-3 rounded">
-                    <p class="font-semibold text-white mb-2">🚀 Modular Enhanced Features:</p>
+                    <p class="font-semibold text-white mb-2">🚀 Enhanced Features:</p>
                     <div class="space-y-1 text-xs">
-                        <div>✅ Broken into 17 manageable files</div>
-                        <div>✅ Fixed KOTH events (vanilla compatible)</div>
-                        <div>📺 Auto live console monitoring</div>
-                        <div>🔧 Working GraphQL command sending</div>
-                        <div>💰 Complete economy & gambling systems</div>
-                        <div>🛡️ Full clan management</div>
-                        <div>🚫 User administration & moderation</div>
+                        <div>
+                            <span class="feature-pill">🔐 AUTO-AUTH</span>
+                            <span class="feature-pill">📺 LIVE CONSOLE</span>
+                            <span class="feature-pill">🔧 GRAPHQL</span>
+                        </div>
+                        <div>
+                            <span class="feature-pill">💰 ECONOMY</span>
+                            <span class="feature-pill">🛡️ CLANS</span>
+                            <span class="feature-pill">🚫 MODERATION</span>
+                        </div>
                     </div>
                     <div class="mt-3 p-2 bg-green-900 rounded text-xs">
-                        <span class="text-green-300">✅ MODULAR STRUCTURE!</span>
+                        <span class="text-green-300">✅ SEAMLESS AUTHENTICATION!</span>
                         <br><span class="text-blue-300">Demo Mode:</span> admin / password
                         <br><span class="text-green-300">Live Mode:</span> G-Portal email / password
-                        <br><span class="text-yellow-300">Structure:</span> 17 files, fully organized
+                        <br><span class="text-purple-300">Auto-Auth:</span> Never login again after first time
                     </div>
                 </div>
             </div>
         </div>
     </div>
     
+    <!-- Auto-Auth Management Script -->
+    <script src="/static/js/auto_auth.js"></script>
+    
+    <!-- Login Form Script -->
     <script>
+        // Auto-authentication manager instance
+        let autoAuthManager;
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize auto-auth manager
+            autoAuthManager = new AutoAuthManager();
+            
+            // Check auto-auth availability
+            checkAutoAuthAvailability();
+            
+            // Focus username field
+            document.getElementById('username').focus();
+        });
+        
+        async function checkAutoAuthAvailability() {
+            try {
+                const response = await fetch('/api/system/status');
+                const status = await response.json();
+                
+                const autoAuthComponent = status.components?.auto_auth;
+                const autoAuthControl = document.getElementById('auto-auth-control');
+                const autoAuthWarning = document.getElementById('auto-auth-warning');
+                const autoAuthCheckbox = document.getElementById('enableAutoAuth');
+                const warningReason = document.getElementById('warning-reason');
+                
+                if (autoAuthComponent?.status === 'unavailable') {
+                    autoAuthCheckbox.disabled = true;
+                    autoAuthWarning.classList.remove('hidden');
+                    warningReason.textContent = autoAuthComponent.reason || 'Components not installed';
+                } else if (!autoAuthComponent?.enabled) {
+                    autoAuthCheckbox.disabled = true;
+                    autoAuthWarning.classList.remove('hidden');
+                    warningReason.textContent = 'Disabled in configuration';
+                } else {
+                    autoAuthCheckbox.disabled = false;
+                    autoAuthWarning.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Error checking auto-auth availability:', error);
+                // Default to enabled for better UX
+                document.getElementById('enableAutoAuth').disabled = false;
+            }
+        }
+        
+        // Enhanced login form handler
         document.getElementById('loginForm').onsubmit = async (e) => {
             e.preventDefault();
             
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
+            const enableAutoAuth = document.getElementById('enableAutoAuth').checked;
             const errorDiv = document.getElementById('error');
+            const loadingDiv = document.getElementById('loading');
+            const loginButton = document.getElementById('loginButton');
             
+            // Clear previous errors
             errorDiv.classList.add('hidden');
             
+            // Validate inputs
             if (!username || !password) {
                 errorDiv.textContent = 'Please enter both username and password';
                 errorDiv.classList.remove('hidden');
                 return;
             }
             
+            // Show loading state
+            loadingDiv.classList.remove('hidden');
+            loginButton.disabled = true;
+            loginButton.textContent = 'Authenticating...';
+            
             try {
                 const response = await fetch('/login', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({username, password})
+                    body: JSON.stringify({
+                        username: username,
+                        password: password,
+                        enableAutoAuth: enableAutoAuth
+                    })
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    window.location.href = '/';
+                    // Success feedback
+                    if (result.auto_auth_status?.enabled) {
+                        showSuccessMessage('✅ Login successful with auto-authentication enabled!');
+                    } else {
+                        showSuccessMessage('✅ Login successful!');
+                    }
+                    
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
                 } else {
-                    errorDiv.textContent = result.error || 'Login failed';
-                    errorDiv.classList.remove('hidden');
+                    throw new Error(result.error || 'Login failed');
                 }
             } catch (err) {
-                errorDiv.textContent = 'Network error. Please try again.';
+                console.error('Login error:', err);
+                errorDiv.textContent = err.message || 'Network error. Please try again.';
                 errorDiv.classList.remove('hidden');
+            } finally {
+                // Reset UI state
+                loadingDiv.classList.add('hidden');
+                loginButton.disabled = false;
+                loginButton.textContent = 'Login';
             }
         };
         
-        document.getElementById('username').focus();
+        function showSuccessMessage(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.className = 'mt-4 text-green-500 text-sm';
+            errorDiv.classList.remove('hidden');
+        }
     </script>
 </body>
 </html>
