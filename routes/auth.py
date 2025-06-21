@@ -185,7 +185,8 @@ def login():
             'demo_mode': True,
             'username': username,
             'user_level': session['user_level'],
-            'login_time': session['login_time']
+            'login_time': session['login_time'],
+            'redirect_url': '/'
         })
     
     else:
@@ -283,7 +284,8 @@ def login():
                                     'auto_auth_enabled': enable_auto_auth,
                                     'auto_auth_used': enable_auto_auth and data.get('username', '').strip() == '',
                                     'token_expires': tokens.get('expires_in', 300),
-                                    'login_time': session['login_time']
+                                    'login_time': session['login_time'],
+                                    'redirect_url': '/'
                                 })
                             else:
                                 logger.error(f"❌ Failed to save OAuth tokens for {username}")
@@ -374,7 +376,8 @@ def login():
                                 'auto_auth_enabled': enable_auto_auth,
                                 'auto_auth_used': enable_auto_auth and data.get('username', '').strip() == '',
                                 'session_expires': 240,  # 4 minutes until auto-refresh
-                                'login_time': session['login_time']
+                                'login_time': session['login_time'],
+                                'redirect_url': '/'
                             })
                         else:
                             log_auth_attempt('login', success=False, details=f"Failed to save cookies: {username}")
