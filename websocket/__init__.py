@@ -17,15 +17,18 @@ from config import WEBSOCKETS_AVAILABLE
 if WEBSOCKETS_AVAILABLE:
     try:
         from .client import GPortalWebSocketClient
-        from .manager import WebSocketManager, EnhancedWebSocketManager
+        from .manager import EnhancedWebSocketManager
         from .sensor_bridge import WebSocketSensorBridge
         
+        # ✅ FIXED: Export correct classes with proper names
         __all__ = [
             'GPortalWebSocketClient', 
-            'WebSocketManager', 
             'EnhancedWebSocketManager',
             'WebSocketSensorBridge'
         ]
+        
+        # ✅ FIXED: Backward compatibility alias
+        WebSocketManager = EnhancedWebSocketManager
         
         # Package is fully functional
         PACKAGE_STATUS = "available"
@@ -38,16 +41,16 @@ if WEBSOCKETS_AVAILABLE:
         SENSOR_SUPPORT = False
         
         def GPortalWebSocketClient(*args, **kwargs):
-            raise RuntimeError("WebSocket client not available due to import error")
+            raise RuntimeError(f"WebSocket client not available due to import error: {e}")
         
-        def WebSocketManager(*args, **kwargs):
-            raise RuntimeError("WebSocket manager not available due to import error")
-            
         def EnhancedWebSocketManager(*args, **kwargs):
-            raise RuntimeError("Enhanced WebSocket manager not available due to import error")
+            raise RuntimeError(f"Enhanced WebSocket manager not available due to import error: {e}")
             
         def WebSocketSensorBridge(*args, **kwargs):
-            raise RuntimeError("WebSocket sensor bridge not available due to import error")
+            raise RuntimeError(f"WebSocket sensor bridge not available due to import error: {e}")
+        
+        # Backward compatibility
+        WebSocketManager = EnhancedWebSocketManager
 
 else:
     # WebSocket package not available
@@ -57,23 +60,21 @@ else:
     
     def GPortalWebSocketClient(*args, **kwargs):
         raise RuntimeError(
-            "WebSocket support not available. Install with: pip install websockets"
+            "WebSocket support not available. Install with: pip install websockets==11.0.3"
         )
     
-    def WebSocketManager(*args, **kwargs):
-        raise RuntimeError(
-            "WebSocket support not available. Install with: pip install websockets"
-        )
-        
     def EnhancedWebSocketManager(*args, **kwargs):
         raise RuntimeError(
-            "Enhanced WebSocket support not available. Install with: pip install websockets"
+            "Enhanced WebSocket support not available. Install with: pip install websockets==11.0.3"
         )
         
     def WebSocketSensorBridge(*args, **kwargs):
         raise RuntimeError(
-            "WebSocket sensor bridge not available. Install with: pip install websockets"
+            "WebSocket sensor bridge not available. Install with: pip install websockets==11.0.3"
         )
+    
+    # Backward compatibility
+    WebSocketManager = EnhancedWebSocketManager
 
 def get_websocket_status():
     """
@@ -88,7 +89,7 @@ def get_websocket_status():
         "sensor_support": SENSOR_SUPPORT,
         "components_loaded": len(__all__),
         "available_components": __all__,
-        "install_command": "pip install websockets" if not WEBSOCKETS_AVAILABLE else None,
+        "install_command": "pip install websockets==11.0.3" if not WEBSOCKETS_AVAILABLE else None,
         "features": {
             "console_monitoring": WEBSOCKETS_AVAILABLE and PACKAGE_STATUS == "available",
             "sensor_data": SENSOR_SUPPORT,
@@ -115,31 +116,6 @@ def check_sensor_support():
     """
     return SENSOR_SUPPORT and PACKAGE_STATUS == "available"
 
-def get_available_features():
-    """
-    Get list of available WebSocket features
-    
-    Returns:
-        list: List of available feature names
-    """
-    features = []
-    
-    if check_websocket_support():
-        features.append("console_monitoring")
-        features.append("connection_management")
-        features.append("message_processing")
-        
-    if check_sensor_support():
-        features.append("sensor_data")
-        features.append("health_monitoring") 
-        features.append("cpu_monitoring")
-        features.append("memory_monitoring")
-        features.append("uptime_tracking")
-        features.append("config_monitoring")
-        features.append("health_bridge")
-        
-    return features
-
 def create_websocket_manager(gust_bot, enable_sensors=True):
     """
     Create and configure WebSocket manager with optional sensor support
@@ -164,7 +140,8 @@ def create_websocket_manager(gust_bot, enable_sensors=True):
         return manager
         
     except Exception as e:
-        logger = __import__('logging').getLogger(__name__)
+        import logging
+        logger = logging.getLogger(__name__)
         logger.error(f"❌ Error creating WebSocket manager: {e}")
         return None
 
@@ -185,7 +162,8 @@ def create_sensor_bridge(websocket_manager, server_health_storage=None):
     try:
         return WebSocketSensorBridge(websocket_manager, server_health_storage)
     except Exception as e:
-        logger = __import__('logging').getLogger(__name__)
+        import logging
+        logger = logging.getLogger(__name__)
         logger.error(f"❌ Error creating sensor bridge: {e}")
         return None
 

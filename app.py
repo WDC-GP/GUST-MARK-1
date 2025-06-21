@@ -1,15 +1,17 @@
 """
-GUST Bot Enhanced - Main Flask Application (WEBSOCKET SENSOR INTEGRATION)
+GUST Bot Enhanced - Main Flask Application (WEBSOCKET SENSOR INTEGRATION FIXED)
 ==================================================================================
 ✅ FIXED: Console command sending with correct GraphQL endpoint
 ✅ FIXED: Enhanced error handling and logging
 ✅ FIXED: Complete Server Health integration
 ✅ FIXED: Comprehensive None type error prevention
 ✅ FIXED: All GraphQL communication issues resolved
+✅ FIXED: WebSocket import naming consistency (EnhancedWebSocketManager)
 ✅ NEW: Auto command API endpoint for serverinfo commands
 ✅ NEW: Enhanced authentication and demo mode handling
 ✅ NEW: WebSocket sensor bridge integration for real-time monitoring
 ✅ NEW: Enhanced WebSocket manager with sensor capabilities
+✅ NEW: WebSocket debug endpoint for troubleshooting
 """
 
 import os
@@ -47,9 +49,19 @@ from routes.logs import init_logs_routes
 # Server Health routes
 from routes.server_health import init_server_health_routes
 
-# Import WebSocket components
+# ✅ FIXED: Import WebSocket components with proper error handling
 if WEBSOCKETS_AVAILABLE:
-    from websocket.manager import EnhancedWebSocketManager
+    try:
+        from websocket import EnhancedWebSocketManager, check_websocket_support, check_sensor_support
+        WEBSOCKET_IMPORT_SUCCESS = True
+    except ImportError as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"❌ WebSocket import failed even though WEBSOCKETS_AVAILABLE=True: {e}")
+        WEBSOCKET_IMPORT_SUCCESS = False
+        EnhancedWebSocketManager = None
+else:
+    WEBSOCKET_IMPORT_SUCCESS = False
+    EnhancedWebSocketManager = None
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +157,7 @@ class InMemoryUserStorage:
             return all_clans
 
 class GustBotEnhanced:
-    """Main GUST Bot Enhanced application class (WEBSOCKET SENSOR INTEGRATION)"""
+    """Main GUST Bot Enhanced application class (WEBSOCKET SENSOR INTEGRATION FIXED)"""
     
     def __init__(self):
         """Initialize the enhanced GUST bot application with WebSocket sensor support"""
@@ -190,8 +202,11 @@ class GustBotEnhanced:
         # Initialize systems
         self.vanilla_koth = VanillaKothSystem(self)
         
-        # ✅ NEW: Enhanced WebSocket manager for sensor data (only if websockets available)
-        if WEBSOCKETS_AVAILABLE:
+        # ✅ FIXED: Enhanced WebSocket manager initialization with better error handling
+        self.websocket_manager = None
+        self.websocket_error = None
+        
+        if WEBSOCKETS_AVAILABLE and WEBSOCKET_IMPORT_SUCCESS and EnhancedWebSocketManager:
             try:
                 self.websocket_manager = EnhancedWebSocketManager(self)
                 self.live_connections = {}
@@ -200,13 +215,28 @@ class GustBotEnhanced:
                 logger.info("✅ Enhanced WebSocket manager initialized with sensor support")
                 print("[✅ OK] Enhanced WebSocket manager started with sensor capabilities")
             except Exception as e:
+                self.websocket_error = str(e)
                 logger.error(f"❌ Enhanced WebSocket manager failed: {e}")
                 self.websocket_manager = None
                 self.live_connections = {}
+                print(f"[❌ ERROR] WebSocket manager initialization failed: {e}")
         else:
             self.websocket_manager = None
             self.live_connections = {}
-            logger.warning("⚠️ WebSocket support not available - sensor data will use fallbacks")
+            
+            # Log why WebSocket is not available
+            reasons = []
+            if not WEBSOCKETS_AVAILABLE:
+                reasons.append("websockets package not installed")
+            if not WEBSOCKET_IMPORT_SUCCESS:
+                reasons.append("websocket module import failed")
+            if not EnhancedWebSocketManager:
+                reasons.append("EnhancedWebSocketManager class not available")
+            
+            reason_str = ", ".join(reasons)
+            self.websocket_error = f"WebSocket unavailable: {reason_str}"
+            logger.warning(f"⚠️ WebSocket support not available: {reason_str}")
+            print(f"[⚠️ WARNING] WebSocket support disabled: {reason_str}")
         
         # Store reference to self in app context
         self.app.gust_bot = self
@@ -680,7 +710,7 @@ class GustBotEnhanced:
                 }), 500
         
         # Live Console Routes (only if WebSockets are available)
-        if WEBSOCKETS_AVAILABLE and self.websocket_manager:
+        if self.websocket_manager:
             self.setup_live_console_routes()
         else:
             self.setup_stub_console_routes()
@@ -818,7 +848,8 @@ class GustBotEnhanced:
                     'connections': status,
                     'total_connections': len(status),
                     'demo_mode': session.get('demo_mode', True),
-                    'websockets_available': WEBSOCKETS_AVAILABLE
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS
                 })
                 
             except Exception as e:
@@ -828,6 +859,7 @@ class GustBotEnhanced:
                     'total_connections': 0,
                     'demo_mode': True,
                     'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS,
                     'error': str(e)
                 })
         
@@ -950,7 +982,7 @@ class GustBotEnhanced:
         def connect_live_console():
             return jsonify({
                 'success': False,
-                'error': 'WebSocket support not available. Install with: pip install websockets'
+                'error': f'WebSocket support not available. {self.websocket_error or "Install with: pip install websockets==11.0.3"}'
             })
         
         @self.app.route('/api/console/live/status')
@@ -959,7 +991,9 @@ class GustBotEnhanced:
                 'connections': {},
                 'total_connections': 0,
                 'demo_mode': session.get('demo_mode', True),
-                'websockets_available': False
+                'websockets_available': WEBSOCKETS_AVAILABLE,
+                'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS,
+                'websocket_error': self.websocket_error
             })
         
         @self.app.route('/api/console/live/messages')
@@ -980,7 +1014,7 @@ class GustBotEnhanced:
                     'messages': final_messages,
                     'count': len(final_messages),
                     'timestamp': datetime.now().isoformat(),
-                    'websockets_available': False
+                    'websockets_available': WEBSOCKETS_AVAILABLE
                 })
             except Exception as e:
                 logger.error(f"❌ Stub live messages error: {e}")
@@ -988,7 +1022,7 @@ class GustBotEnhanced:
                     'messages': [],
                     'count': 0,
                     'timestamp': datetime.now().isoformat(),
-                    'websockets_available': False,
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
                     'error': str(e)
                 })
         
@@ -996,13 +1030,13 @@ class GustBotEnhanced:
         def test_live_console():
             return jsonify({
                 'success': False,
-                'error': 'WebSocket support not available',
-                'websockets_available': False,
+                'error': f'WebSocket support not available. {self.websocket_error or "Install with: pip install websockets==11.0.3"}',
+                'websockets_available': WEBSOCKETS_AVAILABLE,
                 'enhanced_console': False
             })
     
     def setup_misc_routes(self):
-        """Setup miscellaneous routes"""
+        """Setup miscellaneous routes including WebSocket debug endpoint"""
         
         @self.app.route('/health')
         def health_check():
@@ -1051,6 +1085,7 @@ class GustBotEnhanced:
                     'user_storage': type(self.user_storage).__name__,
                     'koth_system': 'vanilla_compatible',
                     'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS,
                     'active_events': len(self.vanilla_koth.get_active_events()),
                     'live_connections': active_connections,
                     'console_buffer_size': len(self.console_output),
@@ -1058,6 +1093,7 @@ class GustBotEnhanced:
                     'server_health_storage': type(self.server_health_storage).__name__,
                     'websocket_sensor_status': websocket_sensor_status,  # ✅ NEW
                     'sensor_connections': sensor_connections,  # ✅ NEW
+                    'websocket_error': self.websocket_error,  # ✅ NEW
                     'features': {
                         'console_commands': True,
                         'auto_console_commands': True,
@@ -1067,7 +1103,7 @@ class GustBotEnhanced:
                         'clan_management': True,
                         'gambling_games': True,
                         'server_diagnostics': True,
-                        'live_console': WEBSOCKETS_AVAILABLE,
+                        'live_console': self.websocket_manager is not None,
                         'graphql_working': True,
                         'user_storage_working': True,
                         'server_health_monitoring': True,
@@ -1225,6 +1261,7 @@ class GustBotEnhanced:
                         'total_servers': total_servers,
                         'console_buffer_size': len(self.console_output),
                         'websockets_available': WEBSOCKETS_AVAILABLE,
+                        'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS,
                         'database_connected': self.db is not None,
                         'sensor_data_available': sensor_data_available,  # ✅ NEW
                         'real_time_monitoring': real_time_monitoring  # ✅ NEW
@@ -1241,6 +1278,184 @@ class GustBotEnhanced:
                     'health_score': 0,
                     'error': str(e),
                     'timestamp': datetime.now().isoformat()
+                }), 500
+        
+        # ✅ NEW: WebSocket Debug Endpoint for troubleshooting
+        @self.app.route('/api/websocket/debug/status')
+        def websocket_debug_status():
+            """✅ NEW: Comprehensive WebSocket system debugging endpoint"""
+            if 'logged_in' not in session:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            try:
+                debug_info = {
+                    'timestamp': datetime.now().isoformat(),
+                    'tests': {},
+                    'summary': {},
+                    'recommendations': []
+                }
+                
+                # Test 1: Package Installation
+                try:
+                    import websockets
+                    debug_info['tests']['websockets_package'] = {
+                        'status': 'pass',
+                        'version': websockets.__version__,
+                        'message': 'WebSocket package installed correctly'
+                    }
+                except ImportError:
+                    debug_info['tests']['websockets_package'] = {
+                        'status': 'fail',
+                        'message': 'WebSocket package not installed',
+                        'fix': 'Run: pip install websockets==11.0.3'
+                    }
+                    debug_info['recommendations'].append('Install websockets package')
+                
+                # Test 2: Configuration Detection
+                debug_info['tests']['config_detection'] = {
+                    'status': 'pass' if WEBSOCKETS_AVAILABLE else 'fail',
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'import_success': WEBSOCKET_IMPORT_SUCCESS,
+                    'message': 'Configuration detects WebSocket support' if WEBSOCKETS_AVAILABLE else 'Configuration shows WebSocket as unavailable'
+                }
+                
+                if not WEBSOCKETS_AVAILABLE:
+                    debug_info['recommendations'].append('Verify websockets package installation')
+                
+                # Test 3: WebSocket Package Status
+                try:
+                    if WEBSOCKETS_AVAILABLE and WEBSOCKET_IMPORT_SUCCESS:
+                        from websocket import get_websocket_status, check_websocket_support, check_sensor_support
+                        
+                        ws_status = get_websocket_status()
+                        debug_info['tests']['package_status'] = {
+                            'status': 'pass' if ws_status['websockets_available'] else 'fail',
+                            'details': ws_status,
+                            'websocket_support': check_websocket_support(),
+                            'sensor_support': check_sensor_support()
+                        }
+                        
+                        if not check_sensor_support():
+                            debug_info['recommendations'].append('Enable sensor support by fixing WebSocket imports')
+                    else:
+                        debug_info['tests']['package_status'] = {
+                            'status': 'fail',
+                            'message': 'WebSocket package not importable',
+                            'websockets_available': WEBSOCKETS_AVAILABLE,
+                            'import_success': WEBSOCKET_IMPORT_SUCCESS
+                        }
+                        debug_info['recommendations'].append('Fix WebSocket package imports')
+                        
+                except Exception as e:
+                    debug_info['tests']['package_status'] = {
+                        'status': 'error',
+                        'message': f'Package status check failed: {e}'
+                    }
+                    debug_info['recommendations'].append('Fix WebSocket package imports')
+                
+                # Test 4: Manager Status
+                manager_status = 'not_available'
+                manager_info = {}
+                
+                if self.websocket_manager:
+                    try:
+                        manager_status = 'available'
+                        manager_info = {
+                            'running': getattr(self.websocket_manager, 'running', False),
+                            'connections': len(getattr(self.websocket_manager, 'connections', {})),
+                            'has_sensor_bridge': hasattr(self.websocket_manager, 'sensor_bridge') and self.websocket_manager.sensor_bridge is not None
+                        }
+                        
+                        # Test sensor bridge
+                        if hasattr(self.websocket_manager, 'sensor_bridge') and self.websocket_manager.sensor_bridge:
+                            bridge_stats = self.websocket_manager.sensor_bridge.get_sensor_statistics()
+                            manager_info['sensor_bridge_stats'] = bridge_stats
+                            
+                        debug_info['tests']['manager_status'] = {
+                            'status': 'pass',
+                            'manager_available': True,
+                            'details': manager_info
+                        }
+                        
+                    except Exception as e:
+                        debug_info['tests']['manager_status'] = {
+                            'status': 'error',
+                            'manager_available': True,
+                            'error': str(e)
+                        }
+                else:
+                    debug_info['tests']['manager_status'] = {
+                        'status': 'fail',
+                        'manager_available': False,
+                        'message': 'WebSocket manager not initialized',
+                        'websocket_error': self.websocket_error
+                    }
+                    debug_info['recommendations'].append('Restart application to initialize WebSocket manager')
+                
+                # Test 5: Class Import Test
+                try:
+                    if WEBSOCKETS_AVAILABLE and WEBSOCKET_IMPORT_SUCCESS:
+                        from websocket import EnhancedWebSocketManager, GPortalWebSocketClient, WebSocketSensorBridge
+                        debug_info['tests']['class_imports'] = {
+                            'status': 'pass',
+                            'classes_available': ['EnhancedWebSocketManager', 'GPortalWebSocketClient', 'WebSocketSensorBridge']
+                        }
+                    else:
+                        debug_info['tests']['class_imports'] = {
+                            'status': 'fail',
+                            'message': 'WebSocket classes not importable',
+                            'websockets_available': WEBSOCKETS_AVAILABLE,
+                            'import_success': WEBSOCKET_IMPORT_SUCCESS
+                        }
+                        debug_info['recommendations'].append('Fix WebSocket class imports')
+                except Exception as e:
+                    debug_info['tests']['class_imports'] = {
+                        'status': 'fail',
+                        'message': f'Class import failed: {e}',
+                        'fix': 'Update websocket/__init__.py with correct imports'
+                    }
+                    debug_info['recommendations'].append('Fix WebSocket class imports')
+                
+                # Generate Summary
+                passed_tests = sum(1 for test in debug_info['tests'].values() if test.get('status') == 'pass')
+                total_tests = len(debug_info['tests'])
+                
+                debug_info['summary'] = {
+                    'tests_passed': passed_tests,
+                    'tests_total': total_tests,
+                    'success_rate': round((passed_tests / total_tests) * 100, 1) if total_tests > 0 else 0,
+                    'overall_status': 'healthy' if passed_tests == total_tests else 'needs_attention',
+                    'websocket_ready': passed_tests >= 4,  # Need at least 4/5 tests passing
+                    'sensor_ready': manager_status == 'available' and manager_info.get('has_sensor_bridge', False),
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS
+                }
+                
+                # Priority Recommendations
+                if not debug_info['recommendations']:
+                    debug_info['recommendations'] = ['All WebSocket systems operational!']
+                
+                return jsonify({
+                    'success': True,
+                    'debug_info': debug_info,
+                    'quick_status': {
+                        'websockets_working': debug_info['summary']['websocket_ready'],
+                        'sensors_working': debug_info['summary']['sensor_ready'],
+                        'needs_restart': 'Restart application' in debug_info['recommendations'],
+                        'needs_package_install': any('websockets' in rec for rec in debug_info['recommendations']),
+                        'websocket_error': self.websocket_error
+                    }
+                })
+                
+            except Exception as e:
+                logger.error(f"❌ WebSocket debug status error: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': str(e),
+                    'debug_info': {
+                        'timestamp': datetime.now().isoformat(),
+                        'error_type': 'debug_endpoint_failure'
+                    }
                 }), 500
     
     def send_console_command_graphql(self, command, sid, region):
@@ -1484,6 +1699,7 @@ class GustBotEnhanced:
                     'total_servers': total_servers,
                     'console_buffer_size': len(self.console_output),
                     'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS,
                     'database_connected': self.db is not None
                 }
                 
@@ -1534,6 +1750,7 @@ class GustBotEnhanced:
         
         logger.info(f"🚀 Starting GUST Bot Enhanced on {host}:{port}")
         logger.info(f"🔧 WebSocket Support: {'Available' if WEBSOCKETS_AVAILABLE else 'Not Available'}")
+        logger.info(f"🔧 WebSocket Import: {'Success' if WEBSOCKET_IMPORT_SUCCESS else 'Failed'}")
         logger.info(f"🗄️ Database: {'MongoDB' if self.db else 'In-Memory'}")
         logger.info(f"👥 User Storage: {type(self.user_storage).__name__}")
         logger.info(f"📡 Live Console: {'Enabled' if self.websocket_manager else 'Disabled'}")
@@ -1543,6 +1760,10 @@ class GustBotEnhanced:
         logger.info(f"🤖 NEW: Auto command API endpoint added for serverinfo commands")
         logger.info(f"📡 NEW: WebSocket sensor integration {'ENABLED' if self.websocket_manager else 'DISABLED'}")
         logger.info(f"🔄 NEW: Real-time sensor monitoring {'ACTIVE' if self.websocket_manager else 'INACTIVE'}")
+        logger.info(f"🔧 NEW: WebSocket debug endpoint available at /api/websocket/debug/status")
+        
+        if self.websocket_error:
+            logger.warning(f"⚠️ WebSocket Error: {self.websocket_error}")
         
         try:
             self.app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)
