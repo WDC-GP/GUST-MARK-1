@@ -1,6 +1,7 @@
 """
-GUST Bot Enhanced - Main Flask Application (SYNTAX ERROR FIXED)
-===============================================================
+GUST Bot Enhanced - Main Flask Application (COMPLETE FIXED VERSION)
+===================================================================
+✅ FIXED: Added missing ping endpoint to eliminate 404 errors
 ✅ FIXED: All function definitions have proper indented bodies
 ✅ FIXED: Server creation issues with direct implementation
 ✅ PRESERVED: All auto-authentication features
@@ -19,6 +20,7 @@ from datetime import datetime, timedelta
 from collections import deque, defaultdict
 from flask import Flask, render_template, session, redirect, url_for, jsonify, request
 import logging
+import requests
 
 # Import configuration and utilities
 from config import Config, WEBSOCKETS_AVAILABLE, ensure_directories, ensure_data_files
@@ -417,7 +419,7 @@ class GustBotEnhanced:
         print("[✅ OK] All routes configured successfully")
     
     def setup_working_server_routes(self):
-        """✅ WORKING: Complete server routes implementation to replace problematic blueprint"""
+        """✅ WORKING: Complete server routes implementation with PING ENDPOINT"""
         
         def require_auth_check():
             """Simple auth check for server routes"""
@@ -586,6 +588,204 @@ class GustBotEnhanced:
                 logger.error(f"❌ Error deleting server: {e}")
                 return jsonify({'success': False, 'error': 'Failed to delete server'}), 500
         
+        # ================================================================
+        # ✅ NEW: PING ENDPOINT - FIXES 404 ERRORS
+        # ================================================================
+        
+        @self.app.route('/api/servers/ping/<server_id>', methods=['POST'])
+        def ping_server(server_id):
+            """Ping server to check responsiveness and update status"""
+            auth_error = require_auth_check()
+            if auth_error:
+                return auth_error
+                
+            try:
+                import time
+                from datetime import datetime
+                
+                start_time = time.time()
+                
+                # Load current authentication data
+                token_data = load_token()
+                if not token_data:
+                    return jsonify({
+                        'success': False,
+                        'server_id': server_id,
+                        'error': 'Authentication required',
+                        'status': 'auth_error'
+                    }), 200  # Return 200 to prevent frontend errors
+                
+                # Get server info to determine region and validate existence
+                server = None
+                if self.db:
+                    server = self.db.servers.find_one({'serverId': server_id})
+                else:
+                    server = next((s for s in self.servers if s.get('serverId') == server_id), None)
+                
+                if not server:
+                    return jsonify({
+                        'success': False,
+                        'server_id': server_id,
+                        'error': 'Server not found in configuration',
+                        'status': 'not_found'
+                    }), 200
+                
+                region = server.get('serverRegion', 'US')
+                server_name = server.get('serverName', f'Server {server_id}')
+                
+                # Prepare headers based on auth type
+                auth_type = token_data.get('auth_type', 'oauth')
+                if auth_type == 'oauth':
+                    headers = {
+                        'Authorization': f"Bearer {token_data.get('access_token')}",
+                        'Accept': 'application/json',
+                        'User-Agent': 'GUST-Bot/2.0'
+                    }
+                elif auth_type == 'cookie':
+                    session_cookies = token_data.get('session_cookies', {})
+                    cookie_header = '; '.join([f"{name}={value}" for name, value in session_cookies.items()])
+                    headers = {
+                        'Cookie': cookie_header,
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Referer': 'https://www.g-portal.com/',
+                        'Accept': 'application/json, text/html, */*'
+                    }
+                else:
+                    return jsonify({
+                        'success': False,
+                        'server_id': server_id,
+                        'error': f'Unknown auth type: {auth_type}',
+                        'status': 'auth_error'
+                    }), 200
+                
+                # Try to ping the server using G-Portal API
+                ping_url = f'https://api.g-portal.com/gameserver/{server_id}'
+                
+                try:
+                    response = requests.get(
+                        ping_url,
+                        headers=headers,
+                        timeout=15  # 15 second timeout
+                    )
+                    
+                    response_time = round((time.time() - start_time) * 1000, 2)
+                    current_time = datetime.now().isoformat()
+                    
+                    # Determine status based on response
+                    if response.status_code == 200:
+                        status = 'online'
+                        status_message = 'Server responding'
+                        logger.info(f"✅ Server ping successful: {server_name} ({server_id}) - {response_time}ms")
+                    elif response.status_code == 404:
+                        status = 'not_found'
+                        status_message = 'Server not found on G-Portal'
+                        logger.warning(f"⚠️ Server not found: {server_name} ({server_id})")
+                    elif response.status_code == 401:
+                        status = 'auth_error'
+                        status_message = 'Authentication failed'
+                        logger.warning(f"🔐 Auth error pinging: {server_name} ({server_id})")
+                    elif response.status_code == 403:
+                        status = 'forbidden'
+                        status_message = 'Access forbidden'
+                        logger.warning(f"🚫 Access forbidden: {server_name} ({server_id})")
+                    else:
+                        status = 'error'
+                        status_message = f'HTTP {response.status_code}'
+                        logger.warning(f"⚠️ Ping error: {server_name} ({server_id}) - {status_message}")
+                    
+                    # Update server status in storage
+                    status_data = {
+                        'status': status,
+                        'lastPing': current_time,
+                        'responseTime': response_time,
+                        'lastPingStatus': status_message
+                    }
+                    
+                    try:
+                        if self.db:
+                            self.db.servers.update_one(
+                                {'serverId': server_id},
+                                {'$set': status_data}
+                            )
+                        else:
+                            if server:
+                                server.update(status_data)
+                    except Exception as update_error:
+                        logger.warning(f"⚠️ Failed to update server status: {update_error}")
+                    
+                    return jsonify({
+                        'success': status in ['online', 'not_found'],  # not_found is not a failure for ping
+                        'server_id': server_id,
+                        'server_name': server_name,
+                        'status': status,
+                        'response_time_ms': response_time,
+                        'message': status_message,
+                        'ping_time': current_time,
+                        'region': region
+                    })
+                    
+                except requests.Timeout:
+                    response_time = round((time.time() - start_time) * 1000, 2)
+                    logger.warning(f"⏰ Server ping timeout: {server_name} ({server_id}) after {response_time}ms")
+                    
+                    # Update status to timeout
+                    status_data = {
+                        'status': 'timeout',
+                        'lastPing': datetime.now().isoformat(),
+                        'responseTime': response_time,
+                        'lastPingStatus': 'Timeout'
+                    }
+                    
+                    try:
+                        if self.db:
+                            self.db.servers.update_one({'serverId': server_id}, {'$set': status_data})
+                        else:
+                            if server:
+                                server.update(status_data)
+                    except Exception as update_error:
+                        logger.warning(f"⚠️ Failed to update timeout status: {update_error}")
+                    
+                    return jsonify({
+                        'success': False,
+                        'server_id': server_id,
+                        'server_name': server_name,
+                        'status': 'timeout',
+                        'response_time_ms': response_time,
+                        'message': 'Server ping timeout (>15s)',
+                        'ping_time': datetime.now().isoformat(),
+                        'region': region
+                    })
+                    
+                except requests.ConnectionError as conn_error:
+                    response_time = round((time.time() - start_time) * 1000, 2)
+                    logger.warning(f"🔗 Server ping connection error: {server_name} ({server_id}) - {conn_error}")
+                    
+                    return jsonify({
+                        'success': False,
+                        'server_id': server_id,
+                        'server_name': server_name,
+                        'status': 'connection_error',
+                        'response_time_ms': response_time,
+                        'message': 'Cannot connect to G-Portal API',
+                        'ping_time': datetime.now().isoformat(),
+                        'region': region
+                    })
+                    
+            except Exception as e:
+                response_time = round((time.time() - start_time) * 1000, 2) if 'start_time' in locals() else 0
+                logger.error(f"❌ Ping error for server {server_id}: {e}")
+                
+                return jsonify({
+                    'success': False,
+                    'server_id': server_id,
+                    'status': 'error',
+                    'response_time_ms': response_time,
+                    'message': f'Ping error: {str(e)}',
+                    'ping_time': datetime.now().isoformat(),
+                    'error': str(e)
+                }), 200  # Return 200 to prevent frontend errors
+        
+        print("[✅ PING] Server ping endpoint added successfully")
         print("[✅ IMPLEMENTATION] Working server routes implemented directly")
     
     def setup_fallback_api_endpoints(self, missing_routes):
