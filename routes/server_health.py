@@ -314,6 +314,173 @@ def test_graphql_sensors(server_id):
             'test_timestamp': datetime.utcnow().isoformat()
         }), 500
 
+@server_health_bp.route('/api/server_health/debug/graphql/<server_id>')
+@require_auth
+def debug_graphql_sensors(server_id):
+    """Debug endpoint to test GraphQL ServiceSensors directly"""
+    try:
+        logger.info(f"[GraphQL DEBUG] Testing GraphQL Sensors for {server_id}")
+        
+        # Test if storage exists
+        if not _server_health_storage:
+            return jsonify({
+                'success': False,
+                'error': 'Server health storage not available',
+                'debug_info': {
+                    'storage_available': False,
+                    'sensors_client_available': False
+                }
+            })
+        
+        # Test if sensors client exists
+        if not hasattr(_server_health_storage, 'sensors_client') or not _server_health_storage.sensors_client:
+            return jsonify({
+                'success': False,
+                'error': 'GraphQL Sensors client not initialized',
+                'debug_info': {
+                    'storage_available': True,
+                    'sensors_client_available': False,
+                    'has_sensors_attribute': hasattr(_server_health_storage, 'sensors_client'),
+                    'sensors_client_value': getattr(_server_health_storage, 'sensors_client', None)
+                }
+            })
+        
+        # Test token loading
+        try:
+            from utils.helpers import load_token
+            token_data = load_token()
+            token_info = {
+                'token_loaded': token_data is not None,
+                'token_type': type(token_data).__name__,
+                'token_length': len(str(token_data)) if token_data else 0
+            }
+            
+            if isinstance(token_data, dict):
+                token = token_data.get('access_token')
+                token_info['has_access_token'] = token is not None
+                token_info['access_token_length'] = len(token) if token else 0
+            elif isinstance(token_data, str):
+                token = token_data
+                token_info['token_is_string'] = True
+            else:
+                token = None
+                token_info['token_format_error'] = 'Unexpected token format'
+                
+        except Exception as token_error:
+            token_info = {
+                'token_error': str(token_error),
+                'token_loaded': False
+            }
+            token = None
+        
+        if not token:
+            return jsonify({
+                'success': False,
+                'error': 'No valid authentication token',
+                'debug_info': {
+                    'storage_available': True,
+                    'sensors_client_available': True,
+                    'token_info': token_info
+                }
+            })
+        
+        # Test GraphQL request directly
+        logger.info(f"[GraphQL DEBUG] Making direct GraphQL request for {server_id}")
+        
+        import requests
+        import json
+        
+        query = """
+        query GetServiceSensors($serviceId: String!) {
+            serviceSensors(serviceId: $serviceId) {
+                cpu
+                cpuTotal
+                memory {
+                    percent
+                    used
+                    total
+                }
+                uptime
+                timestamp
+            }
+        }
+        """
+        
+        payload = {
+            'query': query,
+            'variables': {
+                'serviceId': str(server_id)
+            }
+        }
+        
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json',
+            'User-Agent': 'GUST-Bot-Enhanced/1.0',
+            'Accept': 'application/json',
+            'Origin': 'https://www.g-portal.com',
+            'Referer': 'https://www.g-portal.com/'
+        }
+        
+        response = requests.post(
+            "https://www.g-portal.com/ngpapi",
+            json=payload,
+            headers=headers,
+            timeout=15
+        )
+        
+        # Parse response
+        try:
+            response_data = response.json()
+        except:
+            response_data = {'raw_text': response.text[:500]}
+        
+        debug_result = {
+            'success': True,
+            'server_id': server_id,
+            'debug_info': {
+                'storage_available': True,
+                'sensors_client_available': True,
+                'token_info': token_info,
+                'graphql_request': {
+                    'url': "https://www.g-portal.com/ngpapi",
+                    'status_code': response.status_code,
+                    'headers': dict(response.headers),
+                    'response_data': response_data,
+                    'query_variables': {'serviceId': str(server_id)}
+                }
+            }
+        }
+        
+        # Check for specific issues
+        if response.status_code != 200:
+            debug_result['error'] = f'HTTP {response.status_code}'
+        elif 'errors' in response_data:
+            debug_result['error'] = f'GraphQL errors: {response_data["errors"]}'
+        elif 'data' not in response_data:
+            debug_result['error'] = 'No data field in response'
+        elif 'serviceSensors' not in response_data.get('data', {}):
+            debug_result['error'] = 'No serviceSensors in response'
+        elif response_data['data']['serviceSensors'] is None:
+            debug_result['error'] = 'serviceSensors returned null (permissions or server access issue)'
+        else:
+            debug_result['success'] = True
+            debug_result['message'] = 'GraphQL ServiceSensors working!'
+            debug_result['sensor_data'] = response_data['data']['serviceSensors']
+        
+        return jsonify(debug_result)
+        
+    except Exception as e:
+        logger.error(f"[GraphQL DEBUG] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'debug_info': {
+                'exception_type': type(e).__name__,
+                'exception_message': str(e)
+            }
+        }), 500
+
 # ===== ✅ ENHANCED: EXISTING ENDPOINTS WITH GRAPHQL PRIORITY =====
 
 @server_health_bp.route('/api/server_health/status/<server_id>')
