@@ -54,16 +54,6 @@
             color: #9ca3af;
             margin-left: 4px;
         }
-        
-        @keyframes slideInFromRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        
-        @keyframes slideOutToRight {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
     </style>
 </head>
 <body class="bg-gray-900 text-white">
@@ -79,14 +69,16 @@
                     <label class="block text-sm font-medium mb-2">Username</label>
                     <input type="text" id="username" 
                            class="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-purple-500 focus:outline-none" 
-                           required autocomplete="username">
+                           autocomplete="username"
+                           placeholder="Enter G-Portal username">
                 </div>
                 
                 <div class="mb-4">
                     <label class="block text-sm font-medium mb-2">Password</label>
                     <input type="password" id="password" 
                            class="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-purple-500 focus:outline-none" 
-                           required autocomplete="current-password">
+                           autocomplete="current-password"
+                           placeholder="Enter G-Portal password">
                 </div>
                 
                 <!-- Auto-Authentication Control -->
@@ -108,6 +100,11 @@
                     <!-- Auto-auth status display -->
                     <div id="auto-auth-status" class="mt-2 text-xs">
                         <!-- Status will be populated by JavaScript -->
+                    </div>
+                    
+                    <!-- Auto-auth help text -->
+                    <div id="auto-auth-help" class="mt-2 text-xs text-blue-400 hidden">
+                        💡 <strong>Auto-auth enabled:</strong> You can leave username/password empty to use stored credentials, or enter new credentials to update them.
                     </div>
                 </div>
                 
@@ -148,241 +145,19 @@
                         <span class="text-green-300">✅ SEAMLESS AUTHENTICATION!</span>
                         <br><span class="text-blue-300">Demo Mode:</span> admin / password
                         <br><span class="text-green-300">Live Mode:</span> G-Portal email / password
-                        <br><span class="text-purple-300">Auto-Auth:</span> Never login again after first time
+                        <br><span class="text-purple-300">Auto-Auth:</span> Enable checkbox + leave fields empty (or enter new credentials)
                     </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <!-- Auto-Auth Management Script -->
-    <script src="/static/js/auto_auth.js" onerror="handleScriptError(this)"></script>
-    
-    <!-- Login Form Script with Enhanced Error Handling -->
+    <!-- Complete Login Script - NO EXTERNAL DEPENDENCIES -->
     <script>
-        // Global error handler for script loading failures
-        function handleScriptError(script) {
-            console.error('❌ Failed to load script:', script.src);
-            console.log('ℹ️ Creating fallback AutoAuthManager...');
-            
-            // Create a fallback AutoAuthManager if the script fails to load
-            window.AutoAuthManager = class {
-                constructor() {
-                    console.warn('⚠️ Using fallback AutoAuthManager - auto-auth features disabled');
-                }
-                updateStatus() { console.log('Fallback: updateStatus called'); }
-                toggleAutoAuth() { console.log('Fallback: toggleAutoAuth called'); }
-                showNotification(msg, type) { 
-                    console.log(`Fallback notification [${type}]: ${msg}`);
-                    showNotificationFallback(msg, type);
-                }
-                destroy() { console.log('Fallback: destroy called'); }
-            };
-            
-            // Create fallback functions
-            window.enhancedLogin = function() {
-                console.log('⚠️ Using fallback login function');
-                return fallbackLogin();
-            };
-            
-            window.showNotificationSafe = showNotificationFallback;
-        }
-
-        // Auto-authentication manager instance
-        let autoAuthManager;
+        console.log('🚀 Login page loaded');
         
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Login page DOM loaded, initializing...');
-            
-            try {
-                // Initialize auto-auth manager (with fallback support)
-                if (typeof AutoAuthManager !== 'undefined') {
-                    autoAuthManager = new AutoAuthManager();
-                    console.log('✅ AutoAuthManager initialized successfully');
-                } else {
-                    console.warn('⚠️ AutoAuthManager not available - using fallback');
-                    autoAuthManager = new (window.AutoAuthManager || class {
-                        updateStatus() {}
-                        toggleAutoAuth() {}
-                        showNotification() {}
-                        destroy() {}
-                    })();
-                }
-                
-                // Check auto-auth availability
-                checkAutoAuthAvailability();
-                
-                // Focus username field
-                const usernameField = document.getElementById('username');
-                if (usernameField) {
-                    usernameField.focus();
-                }
-                
-                // Setup form submission
-                setupLoginForm();
-                
-            } catch (error) {
-                console.error('❌ Login page initialization error:', error);
-                // Continue with fallback functionality
-                setupLoginForm();
-            }
-        });
-        
-        function setupLoginForm() {
-            const loginForm = document.getElementById('loginForm');
-            if (!loginForm) {
-                console.error('❌ Login form not found');
-                return;
-            }
-            
-            console.log('✅ Setting up login form...');
-            
-            // Setup form submission with enhanced error handling
-            loginForm.onsubmit = async (e) => {
-                e.preventDefault();
-                console.log('🔥 Form submitted, processing login...');
-                
-                const username = document.getElementById('username')?.value?.trim();
-                const password = document.getElementById('password')?.value;
-                
-                if (!username || !password) {
-                    showError('Please enter both username and password');
-                    return;
-                }
-                
-                // Use enhanced login if available, otherwise fallback
-                try {
-                    if (typeof enhancedLogin === 'function') {
-                        console.log('Using enhanced login function');
-                        await enhancedLogin();
-                    } else {
-                        console.log('Using fallback login function');
-                        await fallbackLogin();
-                    }
-                } catch (error) {
-                    console.error('❌ Login submission error:', error);
-                    showError(error.message || 'Login failed');
-                }
-            };
-        }
-        
-        async function fallbackLogin() {
-            console.log('🔥 Executing fallback login...');
-            
-            const username = document.getElementById('username')?.value?.trim();
-            const password = document.getElementById('password')?.value;
-            const enableAutoAuth = document.getElementById('enableAutoAuth')?.checked || false;
-            
-            const submitButton = document.getElementById('loginButton');
-            const loadingDiv = document.getElementById('loading');
-            const errorDiv = document.getElementById('error');
-            
-            // Show loading state
-            if (loadingDiv) loadingDiv.classList.remove('hidden');
-            if (errorDiv) errorDiv.classList.add('hidden');
-            if (submitButton) {
-                submitButton.disabled = true;
-                submitButton.textContent = 'Authenticating...';
-            }
-            
-            try {
-                // FIXED: Correct URL without /auth prefix
-                const response = await fetch('/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        username: username,
-                        password: password,
-                        enable_auto_auth: enableAutoAuth
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                console.log('🔥 Login response received:', data.success);
-                
-                if (data.success) {
-                    if (data.auto_auth_enabled) {
-                        showSuccess('✅ Login successful with auto-authentication enabled!');
-                    } else {
-                        showSuccess('✅ Login successful!');
-                    }
-                    
-                    // Redirect to dashboard
-                    setTimeout(() => {
-                        window.location.href = data.redirect_url || '/';
-                    }, 1000);
-                } else {
-                    throw new Error(data.error || 'Login failed');
-                }
-            } catch (error) {
-                console.error('❌ Login error:', error);
-                showError(error.message || 'Login failed - network error');
-                throw error;
-            } finally {
-                // Reset UI state
-                if (loadingDiv) loadingDiv.classList.add('hidden');
-                if (submitButton) {
-                    submitButton.disabled = false;
-                    submitButton.textContent = 'Login';
-                }
-            }
-        }
-        
-        async function checkAutoAuthAvailability() {
-            try {
-                console.log('🔥 Checking auto-auth availability...');
-                
-                // FIXED: Correct system status URL
-                const response = await fetch('/health/system');
-                if (!response.ok) {
-                    console.warn('⚠️ System status check failed:', response.status);
-                    return;
-                }
-                
-                const status = await response.json();
-                const autoAuthComponent = status.components?.auto_auth;
-                const autoAuthControl = document.getElementById('auto-auth-control');
-                const autoAuthWarning = document.getElementById('auto-auth-warning');
-                const autoAuthCheckbox = document.getElementById('enableAutoAuth');
-                const warningReason = document.getElementById('warning-reason');
-                
-                if (!autoAuthCheckbox) {
-                    console.log('ℹ️ Auto-auth checkbox not found - feature may be disabled');
-                    return;
-                }
-                
-                if (autoAuthComponent?.status === 'unavailable') {
-                    autoAuthCheckbox.disabled = true;
-                    if (autoAuthWarning) autoAuthWarning.classList.remove('hidden');
-                    if (warningReason) warningReason.textContent = autoAuthComponent.reason || 'Components not installed';
-                    console.log('⚠️ Auto-auth unavailable:', autoAuthComponent.reason);
-                } else if (!autoAuthComponent?.enabled) {
-                    autoAuthCheckbox.disabled = true;
-                    if (autoAuthWarning) autoAuthWarning.classList.remove('hidden');
-                    if (warningReason) warningReason.textContent = 'Disabled in configuration';
-                    console.log('⚠️ Auto-auth disabled in configuration');
-                } else {
-                    autoAuthCheckbox.disabled = false;
-                    if (autoAuthWarning) autoAuthWarning.classList.add('hidden');
-                    console.log('✅ Auto-auth available and enabled');
-                }
-            } catch (error) {
-                console.error('❌ Error checking auto-auth availability:', error);
-                // Default to enabled for better UX
-                const autoAuthCheckbox = document.getElementById('enableAutoAuth');
-                if (autoAuthCheckbox) {
-                    autoAuthCheckbox.disabled = false;
-                    console.log('ℹ️ Defaulting auto-auth to enabled due to check failure');
-                }
-            }
-        }
+        // Global variables
+        let autoAuthManager = null;
         
         // Utility functions for UI feedback
         function showError(message) {
@@ -405,35 +180,225 @@
             }
         }
         
-        function showNotificationFallback(message, type = 'info') {
-            console.log(`📢 ${type.toUpperCase()}: ${message}`);
+        function hideMessages() {
+            const errorDiv = document.getElementById('error');
+            if (errorDiv) {
+                errorDiv.classList.add('hidden');
+            }
+        }
+        
+        // Dynamic form validation based on auto-auth state
+        function updateFormValidation() {
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const enableAutoAuthCheckbox = document.getElementById('enableAutoAuth');
+            const autoAuthHelp = document.getElementById('auto-auth-help');
             
-            if (type === 'success') {
-                showSuccess(message);
-            } else if (type === 'error') {
-                showError(message);
+            if (!usernameInput || !passwordInput || !enableAutoAuthCheckbox) {
+                return;
+            }
+            
+            const autoAuthEnabled = enableAutoAuthCheckbox.checked;
+            
+            if (autoAuthEnabled) {
+                // Remove required attributes when auto-auth is enabled
+                usernameInput.removeAttribute('required');
+                passwordInput.removeAttribute('required');
+                if (autoAuthHelp) autoAuthHelp.classList.remove('hidden');
+                console.log('[Login] ✅ Validation relaxed (auto-auth enabled)');
             } else {
-                // For info/warning, use error div with different styling
-                const errorDiv = document.getElementById('error');
-                if (errorDiv) {
-                    errorDiv.textContent = message;
-                    errorDiv.className = `mt-4 text-blue-500 text-sm`;
-                    errorDiv.classList.remove('hidden');
+                // Add required attributes when auto-auth is disabled
+                usernameInput.setAttribute('required', 'required');
+                passwordInput.setAttribute('required', 'required');
+                if (autoAuthHelp) autoAuthHelp.classList.add('hidden');
+                console.log('[Login] ✅ Validation required (auto-auth disabled)');
+            }
+        }
+        
+        // Main login function
+        async function executeLogin() {
+            console.log('🔥 Executing login...');
+            
+            const username = document.getElementById('username')?.value?.trim() || '';
+            const password = document.getElementById('password')?.value || '';
+            const enableAutoAuth = document.getElementById('enableAutoAuth')?.checked || false;
+            
+            // Validation based on auto-auth state
+            if (!username || !password) {
+                if (!enableAutoAuth) {
+                    showError('Please enter both username and password, or enable auto-authentication');
+                    return;
+                }
+                console.log('🔐 Empty credentials with auto-auth enabled - proceeding to server');
+            }
+            
+            const submitButton = document.getElementById('loginButton');
+            const loadingDiv = document.getElementById('loading');
+            
+            // Show loading state
+            if (loadingDiv) loadingDiv.classList.remove('hidden');
+            hideMessages();
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Authenticating...';
+            }
+            
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password,
+                        enable_auto_auth: enableAutoAuth
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('🔥 Login response received:', data.success);
+                
+                if (data.success) {
+                    let message = '✅ Login successful!';
+                    
+                    if (data.auto_auth_enabled && data.auto_auth_used) {
+                        message = '✅ Auto-authentication successful! Logged in using stored credentials.';
+                    } else if (data.auto_auth_enabled) {
+                        message = '✅ Login successful with auto-authentication enabled!';
+                    }
+                    
+                    showSuccess(message);
+                    
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url || '/';
+                    }, 1000);
+                } else {
+                    throw new Error(data.error || 'Login failed');
+                }
+            } catch (error) {
+                console.error('❌ Login error:', error);
+                showError(error.message || 'Login failed - network error');
+            } finally {
+                // Reset UI state
+                if (loadingDiv) loadingDiv.classList.add('hidden');
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Login';
                 }
             }
         }
         
-        // Make functions globally available
+        async function checkAutoAuthAvailability() {
+            try {
+                console.log('🔥 Checking auto-auth availability...');
+                
+                const response = await fetch('/health/system');
+                if (!response.ok) {
+                    console.warn('⚠️ System status check failed:', response.status);
+                    return;
+                }
+                
+                const status = await response.json();
+                const autoAuthComponent = status.components?.auto_auth;
+                const autoAuthWarning = document.getElementById('auto-auth-warning');
+                const autoAuthCheckbox = document.getElementById('enableAutoAuth');
+                const warningReason = document.getElementById('warning-reason');
+                
+                if (!autoAuthCheckbox) {
+                    console.log('ℹ️ Auto-auth checkbox not found');
+                    return;
+                }
+                
+                if (autoAuthComponent?.status === 'unavailable') {
+                    autoAuthCheckbox.disabled = true;
+                    if (autoAuthWarning) autoAuthWarning.classList.remove('hidden');
+                    if (warningReason) warningReason.textContent = autoAuthComponent.reason || 'Components not installed';
+                    console.log('⚠️ Auto-auth unavailable:', autoAuthComponent.reason);
+                } else if (!autoAuthComponent?.enabled) {
+                    autoAuthCheckbox.disabled = true;
+                    if (autoAuthWarning) autoAuthWarning.classList.remove('hidden');
+                    if (warningReason) warningReason.textContent = 'Disabled in configuration';
+                    console.log('⚠️ Auto-auth disabled in configuration');
+                } else {
+                    autoAuthCheckbox.disabled = false;
+                    if (autoAuthWarning) autoAuthWarning.classList.add('hidden');
+                    console.log('✅ Auto-auth available and enabled');
+                }
+                
+                // Update form validation after checking availability
+                updateFormValidation();
+                
+            } catch (error) {
+                console.error('❌ Error checking auto-auth availability:', error);
+                // Default to enabled for better UX
+                const autoAuthCheckbox = document.getElementById('enableAutoAuth');
+                if (autoAuthCheckbox) {
+                    autoAuthCheckbox.disabled = false;
+                    console.log('ℹ️ Defaulting auto-auth to enabled due to check failure');
+                }
+                updateFormValidation();
+            }
+        }
+        
+        // Initialize everything when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Login page DOM loaded, initializing...');
+            
+            try {
+                // Check auto-auth availability
+                checkAutoAuthAvailability();
+                
+                // Focus username field
+                const usernameField = document.getElementById('username');
+                if (usernameField) {
+                    usernameField.focus();
+                }
+                
+                // Setup form submission
+                const loginForm = document.getElementById('loginForm');
+                const enableAutoAuthCheckbox = document.getElementById('enableAutoAuth');
+                
+                if (loginForm) {
+                    // Setup auto-auth checkbox change handler
+                    if (enableAutoAuthCheckbox) {
+                        enableAutoAuthCheckbox.addEventListener('change', function() {
+                            updateFormValidation();
+                            console.log('[Login] Auto-auth checkbox changed:', this.checked);
+                        });
+                    }
+                    
+                    // Initial validation setup
+                    updateFormValidation();
+                    
+                    // Setup form submission
+                    loginForm.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        console.log('🔥 Form submitted, processing login...');
+                        executeLogin();
+                    });
+                    
+                    console.log('✅ Login form setup complete');
+                } else {
+                    console.error('❌ Login form not found');
+                }
+                
+            } catch (error) {
+                console.error('❌ Login page initialization error:', error);
+            }
+        });
+        
+        // Make functions globally available for debugging
+        window.executeLogin = executeLogin;
+        window.updateFormValidation = updateFormValidation;
         window.showError = showError;
         window.showSuccess = showSuccess;
-        window.showNotificationFallback = showNotificationFallback;
-        window.checkAutoAuthAvailability = checkAutoAuthAvailability;
-        window.fallbackLogin = fallbackLogin;
         
-        // Global notification function for compatibility
-        if (typeof showNotification === 'undefined') {
-            window.showNotification = showNotificationFallback;
-        }
     </script>
 </body>
 </html>

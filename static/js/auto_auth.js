@@ -1,4 +1,10 @@
-// Auto-authentication management - COMPLETE FIXED VERSION
+// GUST Bot Enhanced - Auto-Authentication Manager
+// =============================================
+// Complete working version with no external dependencies
+
+console.log('[AutoAuth] Loading auto-authentication manager...');
+
+// Auto-authentication manager class
 class AutoAuthManager {
     constructor() {
         this.statusInterval = null;
@@ -34,37 +40,44 @@ class AutoAuthManager {
     }
     
     setupControls() {
-        // Setup any UI controls for auto-auth
-        const toggleButton = document.getElementById('auto-auth-toggle');
-        if (toggleButton) {
-            toggleButton.addEventListener('click', (e) => {
-                this.toggleAutoAuth(e.target.checked);
-            });
-        }
-        
+        // Setup auto-auth checkbox if it exists
         const enableCheckbox = document.getElementById('enableAutoAuth');
         if (enableCheckbox) {
             enableCheckbox.addEventListener('change', (e) => {
                 console.log('[AutoAuth] Auto-auth preference changed:', e.target.checked);
+                
+                // Update form validation when checkbox changes
+                if (typeof updateFormValidation === 'function') {
+                    updateFormValidation();
+                } else if (typeof window.updateFormValidation === 'function') {
+                    window.updateFormValidation();
+                }
             });
         }
     }
     
     async updateStatus() {
         try {
-            // FIXED: Correct URL without /auth prefix
             const response = await fetch('/auto-auth/status');
             if (response.ok) {
                 const status = await response.json();
                 this.displayStatus(status);
             } else {
                 console.warn('[AutoAuth] ⚠️ Status update failed:', response.status);
-                this.displayStatus({ enabled: false, credentials_stored: false, service_status: { running: false } });
+                this.displayStatus({ 
+                    enabled: false, 
+                    credentials_stored: false, 
+                    service_status: { running: false } 
+                });
             }
         } catch (error) {
             console.error('[AutoAuth] ❌ Status error:', error);
             // Display fallback status
-            this.displayStatus({ enabled: false, credentials_stored: false, service_status: { running: false } });
+            this.displayStatus({ 
+                enabled: false, 
+                credentials_stored: false, 
+                service_status: { running: false } 
+            });
         }
     }
     
@@ -81,7 +94,6 @@ class AutoAuthManager {
         const renewalCount = status.service_status && status.service_status.renewal_count ? 
                            status.service_status.renewal_count : 0;
         
-        // FIXED: Proper template literal syntax
         statusElement.innerHTML = `
             <div class="auto-auth-indicator ${isActive ? 'active' : 'inactive'}">
                 <span class="status-dot"></span>
@@ -100,7 +112,6 @@ class AutoAuthManager {
         try {
             console.log('[AutoAuth] Toggling auto-auth:', enable);
             
-            // FIXED: Correct URL without /auth prefix
             const response = await fetch('/auto-auth/toggle', {
                 method: 'POST',
                 headers: {
@@ -127,84 +138,24 @@ class AutoAuthManager {
     showNotification(message, type = 'info') {
         console.log(`[AutoAuth] ${type.toUpperCase()}: ${message}`);
         
-        // Try to use existing notification system
-        if (typeof showNotification === 'function') {
-            showNotification(message, type);
-            return;
-        }
-        
-        // Fallback notification system
-        this.createFallbackNotification(message, type);
-    }
-    
-    createFallbackNotification(message, type) {
-        // Remove any existing notifications
-        const existing = document.querySelectorAll('.auto-auth-notification');
-        existing.forEach(n => n.remove());
-        
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `auto-auth-notification notification-${type}`;
-        notification.textContent = message;
-        
-        // Style the notification
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            border-radius: 6px;
-            color: white;
-            background: ${this.getNotificationColor(type)};
-            z-index: 9999;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-size: 14px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            max-width: 300px;
-            word-wrap: break-word;
-            animation: slideInFromRight 0.3s ease;
-        `;
-        
-        // Add animation styles if not already present
-        if (!document.getElementById('auto-auth-animations')) {
-            const style = document.createElement('style');
-            style.id = 'auto-auth-animations';
-            style.textContent = `
-                @keyframes slideInFromRight {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes slideOutToRight {
-                    from { transform: translateX(0); opacity: 1; }
-                    to { transform: translateX(100%); opacity: 0; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-        
-        document.body.appendChild(notification);
-        
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.style.animation = 'slideOutToRight 0.3s ease';
+        // Try to use existing error display system
+        const errorDiv = document.getElementById('error');
+        if (errorDiv) {
+            errorDiv.textContent = message;
+            errorDiv.className = `mt-4 text-sm ${
+                type === 'success' ? 'text-green-500' : 
+                type === 'error' ? 'text-red-500' : 
+                'text-blue-500'
+            }`;
+            errorDiv.classList.remove('hidden');
+            
+            // Auto-hide success messages
+            if (type === 'success') {
                 setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.remove();
-                    }
-                }, 300);
+                    errorDiv.classList.add('hidden');
+                }, 3000);
             }
-        }, 5000);
-    }
-    
-    getNotificationColor(type) {
-        const colors = {
-            'success': '#28a745',
-            'error': '#dc3545', 
-            'warning': '#ffc107',
-            'info': '#17a2b8'
-        };
-        return colors[type] || colors.info;
+        }
     }
     
     destroy() {
@@ -217,7 +168,7 @@ class AutoAuthManager {
     }
 }
 
-// Enhanced login function - STREAMLINED VERSION
+// Enhanced login function with proper auto-auth support
 function enhancedLogin() {
     console.log('[AutoAuth] Enhanced login function called');
     
@@ -227,7 +178,7 @@ function enhancedLogin() {
         return Promise.reject(new Error('Login form not found'));
     }
     
-    // FIXED: Direct element access instead of FormData
+    // Get form elements
     const usernameInput = document.getElementById('username');
     const passwordInput = document.getElementById('password');
     const enableAutoAuthCheckbox = document.getElementById('enableAutoAuth');
@@ -236,18 +187,30 @@ function enhancedLogin() {
     const password = passwordInput ? passwordInput.value.trim() : '';
     const enableAutoAuthValue = enableAutoAuthCheckbox ? enableAutoAuthCheckbox.checked : false;
     
-    // Validation
+    // Validation - only require credentials if auto-auth is NOT enabled
     if (!username || !password) {
-        const error = new Error('Please enter both username and password');
-        showNotificationSafe(error.message, 'error');
-        return Promise.reject(error);
+        if (!enableAutoAuthValue) {
+            const error = new Error('Please enter both username and password, or enable auto-authentication');
+            // Use safe error display
+            const errorDiv = document.getElementById('error');
+            if (errorDiv) {
+                errorDiv.textContent = error.message;
+                errorDiv.className = 'mt-4 text-red-500 text-sm';
+                errorDiv.classList.remove('hidden');
+            }
+            return Promise.reject(error);
+        } else {
+            // Auto-auth enabled with empty credentials - this is allowed!
+            console.log('[AutoAuth] 🔐 Auto-auth enabled with empty credentials - proceeding to server');
+        }
     }
     
     // Debug logging
     console.log('[AutoAuth] Extracted data:', {
         username: username ? `${username.length} chars` : 'empty',
         password: password ? `${password.length} chars` : 'empty',
-        autoAuth: enableAutoAuthValue
+        autoAuth: enableAutoAuthValue,
+        allowingEmptyCredentials: enableAutoAuthValue && (!username || !password)
     });
     
     const loginData = {
@@ -256,7 +219,7 @@ function enhancedLogin() {
         enable_auto_auth: enableAutoAuthValue
     };
     
-    console.log('[AutoAuth] Login data prepared, auto-auth enabled:', enableAutoAuthValue);
+    console.log('[AutoAuth] Proceeding with login request...');
     
     // Show loading state
     const submitButton = form.querySelector('button[type="submit"]') || form.querySelector('#loginButton');
@@ -266,12 +229,12 @@ function enhancedLogin() {
     
     if (submitButton) {
         submitButton.disabled = true;
-        submitButton.textContent = 'Authenticating...';
+        submitButton.textContent = enableAutoAuthValue && (!username || !password) ? 
+            'Auto-authenticating...' : 'Authenticating...';
     }
     if (loadingDiv) loadingDiv.classList.remove('hidden');
     if (errorDiv) errorDiv.classList.add('hidden');
     
-    // FIXED: Correct URL without /auth prefix
     return fetch('/login', {
         method: 'POST',
         headers: {
@@ -289,10 +252,19 @@ function enhancedLogin() {
         console.log('[AutoAuth] Login response received:', data.success);
         
         if (data.success) {
-            if (data.auto_auth_enabled) {
-                showNotificationSafe('✅ Auto-authentication enabled! You will stay logged in automatically.', 'success');
-            } else {
-                showNotificationSafe('✅ Login successful!', 'success');
+            let message = '✅ Login successful!';
+            
+            if (data.auto_auth_enabled && data.auto_auth_used) {
+                message = '✅ Auto-authentication successful! Logged in using stored credentials.';
+            } else if (data.auto_auth_enabled) {
+                message = '✅ Login successful with auto-authentication enabled! Future logins will be automatic.';
+            }
+            
+            // Safe success display
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.className = 'mt-4 text-green-500 text-sm';
+                errorDiv.classList.remove('hidden');
             }
             
             // Redirect to dashboard
@@ -307,7 +279,24 @@ function enhancedLogin() {
     })
     .catch(error => {
         console.error('[AutoAuth] ❌ Login error:', error);
-        showNotificationSafe(error.message || 'Login failed - network error', 'error');
+        
+        // Enhanced error messaging for auto-auth scenarios
+        let errorMessage = error.message || 'Login failed - network error';
+        if (enableAutoAuthValue && (!username || !password)) {
+            if (errorMessage.includes('No stored credentials')) {
+                errorMessage = '🔐 Auto-auth failed: No stored credentials found. Please enter your username and password to set up auto-authentication.';
+            } else if (errorMessage.includes('Stored credentials are no longer valid')) {
+                errorMessage = '🔐 Auto-auth failed: Stored credentials expired. Please enter your current username and password to update auto-authentication.';
+            }
+        }
+        
+        // Safe error display
+        if (errorDiv) {
+            errorDiv.textContent = errorMessage;
+            errorDiv.className = 'mt-4 text-red-500 text-sm';
+            errorDiv.classList.remove('hidden');
+        }
+        
         throw error;
     })
     .finally(() => {
@@ -320,42 +309,68 @@ function enhancedLogin() {
     });
 }
 
-// Safe notification function that works everywhere
+// Dynamic form validation management
+function updateFormValidation() {
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const enableAutoAuthCheckbox = document.getElementById('enableAutoAuth');
+    const autoAuthHelp = document.getElementById('auto-auth-help');
+    
+    if (!usernameInput || !passwordInput || !enableAutoAuthCheckbox) {
+        return;
+    }
+    
+    const autoAuthEnabled = enableAutoAuthCheckbox.checked;
+    
+    if (autoAuthEnabled) {
+        // Remove required attributes when auto-auth is enabled
+        usernameInput.removeAttribute('required');
+        passwordInput.removeAttribute('required');
+        if (autoAuthHelp) autoAuthHelp.classList.remove('hidden');
+        console.log('[AutoAuth] ✅ Required attributes removed (auto-auth enabled)');
+    } else {
+        // Add required attributes when auto-auth is disabled
+        usernameInput.setAttribute('required', 'required');
+        passwordInput.setAttribute('required', 'required');
+        if (autoAuthHelp) autoAuthHelp.classList.add('hidden');
+        console.log('[AutoAuth] ✅ Required attributes restored (auto-auth disabled)');
+    }
+}
+
+// Safe notification function
 function showNotificationSafe(message, type = 'info') {
     console.log(`[AutoAuth] ${type.toUpperCase()}: ${message}`);
     
-    // Try multiple notification systems
-    if (typeof showNotification === 'function') {
-        showNotification(message, type);
-    } else if (window.autoAuthManager && window.autoAuthManager.showNotification) {
-        window.autoAuthManager.showNotification(message, type);
-    } else {
-        // Create a simple notification in the error div
-        const errorDiv = document.getElementById('error');
-        if (errorDiv) {
-            errorDiv.textContent = message;
-            errorDiv.className = `mt-4 text-sm ${type === 'success' ? 'text-green-500' : type === 'error' ? 'text-red-500' : 'text-blue-500'}`;
-            errorDiv.classList.remove('hidden');
-            
-            // Auto-hide success messages
-            if (type === 'success') {
-                setTimeout(() => {
-                    errorDiv.classList.add('hidden');
-                }, 3000);
-            }
+    // Use the error div for all notifications
+    const errorDiv = document.getElementById('error');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.className = `mt-4 text-sm ${
+            type === 'success' ? 'text-green-500' : 
+            type === 'error' ? 'text-red-500' : 
+            'text-blue-500'
+        }`;
+        errorDiv.classList.remove('hidden');
+        
+        // Auto-hide success messages
+        if (type === 'success') {
+            setTimeout(() => {
+                errorDiv.classList.add('hidden');
+            }, 3000);
         }
     }
 }
 
 // Make functions globally available
-window.showNotificationSafe = showNotificationSafe;
 window.enhancedLogin = enhancedLogin;
+window.updateFormValidation = updateFormValidation;
+window.showNotificationSafe = showNotificationSafe;
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[AutoAuth] 🚀 DOM loaded, initializing AutoAuth system...');
     
-    // Only initialize if we have auto-auth elements or if this is the login page
+    // Only initialize if we have auto-auth elements
     const hasAutoAuthElements = document.getElementById('auto-auth-status') || 
                                document.getElementById('enableAutoAuth') ||
                                document.getElementById('loginForm');
@@ -365,6 +380,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Create global instance
             window.autoAuthManager = new AutoAuthManager();
             console.log('[AutoAuth] ✅ Global AutoAuthManager created and ready');
+            
+            // Setup form validation management
+            const enableAutoAuthCheckbox = document.getElementById('enableAutoAuth');
+            if (enableAutoAuthCheckbox) {
+                enableAutoAuthCheckbox.addEventListener('change', updateFormValidation);
+                // Initial validation setup
+                updateFormValidation();
+            }
+            
         } catch (error) {
             console.error('[AutoAuth] ❌ Failed to create AutoAuthManager:', error);
             
@@ -390,5 +414,7 @@ window.addEventListener('beforeunload', () => {
 
 // Export for module systems (if needed)
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { AutoAuthManager, enhancedLogin, showNotificationSafe };
+    module.exports = { AutoAuthManager, enhancedLogin, showNotificationSafe, updateFormValidation };
 }
+
+console.log('[AutoAuth] ✅ Auto-authentication manager loaded successfully');
