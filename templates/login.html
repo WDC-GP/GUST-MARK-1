@@ -3,26 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GUST Bot - Enhanced Login with Auto-Authentication</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>GUST Bot Enhanced - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        body {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            min-height: 100vh;
+        }
+        
+        .feature-pill {
+            display: inline-block;
+            background: rgba(139, 92, 246, 0.2);
+            color: #a855f7;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            margin: 1px;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+        
+        .auto-auth-checkbox {
+            accent-color: #8b5cf6;
+        }
+        
         .auto-auth-indicator {
-            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
-        .auto-auth-indicator.active {
-            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-        }
-        
-        .auto-auth-indicator.inactive {
-            background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
-        }
-        
-        .status-dot {
+        .auto-auth-indicator .status-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: currentColor;
+            background: #ef4444;
+        }
+        
+        .auto-auth-indicator.active .status-dot {
+            background: #22c55e;
             animation: pulse 2s infinite;
         }
         
@@ -31,54 +49,44 @@
             50% { opacity: 0.5; }
         }
         
-        .auto-auth-checkbox {
-            accent-color: #8b5cf6;
+        .renewal-count {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-left: 4px;
         }
         
-        .feature-pill {
-            background: linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%);
-            border-radius: 9999px;
-            padding: 2px 8px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: white;
-            display: inline-block;
-            margin: 2px;
+        @keyframes slideInFromRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOutToRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
         }
     </style>
 </head>
 <body class="bg-gray-900 text-white">
-    <div class="min-h-screen flex items-center justify-center">
-        <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-96">
-            <!-- Header -->
-            <h1 class="text-3xl font-bold text-center mb-4 text-purple-400">🚀 GUST Enhanced</h1>
-            <div class="text-center text-green-400 text-sm mb-6">
-                ✅ Auto-Authentication + All Features
+    <div class="min-h-screen flex items-center justify-center px-4">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-white mb-2">🚀 GUST Bot Enhanced</h1>
+                <p class="text-gray-400">Complete Rust Server Management</p>
             </div>
             
-            <!-- Auto-Auth Status Widget -->
-            <div id="auto-auth-status" class="mb-6 p-3 rounded-lg bg-gray-700 border border-gray-600">
-                <div class="auto-auth-indicator inactive flex items-center space-x-2 p-2 rounded">
-                    <span class="status-dot"></span>
-                    <span class="status-text text-sm font-medium">AUTO-AUTH: Checking...</span>
-                </div>
-                <div id="auto-auth-details" class="mt-2 text-xs text-gray-400 hidden"></div>
-            </div>
-            
-            <!-- Login Form -->
-            <form id="loginForm">
+            <form id="loginForm" class="space-y-6">
                 <div class="mb-4">
-                    <label class="block text-sm font-medium mb-2">G-Portal Username</label>
+                    <label class="block text-sm font-medium mb-2">Username</label>
                     <input type="text" id="username" 
                            class="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-purple-500 focus:outline-none" 
-                           required>
+                           required autocomplete="username">
                 </div>
                 
                 <div class="mb-4">
                     <label class="block text-sm font-medium mb-2">Password</label>
                     <input type="password" id="password" 
                            class="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-purple-500 focus:outline-none" 
-                           required>
+                           required autocomplete="current-password">
                 </div>
                 
                 <!-- Auto-Authentication Control -->
@@ -95,6 +103,11 @@
                     </div>
                     <div id="auto-auth-warning" class="mt-2 text-xs text-yellow-400 hidden">
                         ⚠️ Auto-authentication not available: <span id="warning-reason"></span>
+                    </div>
+                    
+                    <!-- Auto-auth status display -->
+                    <div id="auto-auth-status" class="mt-2 text-xs">
+                        <!-- Status will be populated by JavaScript -->
                     </div>
                 </div>
                 
@@ -143,126 +156,283 @@
     </div>
     
     <!-- Auto-Auth Management Script -->
-    <script src="/static/js/auto_auth.js"></script>
+    <script src="/static/js/auto_auth.js" onerror="handleScriptError(this)"></script>
     
-    <!-- Login Form Script -->
+    <!-- Login Form Script with Enhanced Error Handling -->
     <script>
+        // Global error handler for script loading failures
+        function handleScriptError(script) {
+            console.error('❌ Failed to load script:', script.src);
+            console.log('ℹ️ Creating fallback AutoAuthManager...');
+            
+            // Create a fallback AutoAuthManager if the script fails to load
+            window.AutoAuthManager = class {
+                constructor() {
+                    console.warn('⚠️ Using fallback AutoAuthManager - auto-auth features disabled');
+                }
+                updateStatus() { console.log('Fallback: updateStatus called'); }
+                toggleAutoAuth() { console.log('Fallback: toggleAutoAuth called'); }
+                showNotification(msg, type) { 
+                    console.log(`Fallback notification [${type}]: ${msg}`);
+                    showNotificationFallback(msg, type);
+                }
+                destroy() { console.log('Fallback: destroy called'); }
+            };
+            
+            // Create fallback functions
+            window.enhancedLogin = function() {
+                console.log('⚠️ Using fallback login function');
+                return fallbackLogin();
+            };
+            
+            window.showNotificationSafe = showNotificationFallback;
+        }
+
         // Auto-authentication manager instance
         let autoAuthManager;
         
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize auto-auth manager
-            autoAuthManager = new AutoAuthManager();
+            console.log('🚀 Login page DOM loaded, initializing...');
             
-            // Check auto-auth availability
-            checkAutoAuthAvailability();
-            
-            // Focus username field
-            document.getElementById('username').focus();
+            try {
+                // Initialize auto-auth manager (with fallback support)
+                if (typeof AutoAuthManager !== 'undefined') {
+                    autoAuthManager = new AutoAuthManager();
+                    console.log('✅ AutoAuthManager initialized successfully');
+                } else {
+                    console.warn('⚠️ AutoAuthManager not available - using fallback');
+                    autoAuthManager = new (window.AutoAuthManager || class {
+                        updateStatus() {}
+                        toggleAutoAuth() {}
+                        showNotification() {}
+                        destroy() {}
+                    })();
+                }
+                
+                // Check auto-auth availability
+                checkAutoAuthAvailability();
+                
+                // Focus username field
+                const usernameField = document.getElementById('username');
+                if (usernameField) {
+                    usernameField.focus();
+                }
+                
+                // Setup form submission
+                setupLoginForm();
+                
+            } catch (error) {
+                console.error('❌ Login page initialization error:', error);
+                // Continue with fallback functionality
+                setupLoginForm();
+            }
         });
+        
+        function setupLoginForm() {
+            const loginForm = document.getElementById('loginForm');
+            if (!loginForm) {
+                console.error('❌ Login form not found');
+                return;
+            }
+            
+            console.log('✅ Setting up login form...');
+            
+            // Setup form submission with enhanced error handling
+            loginForm.onsubmit = async (e) => {
+                e.preventDefault();
+                console.log('🔥 Form submitted, processing login...');
+                
+                const username = document.getElementById('username')?.value?.trim();
+                const password = document.getElementById('password')?.value;
+                
+                if (!username || !password) {
+                    showError('Please enter both username and password');
+                    return;
+                }
+                
+                // Use enhanced login if available, otherwise fallback
+                try {
+                    if (typeof enhancedLogin === 'function') {
+                        console.log('Using enhanced login function');
+                        await enhancedLogin();
+                    } else {
+                        console.log('Using fallback login function');
+                        await fallbackLogin();
+                    }
+                } catch (error) {
+                    console.error('❌ Login submission error:', error);
+                    showError(error.message || 'Login failed');
+                }
+            };
+        }
+        
+        async function fallbackLogin() {
+            console.log('🔥 Executing fallback login...');
+            
+            const username = document.getElementById('username')?.value?.trim();
+            const password = document.getElementById('password')?.value;
+            const enableAutoAuth = document.getElementById('enableAutoAuth')?.checked || false;
+            
+            const submitButton = document.getElementById('loginButton');
+            const loadingDiv = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+            
+            // Show loading state
+            if (loadingDiv) loadingDiv.classList.remove('hidden');
+            if (errorDiv) errorDiv.classList.add('hidden');
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Authenticating...';
+            }
+            
+            try {
+                // FIXED: Correct URL without /auth prefix
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password,
+                        enable_auto_auth: enableAutoAuth
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('🔥 Login response received:', data.success);
+                
+                if (data.success) {
+                    if (data.auto_auth_enabled) {
+                        showSuccess('✅ Login successful with auto-authentication enabled!');
+                    } else {
+                        showSuccess('✅ Login successful!');
+                    }
+                    
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url || '/';
+                    }, 1000);
+                } else {
+                    throw new Error(data.error || 'Login failed');
+                }
+            } catch (error) {
+                console.error('❌ Login error:', error);
+                showError(error.message || 'Login failed - network error');
+                throw error;
+            } finally {
+                // Reset UI state
+                if (loadingDiv) loadingDiv.classList.add('hidden');
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Login';
+                }
+            }
+        }
         
         async function checkAutoAuthAvailability() {
             try {
-                const response = await fetch('/api/system/status');
-                const status = await response.json();
+                console.log('🔥 Checking auto-auth availability...');
                 
+                // FIXED: Correct system status URL
+                const response = await fetch('/health/system');
+                if (!response.ok) {
+                    console.warn('⚠️ System status check failed:', response.status);
+                    return;
+                }
+                
+                const status = await response.json();
                 const autoAuthComponent = status.components?.auto_auth;
                 const autoAuthControl = document.getElementById('auto-auth-control');
                 const autoAuthWarning = document.getElementById('auto-auth-warning');
                 const autoAuthCheckbox = document.getElementById('enableAutoAuth');
                 const warningReason = document.getElementById('warning-reason');
                 
+                if (!autoAuthCheckbox) {
+                    console.log('ℹ️ Auto-auth checkbox not found - feature may be disabled');
+                    return;
+                }
+                
                 if (autoAuthComponent?.status === 'unavailable') {
                     autoAuthCheckbox.disabled = true;
-                    autoAuthWarning.classList.remove('hidden');
-                    warningReason.textContent = autoAuthComponent.reason || 'Components not installed';
+                    if (autoAuthWarning) autoAuthWarning.classList.remove('hidden');
+                    if (warningReason) warningReason.textContent = autoAuthComponent.reason || 'Components not installed';
+                    console.log('⚠️ Auto-auth unavailable:', autoAuthComponent.reason);
                 } else if (!autoAuthComponent?.enabled) {
                     autoAuthCheckbox.disabled = true;
-                    autoAuthWarning.classList.remove('hidden');
-                    warningReason.textContent = 'Disabled in configuration';
+                    if (autoAuthWarning) autoAuthWarning.classList.remove('hidden');
+                    if (warningReason) warningReason.textContent = 'Disabled in configuration';
+                    console.log('⚠️ Auto-auth disabled in configuration');
                 } else {
                     autoAuthCheckbox.disabled = false;
-                    autoAuthWarning.classList.add('hidden');
+                    if (autoAuthWarning) autoAuthWarning.classList.add('hidden');
+                    console.log('✅ Auto-auth available and enabled');
                 }
             } catch (error) {
-                console.error('Error checking auto-auth availability:', error);
+                console.error('❌ Error checking auto-auth availability:', error);
                 // Default to enabled for better UX
-                document.getElementById('enableAutoAuth').disabled = false;
+                const autoAuthCheckbox = document.getElementById('enableAutoAuth');
+                if (autoAuthCheckbox) {
+                    autoAuthCheckbox.disabled = false;
+                    console.log('ℹ️ Defaulting auto-auth to enabled due to check failure');
+                }
             }
         }
         
-        // Enhanced login form handler
-        document.getElementById('loginForm').onsubmit = async (e) => {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            const enableAutoAuth = document.getElementById('enableAutoAuth').checked;
+        // Utility functions for UI feedback
+        function showError(message) {
+            console.error('🔴 Error:', message);
             const errorDiv = document.getElementById('error');
-            const loadingDiv = document.getElementById('loading');
-            const loginButton = document.getElementById('loginButton');
-            
-            // Clear previous errors
-            errorDiv.classList.add('hidden');
-            
-            // Validate inputs
-            if (!username || !password) {
-                errorDiv.textContent = 'Please enter both username and password';
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.className = 'mt-4 text-red-500 text-sm';
                 errorDiv.classList.remove('hidden');
-                return;
             }
-            
-            // Show loading state
-            loadingDiv.classList.remove('hidden');
-            loginButton.disabled = true;
-            loginButton.textContent = 'Authenticating...';
-            
-            try {
-                const response = await fetch('/login', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        username: username,
-                        password: password,
-                        enableAutoAuth: enableAutoAuth
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Success feedback
-                    if (result.auto_auth_status?.enabled) {
-                        showSuccessMessage('✅ Login successful with auto-authentication enabled!');
-                    } else {
-                        showSuccessMessage('✅ Login successful!');
-                    }
-                    
-                    // Redirect to dashboard
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 1000);
-                } else {
-                    throw new Error(result.error || 'Login failed');
-                }
-            } catch (err) {
-                console.error('Login error:', err);
-                errorDiv.textContent = err.message || 'Network error. Please try again.';
-                errorDiv.classList.remove('hidden');
-            } finally {
-                // Reset UI state
-                loadingDiv.classList.add('hidden');
-                loginButton.disabled = false;
-                loginButton.textContent = 'Login';
-            }
-        };
+        }
         
-        function showSuccessMessage(message) {
+        function showSuccess(message) {
+            console.log('🟢 Success:', message);
             const errorDiv = document.getElementById('error');
-            errorDiv.textContent = message;
-            errorDiv.className = 'mt-4 text-green-500 text-sm';
-            errorDiv.classList.remove('hidden');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.className = 'mt-4 text-green-500 text-sm';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+        
+        function showNotificationFallback(message, type = 'info') {
+            console.log(`📢 ${type.toUpperCase()}: ${message}`);
+            
+            if (type === 'success') {
+                showSuccess(message);
+            } else if (type === 'error') {
+                showError(message);
+            } else {
+                // For info/warning, use error div with different styling
+                const errorDiv = document.getElementById('error');
+                if (errorDiv) {
+                    errorDiv.textContent = message;
+                    errorDiv.className = `mt-4 text-blue-500 text-sm`;
+                    errorDiv.classList.remove('hidden');
+                }
+            }
+        }
+        
+        // Make functions globally available
+        window.showError = showError;
+        window.showSuccess = showSuccess;
+        window.showNotificationFallback = showNotificationFallback;
+        window.checkAutoAuthAvailability = checkAutoAuthAvailability;
+        window.fallbackLogin = fallbackLogin;
+        
+        // Global notification function for compatibility
+        if (typeof showNotification === 'undefined') {
+            window.showNotification = showNotificationFallback;
         }
     </script>
 </body>
