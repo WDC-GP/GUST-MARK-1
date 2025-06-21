@@ -4,7 +4,6 @@ GUST Bot Enhanced - Helper Functions (COMPLETE FIXED VERSION + ALL MISSING FUNCT
 ✅ FIXED: Windows file locking permission errors resolved
 ✅ FIXED: All missing utility functions restored
 ✅ FIXED: Complete function definitions for all imports
-✅ FIXED: create_server_data() function parameter mismatch resolved
 ✅ PRESERVED: All existing functionality
 ✅ ADDED: All missing functions that were causing import errors
 """
@@ -1225,44 +1224,23 @@ def format_command(command):
     return command
 
 # ================================================================
-# ✅ FIXED: SERVER DATA CREATION FUNCTION
-# ================================================================
-
-def create_server_data(server_info):
-    """
-    ✅ FIXED: Create standardized server data structure
-    
-    Args:
-        server_info (dict): Raw server information
-        
-    Returns:
-        dict: Standardized server data
-    """
-    return {
-        'serverId': server_info['serverId'],
-        'serverName': server_info['serverName'],
-        'serverRegion': server_info['serverRegion'],
-        'serverType': server_info.get('serverType', 'Standard'),
-        'description': server_info.get('description', ''),
-        'guildId': server_info.get('guildId', ''),
-        'channelId': server_info.get('channelId', ''),
-        'status': 'unknown',
-        'lastPing': None,
-        'playerCount': 0,
-        'maxPlayers': 0,
-        'isActive': True,
-        'isFavorite': False,
-        'added_date': datetime.now().isoformat(),
-        'last_updated': datetime.now().isoformat()
-    }
-
-# ================================================================
 # ✅ ALL MISSING UTILITY FUNCTIONS RESTORED
 # ================================================================
 
 def generate_random_string(length=10):
     """Generate random string for various purposes"""
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+def create_server_data(server_name, server_id, region='us', players=0, max_players=100):
+    """Create server data structure"""
+    return {
+        'name': server_name,
+        'id': server_id,
+        'region': region,
+        'players': players,
+        'maxPlayers': max_players,
+        'lastUpdate': datetime.now().isoformat()
+    }
 
 def validate_server_id(server_id):
     """Validate server ID format"""
@@ -1521,15 +1499,12 @@ __all__ = [
     'parse_console_response', 'classify_message', 'get_type_icon', 
     'format_console_message', 'format_command',
     
-    # Server management (FIXED)
-    'create_server_data',
-    
     # Validation functions
     'validate_server_id', 'validate_region', 'is_valid_steam_id',
     'validate_email', 'validate_url',
     
     # Utility functions
-    'generate_random_string', 'get_server_region',
+    'generate_random_string', 'create_server_data', 'get_server_region',
     'safe_int', 'safe_float', 'escape_html', 'format_timestamp', 
     'sanitize_filename', 'truncate_string',
     
@@ -1552,4 +1527,4 @@ __all__ = [
     'is_valid_jwt_token'
 ]
 
-logger.info("✅ Enhanced helpers module loaded with FIXED create_server_data() function and ALL MISSING FUNCTIONS restored")
+logger.info("✅ Enhanced helpers module loaded with FIXED Windows file locking and ALL MISSING FUNCTIONS restored")

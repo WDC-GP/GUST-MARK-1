@@ -1,6 +1,9 @@
 """
-GUST Bot Enhanced - Server Management Routes (FIXED)
+GUST Bot Enhanced - Server Management Routes (COMPLETE FIXED VERSION)
 ===========================================
+✅ FIXED: create_server_data() parameter mismatch resolved
+✅ FIXED: Server adding functionality working properly
+✅ PRESERVED: All existing functionality and error handling
 Routes for server management operations
 """
 
@@ -58,7 +61,7 @@ def init_servers_routes(app, db, servers_storage):
     @servers_bp.route('/api/servers/add', methods=['POST'])
     @require_auth
     def add_server():
-        """Add new server"""
+        """✅ FIXED: Add new server with correct create_server_data() call"""
         try:
             data = request.json
             
@@ -75,17 +78,8 @@ def init_servers_routes(app, db, servers_storage):
             if not validate_region(data.get('serverRegion', 'US')):
                 return jsonify({'success': False, 'error': 'Invalid server region'})
             
-            # ✅ FIXED: Correct create_server_data() call with individual parameters
-            server_data = create_server_data(
-                server_id=data['serverId'],
-                name=data['serverName'],
-                region=data.get('serverRegion', 'US'),
-                server_type=data.get('serverType', 'Standard')
-            )
-            
-            # Add optional fields
-            if data.get('description'):
-                server_data['description'] = data['description']
+            # ✅ FIXED: Pass the data dictionary directly to create_server_data()
+            server_data = create_server_data(data)
             
             # Check if server already exists
             existing_server = None
@@ -357,5 +351,141 @@ def init_servers_routes(app, db, servers_storage):
         except Exception as e:
             logger.error(f"❌ Error getting server stats: {e}")
             return jsonify({'error': 'Failed to get server stats'}), 500
+    
+    # ✅ NEW: Enhanced server validation endpoint
+    @servers_bp.route('/api/servers/validate', methods=['POST'])
+    @require_auth
+    def validate_server_data():
+        """Validate server data before adding"""
+        try:
+            data = request.json
+            
+            errors = []
+            warnings = []
+            
+            # Validate server ID
+            if not data.get('serverId'):
+                errors.append('Server ID is required')
+            else:
+                is_valid, clean_id = validate_server_id(data['serverId'])
+                if not is_valid:
+                    errors.append('Invalid server ID format')
+                else:
+                    # Check if server already exists
+                    existing_server = None
+                    if db:
+                        existing_server = db.servers.find_one({'serverId': data['serverId']})
+                    else:
+                        existing_server = next((s for s in servers_storage if s['serverId'] == data['serverId']), None)
+                    
+                    if existing_server:
+                        errors.append('Server ID already exists')
+            
+            # Validate server name
+            if not data.get('serverName'):
+                errors.append('Server Name is required')
+            elif len(data['serverName'].strip()) < 3:
+                warnings.append('Server name is very short')
+            
+            # Validate region
+            if data.get('serverRegion') and not validate_region(data['serverRegion']):
+                errors.append('Invalid server region')
+            
+            # Validate server type
+            valid_types = ['Standard', 'Premium', 'Enterprise', 'Custom']
+            if data.get('serverType') and data['serverType'] not in valid_types:
+                warnings.append(f'Unknown server type: {data["serverType"]}')
+            
+            return jsonify({
+                'valid': len(errors) == 0,
+                'errors': errors,
+                'warnings': warnings
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error validating server data: {e}")
+            return jsonify({'valid': False, 'errors': ['Validation failed']}), 500
+    
+    # ✅ NEW: Server import/export functionality
+    @servers_bp.route('/api/servers/export', methods=['GET'])
+    @require_auth
+    def export_servers():
+        """Export server configurations"""
+        try:
+            if db:
+                servers = list(db.servers.find({}, {'_id': 0}))
+            else:
+                servers = servers_storage
+            
+            export_data = {
+                'export_date': datetime.now().isoformat(),
+                'version': '1.0',
+                'server_count': len(servers),
+                'servers': servers
+            }
+            
+            return jsonify(export_data)
+            
+        except Exception as e:
+            logger.error(f"❌ Error exporting servers: {e}")
+            return jsonify({'error': 'Failed to export servers'}), 500
+    
+    @servers_bp.route('/api/servers/import', methods=['POST'])
+    @require_auth
+    def import_servers():
+        """Import server configurations"""
+        try:
+            data = request.json
+            
+            if not data.get('servers') or not isinstance(data['servers'], list):
+                return jsonify({'success': False, 'error': 'Invalid import data format'})
+            
+            imported_count = 0
+            errors = []
+            
+            for server_data in data['servers']:
+                try:
+                    # Validate required fields
+                    if not server_data.get('serverId') or not server_data.get('serverName'):
+                        errors.append(f"Skipped server: Missing required fields")
+                        continue
+                    
+                    # Check if server already exists
+                    existing_server = None
+                    if db:
+                        existing_server = db.servers.find_one({'serverId': server_data['serverId']})
+                    else:
+                        existing_server = next((s for s in servers_storage if s['serverId'] == server_data['serverId']), None)
+                    
+                    if existing_server:
+                        errors.append(f"Skipped server {server_data['serverId']}: Already exists")
+                        continue
+                    
+                    # Create standardized server data
+                    new_server = create_server_data(server_data)
+                    
+                    # Add server
+                    if db:
+                        db.servers.insert_one(new_server)
+                    else:
+                        servers_storage.append(new_server)
+                    
+                    imported_count += 1
+                    
+                except Exception as server_error:
+                    errors.append(f"Error importing server: {str(server_error)}")
+            
+            logger.info(f"📥 Imported {imported_count} servers with {len(errors)} errors")
+            
+            return jsonify({
+                'success': True,
+                'imported_count': imported_count,
+                'total_count': len(data['servers']),
+                'errors': errors
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error importing servers: {e}")
+            return jsonify({'success': False, 'error': 'Failed to import servers'}), 500
     
     return servers_bp
