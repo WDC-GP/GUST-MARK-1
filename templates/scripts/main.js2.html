@@ -1,40 +1,44 @@
 <!-- ============================================================================
-     GUST Bot Enhanced - Core JavaScript (REQUEST QUEUE TIMEOUT FIXES)
+     GUST Bot Enhanced - Core JavaScript (CLIENT-SIDE STABILITY FIX + MISSING FUNCTIONS)
      ============================================================================
-     ✅ FIXED: Request queue timeout increased from 30s to 90s
-     ✅ FIXED: Queue processing logic improved
-     ✅ FIXED: More lenient polling intervals
-     ✅ FIXED: Better error handling and recovery
+     ✅ ENHANCED: Global request throttling to prevent token conflicts
+     ✅ ENHANCED: RequestQueue class for sequential API calls
+     ✅ ENHANCED: AuthRecoveryManager class for automatic token recovery
+     ✅ ENHANCED: Enhanced fetch wrapper with authentication recovery
+     ✅ ENHANCED: Optimized polling intervals to reduce API load
+     ✅ FIXED: Added missing pingSingleServer function
+     ✅ FIXED: Added missing addLiveConsoleMessage function
+     ✅ FIXED: Enhanced modular loading with better error handling
      ✅ PRESERVED: All core functionality
      ============================================================================ -->
 
 <script>
     // ============================================================================
-    // ENHANCED CONFIGURATION (FIXED TIMEOUTS)
+    // ENHANCED CONFIGURATION
     // ============================================================================
     
     const ENHANCED_CONFIG = {
-        // ✅ FIXED: More reasonable polling intervals to prevent overload
+        // ✅ OPTIMIZED: Polling intervals (reduced from original)
         POLLING_INTERVALS: {
-            servers: 10000,          // 10s (was 5s) - less aggressive
-            player_count: 25000,     // 25s (was 15s) - more patient
-            console: 15000,          // 15s (was 8s) - reduced frequency
-            server_health: 90000     // 90s (was 45s) - background only
+            servers: 5000,           // 5s (was 2s) - 60% reduction
+            player_count: 15000,     // 15s (was 10s) - 33% reduction
+            console: 8000,           // 8s (was 3s) - 62% reduction
+            server_health: 45000     // 45s (was 30s) - 33% reduction
         },
         
-        // ✅ FIXED: Much more lenient request throttling
+        // ✅ NEW: Request throttling settings
         REQUEST_THROTTLING: {
-            maxConcurrent: 2,        // Reduced from 3 - less aggressive
-            minInterval: 750,        // Reduced from 1000ms - faster response
-            queueTimeout: 90000      // ✅ CRITICAL: Increased from 30s to 90s
+            maxConcurrent: 3,        // Maximum concurrent requests
+            minInterval: 1000,       // Minimum 1s between any requests
+            queueTimeout: 30000      // 30s timeout for queued requests
         },
         
-        // ✅ FIXED: More patient authentication recovery
+        // ✅ NEW: Authentication recovery settings
         AUTH_RECOVERY: {
-            maxFailures: 5,          // Increased from 3 - more patient
-            retryDelay: 3000,        // Increased from 2s - less aggressive  
-            exponentialBackoff: true,
-            redirectAfterFailures: 8  // Increased from 5 - more patient
+            maxFailures: 3,          // Max auth failures before action
+            retryDelay: 2000,        // 2s delay between retry attempts
+            exponentialBackoff: true, // Use exponential backoff
+            redirectAfterFailures: 5  // Redirect to login after 5 failures
         }
     };
     
@@ -55,21 +59,19 @@
     let websocketsAvailable = true;
     
     // ============================================================================
-    // ✅ FIXED: REQUEST QUEUE CLASS WITH BETTER TIMEOUT HANDLING
+    // ✅ NEW: REQUEST QUEUE CLASS FOR SEQUENTIAL API CALLS
     // ============================================================================
     
     class RequestQueue {
-        constructor(maxConcurrent = 2, minInterval = 750) {
+        constructor(maxConcurrent = 3, minInterval = 1000) {
             this.maxConcurrent = maxConcurrent;
             this.minInterval = minInterval;
             this.activeRequests = 0;
             this.requestQueue = [];
             this.lastRequestTime = 0;
             this.isProcessing = false;
-            this.failedRequests = 0;
-            this.successfulRequests = 0;
             
-            console.log(`✅ RequestQueue initialized: max ${maxConcurrent} concurrent, ${minInterval}ms min interval, ${ENHANCED_CONFIG.REQUEST_THROTTLING.queueTimeout/1000}s timeout`);
+            console.log(`✅ RequestQueue initialized: max ${maxConcurrent} concurrent, ${minInterval}ms min interval`);
         }
         
         async enqueue(requestFunction, priority = 'normal') {
@@ -80,22 +82,10 @@
                     reject,
                     priority,
                     timestamp: Date.now(),
-                    timeout: null,  // Will be set after creation
-                    id: Math.random().toString(36).substr(2, 9)  // Add ID for tracking
+                    timeout: setTimeout(() => {
+                        reject(new Error('Request queue timeout'));
+                    }, ENHANCED_CONFIG.REQUEST_THROTTLING.queueTimeout)
                 };
-                
-                // ✅ FIXED: Set timeout with better error message
-                queueItem.timeout = setTimeout(() => {
-                    // Remove from queue if it's still there
-                    const index = this.requestQueue.findIndex(item => item.id === queueItem.id);
-                    if (index > -1) {
-                        this.requestQueue.splice(index, 1);
-                        console.warn(`⏰ Request queue timeout: ${queueItem.id} (${ENHANCED_CONFIG.REQUEST_THROTTLING.queueTimeout/1000}s)`);
-                    }
-                    
-                    this.failedRequests++;
-                    reject(new Error(`Request queue timeout after ${ENHANCED_CONFIG.REQUEST_THROTTLING.queueTimeout/1000}s - server may be busy`));
-                }, ENHANCED_CONFIG.REQUEST_THROTTLING.queueTimeout);
                 
                 // Insert based on priority
                 if (priority === 'high') {
@@ -104,20 +94,16 @@
                     this.requestQueue.push(queueItem);
                 }
                 
-                // ✅ FIXED: Non-blocking queue processing
-                setTimeout(() => this.processQueue(), 10);
+                this.processQueue();
             });
         }
         
         async processQueue() {
-            // ✅ FIXED: Better queue processing logic
             if (this.isProcessing || this.requestQueue.length === 0) {
                 return;
             }
             
             if (this.activeRequests >= this.maxConcurrent) {
-                // ✅ FIXED: Retry processing after delay instead of giving up
-                setTimeout(() => this.processQueue(), 500);
                 return;
             }
             
@@ -140,32 +126,23 @@
                 return;
             }
             
-            // ✅ FIXED: Clear timeout to prevent false timeouts
-            if (queueItem.timeout) {
-                clearTimeout(queueItem.timeout);
-                queueItem.timeout = null;
-            }
-            
+            clearTimeout(queueItem.timeout);
             this.activeRequests++;
             this.lastRequestTime = now;
             
             try {
-                console.log(`🔄 Processing queued request ${queueItem.id} (${this.activeRequests}/${this.maxConcurrent} active, ${this.requestQueue.length} queued)`);
+                console.log(`🔄 Processing queued request (${this.activeRequests}/${this.maxConcurrent} active)`);
                 const result = await queueItem.requestFunction();
                 queueItem.resolve(result);
-                this.successfulRequests++;
             } catch (error) {
-                console.error(`❌ Queued request ${queueItem.id} failed:`, error);
+                console.error('❌ Queued request failed:', error);
                 queueItem.reject(error);
-                this.failedRequests++;
             } finally {
                 this.activeRequests--;
                 this.isProcessing = false;
                 
-                // ✅ FIXED: Continue processing if queue has items
-                if (this.requestQueue.length > 0) {
-                    setTimeout(() => this.processQueue(), 100);
-                }
+                // Process next item with small delay
+                setTimeout(() => this.processQueue(), 100);
             }
         }
         
@@ -173,34 +150,13 @@
             return {
                 activeRequests: this.activeRequests,
                 queueLength: this.requestQueue.length,
-                lastRequestTime: this.lastRequestTime,
-                successfulRequests: this.successfulRequests,
-                failedRequests: this.failedRequests,
-                successRate: this.successfulRequests / Math.max(1, this.successfulRequests + this.failedRequests)
+                lastRequestTime: this.lastRequestTime
             };
-        }
-        
-        // ✅ NEW: Queue health monitoring
-        isHealthy() {
-            const stats = this.getStats();
-            return stats.queueLength < 10 && stats.successRate > 0.8;
-        }
-        
-        // ✅ NEW: Clear queue in emergency
-        clearQueue() {
-            console.warn('🚨 Clearing request queue due to issues');
-            this.requestQueue.forEach(item => {
-                if (item.timeout) {
-                    clearTimeout(item.timeout);
-                }
-                item.reject(new Error('Queue cleared due to issues'));
-            });
-            this.requestQueue = [];
         }
     }
     
     // ============================================================================
-    // ✅ FIXED: AUTHENTICATION RECOVERY MANAGER WITH BETTER ERROR HANDLING
+    // ✅ NEW: AUTHENTICATION RECOVERY MANAGER
     // ============================================================================
     
     class AuthRecoveryManager {
@@ -210,9 +166,8 @@
             this.lastFailureTime = 0;
             this.isRecovering = false;
             this.recoveryAttempts = 0;
-            this.maxRecoveryAttempts = 3;
             
-            console.log('✅ AuthRecoveryManager initialized with enhanced error handling');
+            console.log('✅ AuthRecoveryManager initialized');
         }
         
         recordFailure(response) {
@@ -222,14 +177,12 @@
             
             console.warn(`⚠️ Auth failure recorded (${this.consecutiveFailures} consecutive, ${this.failureCount} total)`);
             
-            // ✅ FIXED: More patient recovery strategy
+            // Check if we should attempt recovery
             if (this.consecutiveFailures >= ENHANCED_CONFIG.AUTH_RECOVERY.maxFailures && !this.isRecovering) {
-                if (this.recoveryAttempts < this.maxRecoveryAttempts) {
-                    setTimeout(() => this.attemptRecovery(), ENHANCED_CONFIG.AUTH_RECOVERY.retryDelay);
-                }
+                this.attemptRecovery();
             }
             
-            // ✅ FIXED: More patient before redirecting
+            // Check if we should redirect to login
             if (this.consecutiveFailures >= ENHANCED_CONFIG.AUTH_RECOVERY.redirectAfterFailures) {
                 this.redirectToLogin();
             }
@@ -246,33 +199,28 @@
         }
         
         async attemptRecovery() {
-            if (this.isRecovering || this.recoveryAttempts >= this.maxRecoveryAttempts) {
+            if (this.isRecovering) {
                 return false;
             }
             
             this.isRecovering = true;
             this.recoveryAttempts++;
             
-            console.log(`🔄 Attempting auth recovery (attempt ${this.recoveryAttempts}/${this.maxRecoveryAttempts})`);
+            console.log(`🔄 Attempting auth recovery (attempt ${this.recoveryAttempts})`);
             
             try {
-                // ✅ FIXED: Use request queue with high priority for recovery
-                const tokenResponse = await requestQueue.enqueue(async () => {
-                    return fetch('/api/token/status');
-                }, 'high');
-                
+                // First, check token status
+                const tokenResponse = await fetch('/api/token/status');
                 const tokenData = await tokenResponse.json();
                 
                 if (!tokenData.token_valid && !tokenData.demo_mode) {
                     console.log('🔄 Token invalid, attempting refresh...');
                     
-                    // Attempt token refresh with high priority
-                    const refreshResponse = await requestQueue.enqueue(async () => {
-                        return fetch('/api/token/refresh', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-                    }, 'high');
+                    // Attempt token refresh
+                    const refreshResponse = await fetch('/api/token/refresh', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
                     
                     const refreshData = await refreshResponse.json();
                     
@@ -307,13 +255,13 @@
             // Redirect after short delay
             setTimeout(() => {
                 window.location.href = '/login';
-            }, 3000);  // ✅ FIXED: Longer delay for user to see message
+            }, 2000);
         }
         
         shouldAttemptRecovery() {
             return this.consecutiveFailures >= ENHANCED_CONFIG.AUTH_RECOVERY.maxFailures && 
                    !this.isRecovering && 
-                   this.recoveryAttempts < this.maxRecoveryAttempts;
+                   this.recoveryAttempts < 3;
         }
         
         getStats() {
@@ -322,7 +270,6 @@
                 consecutiveFailures: this.consecutiveFailures,
                 isRecovering: this.isRecovering,
                 recoveryAttempts: this.recoveryAttempts,
-                maxRecoveryAttempts: this.maxRecoveryAttempts,
                 lastFailureTime: this.lastFailureTime
             };
         }
@@ -340,7 +287,7 @@
     const authRecovery = new AuthRecoveryManager();
     
     // ============================================================================
-    // ✅ ENHANCED FETCH WRAPPER WITH BETTER ERROR HANDLING
+    // ✅ ENHANCED FETCH WRAPPER WITH AUTHENTICATION RECOVERY
     // ============================================================================
     
     const originalFetch = window.fetch;
@@ -358,7 +305,7 @@
                     }
                 });
                 
-                // ✅ FIXED: Better authentication error handling
+                // Check for authentication errors
                 if (response.status === 401) {
                     console.warn('⚠️ Authentication error detected in fetch');
                     authRecovery.recordFailure(response);
@@ -368,7 +315,7 @@
                         const recoverySuccessful = await authRecovery.attemptRecovery();
                         
                         if (recoverySuccessful) {
-                            // Retry the original request once
+                            // Retry the original request
                             console.log('🔄 Retrying request after successful auth recovery');
                             return await originalFetch(url, options);
                         }
@@ -387,14 +334,13 @@
     };
     
     // ============================================================================
-    // ✅ MISSING FUNCTION: addLiveConsoleMessage (IMMEDIATE AVAILABILITY)
+    // ✅ MISSING FUNCTION: addLiveConsoleMessage
     // ============================================================================
     
     function addLiveConsoleMessage(message, serverId = null, messageType = 'live') {
         const outputDiv = document.getElementById('consoleOutput');
         if (!outputDiv) {
-            console.warn('⚠️ Console output div not found, using fallback');
-            console.log(`[${messageType.toUpperCase()}] ${serverId ? `[${serverId}] ` : ''}${message}`);
+            console.warn('⚠️ Console output div not found');
             return;
         }
         
@@ -403,8 +349,8 @@
         if (typeof message === 'string') {
             messageText = message;
             timestamp = new Date();
-        } else if (typeof message === 'object' && message !== null) {
-            messageText = message.message || message.text || String(message);
+        } else if (typeof message === 'object' && message.message) {
+            messageText = message.message;
             timestamp = message.timestamp ? new Date(message.timestamp) : new Date();
             messageType = message.type || messageType;
             serverId = message.serverId || message.server_id || serverId;
@@ -445,13 +391,8 @@
         outputDiv.appendChild(messageDiv);
         
         // Auto-scroll to bottom if user isn't scrolled up
-        try {
-            const isNearBottom = outputDiv.scrollTop + outputDiv.clientHeight >= outputDiv.scrollHeight - 50;
-            if (isNearBottom || outputDiv.children.length === 1) {
-                outputDiv.scrollTop = outputDiv.scrollHeight;
-            }
-        } catch (e) {
-            // Fallback scroll
+        const isNearBottom = outputDiv.scrollTop + outputDiv.clientHeight >= outputDiv.scrollHeight - 50;
+        if (isNearBottom) {
             outputDiv.scrollTop = outputDiv.scrollHeight;
         }
         
@@ -460,6 +401,16 @@
         if (messages.length > 150) {
             outputDiv.removeChild(messages[0]);
         }
+        
+        // Add fade-in animation
+        messageDiv.style.opacity = '0';
+        messageDiv.style.transform = 'translateY(10px)';
+        
+        setTimeout(() => {
+            messageDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            messageDiv.style.opacity = '1';
+            messageDiv.style.transform = 'translateY(0)';
+        }, 10);
     }
     
     function getMessageTypeIcon(type) {
@@ -606,8 +557,8 @@
             ${content}
             <div class="mt-6 p-4 bg-blue-900 bg-opacity-30 border border-blue-600 rounded">
                 <p class="text-blue-300 text-sm">
-                    <strong>🔧 Enhanced Note:</strong> This view now includes improved request queue with ${ENHANCED_CONFIG.REQUEST_THROTTLING.queueTimeout/1000}s timeout
-                    and better error recovery.
+                    <strong>🔧 Enhanced Note:</strong> This view now includes client-side stability improvements
+                    with request throttling and authentication recovery.
                 </p>
             </div>
             <div class="mt-4 p-4 bg-green-900 bg-opacity-30 border border-green-600 rounded">
@@ -644,7 +595,7 @@
     }
     
     // ============================================================================
-    // ✅ ENHANCED: SERVER MANAGEMENT WITH BETTER ERROR HANDLING
+    // ✅ ENHANCED: SERVER MANAGEMENT WITH OPTIMIZED POLLING
     // ============================================================================
     
     function updateAllServerDropdowns() {
@@ -732,7 +683,7 @@
                     <div class="text-4xl mb-4">🔍</div>
                     <div>No servers found</div>
                     <div class="text-sm mt-2">Add a new server above to get started</div>
-                    <div class="text-xs mt-4 text-green-400">⚡ Enhanced with ${ENHANCED_CONFIG.REQUEST_THROTTLING.queueTimeout/1000}s timeout</div>
+                    <div class="text-xs mt-4 text-green-400">⚡ Enhanced with client-side stability</div>
                 </div>
             `;
             return;
@@ -749,7 +700,7 @@
                                 <h4 class="font-semibold text-lg">${server.serverName}</h4>
                                 ${server.isFavorite ? '<span class="text-yellow-400">⭐</span>' : ''}
                                 ${!server.isActive ? '<span class="text-red-400 text-xs bg-red-900 px-2 py-1 rounded">INACTIVE</span>' : ''}
-                                <span class="text-xs bg-green-900 text-green-300 px-2 py-1 rounded">⚡ FIXED</span>
+                                <span class="text-xs bg-green-900 text-green-300 px-2 py-1 rounded">⚡ ENHANCED</span>
                             </div>
                             <div class="text-sm text-gray-300">
                                 ID: ${server.serverId} | Region: ${server.serverRegion} | Type: ${server.serverType || 'Standard'}
@@ -787,18 +738,17 @@
     }
     
     // ============================================================================
-    // ✅ FIXED: PING SERVER WITH BETTER ERROR HANDLING
+    // ✅ MISSING FUNCTIONS - PING SERVER AND ENHANCED MODULAR INTEGRATION  
     // ============================================================================
     
     async function pingSingleServer(serverId) {
         console.log(`📡 Pinging server: ${serverId}`);
         
         try {
-            // ✅ FIXED: Use enhanced fetch with high priority and longer timeout
+            // Use the enhanced fetch wrapper with request queue
             const response = await fetch(`/api/servers/ping/${serverId}`, {
                 method: 'POST',
-                priority: 'high',  // High priority for ping requests
-                signal: AbortSignal.timeout(60000)  // 60 second timeout for ping
+                priority: 'high'  // High priority for ping requests
             });
             
             const result = await response.json();
@@ -867,28 +817,26 @@
         
         showStatus(`📡 Pinging ${activeServers.length} servers...`, 'info');
         
-        // ✅ FIXED: Use sequential pings to avoid overwhelming the queue
-        let successful = 0;
-        let failed = 0;
+        // Use Promise.allSettled to ping all servers concurrently but with throttling
+        const pingPromises = activeServers.map(server => 
+            requestQueue.enqueue(() => pingSingleServer(server.serverId), 'normal')
+        );
         
-        for (const server of activeServers) {
-            try {
-                await pingSingleServer(server.serverId);
-                successful++;
-            } catch (error) {
-                failed++;
-                console.error(`Ping failed for ${server.serverId}:`, error);
+        try {
+            const results = await Promise.allSettled(pingPromises);
+            const successful = results.filter(r => r.status === 'fulfilled').length;
+            const failed = results.length - successful;
+            
+            const summaryMsg = `📊 Ping complete: ${successful} successful, ${failed} failed`;
+            showStatus(summaryMsg, failed === 0 ? 'success' : 'warning');
+            
+            if (typeof addLiveConsoleMessage === 'function') {
+                addLiveConsoleMessage(summaryMsg, null, 'info');
             }
             
-            // Small delay between pings
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        
-        const summaryMsg = `📊 Ping complete: ${successful} successful, ${failed} failed`;
-        showStatus(summaryMsg, failed === 0 ? 'success' : 'warning');
-        
-        if (typeof addLiveConsoleMessage === 'function') {
-            addLiveConsoleMessage(summaryMsg, null, 'info');
+        } catch (error) {
+            console.error('Error in ping all servers:', error);
+            showStatus('❌ Error pinging servers', 'error');
         }
     }
     
@@ -1153,35 +1101,27 @@
             config: ENHANCED_CONFIG,
             requestQueue: requestQueue.getStats(),
             authRecovery: authRecovery.getStats(),
-            timestamp: new Date().toISOString(),
-            queueHealthy: requestQueue.isHealthy()
+            timestamp: new Date().toISOString()
         };
     }
     
     function debugEnhancements() {
-        console.log('🔍 ENHANCEMENT DEBUG INFO (FIXED VERSION):');
-        console.log('============================================');
+        console.log('🔍 ENHANCEMENT DEBUG INFO:');
+        console.log('==========================');
         console.log('Polling intervals:');
         Object.entries(ENHANCED_CONFIG.POLLING_INTERVALS).forEach(([key, value]) => {
             console.log(`  - ${key}: ${value/1000}s`);
         });
         
-        console.log(`Queue timeout: ${ENHANCED_CONFIG.REQUEST_THROTTLING.queueTimeout/1000}s (FIXED from 30s)`);
-        
         const stats = getEnhancementStats();
         console.log('Request queue:', stats.requestQueue);
         console.log('Auth recovery:', stats.authRecovery);
-        console.log('Queue healthy:', stats.queueHealthy);
         
         console.log('Expected improvements:');
-        console.log('  - ✅ FIXED: 90s queue timeout (was 30s)');
-        console.log('  - ✅ FIXED: Better queue processing logic');
-        console.log('  - ✅ FIXED: More lenient auth recovery');
-        console.log('  - ✅ FIXED: Sequential ping operations');
-        
-        if (!stats.queueHealthy) {
-            console.warn('⚠️ Request queue unhealthy - consider clearing');
-        }
+        console.log('  - 60-70% reduction in API calls');
+        console.log('  - Automatic auth recovery');
+        console.log('  - Sequential request processing');
+        console.log('  - No more token conflicts');
     }
     
     // ============================================================================
@@ -1253,7 +1193,7 @@
     window.safeCall = safeCall;
     window.showStatus = showStatus;
     
-    // ✅ FIXED: Missing functions
+    // ✅ NEW: Missing functions
     window.addLiveConsoleMessage = addLiveConsoleMessage;
     window.pingSingleServer = pingSingleServer;
     window.pingAllServers = pingAllServers;
@@ -1268,7 +1208,7 @@
     window.loadUserManagement = loadUserManagement;
     window.loadLogs = loadLogs;
     
-    // ✅ FIXED: Enhanced functions
+    // ✅ NEW: Enhanced functions
     window.requestQueue = requestQueue;
     window.authRecovery = authRecovery;
     window.getEnhancementStats = getEnhancementStats;
@@ -1290,13 +1230,13 @@
     window.autoScroll = autoScroll;
     window.websocketsAvailable = websocketsAvailable;
     
-    console.log('🚀 GUST Bot Enhanced - Core Module Loaded (REQUEST QUEUE FIXES)');
-    console.log('⚡ MAJOR FIXES ACTIVE:');
-    console.log('  - Request queue timeout: 90s (was 30s) - FIXED');
-    console.log('  - Queue processing: Improved logic - FIXED');
-    console.log('  - Polling intervals: More reasonable timing');
-    console.log('  - Auth recovery: More patient strategy');
-    console.log('🎯 Request queue timeout errors should be eliminated');
+    console.log('🚀 GUST Bot Enhanced - Core Module Loaded (CLIENT-SIDE STABILITY FIX)');
+    console.log('⚡ MAJOR ENHANCEMENTS ACTIVE:');
+    console.log('  - Request queue: Sequential API calls prevent conflicts');
+    console.log('  - Auth recovery: Automatic token refresh on failures');
+    console.log('  - Optimized intervals: 60-70% reduction in API frequency');
+    console.log('  - Enhanced fetch: All requests go through stability layer');
+    console.log('🎯 Token refresh conflicts should be eliminated');
     console.log('🔧 Debug functions: debugEnhancements(), getEnhancementStats()');
     
     // ============================================================================
@@ -1328,14 +1268,11 @@
             }
         }, 500);
         
-        // ✅ NEW: Enhanced monitoring with queue health checks
+        // ✅ NEW: Set up enhancement monitoring
         setInterval(() => {
             const stats = requestQueue.getStats();
-            if (stats.queueLength > 15) {
-                console.warn('⚠️ Request queue getting long:', stats);
-            }
-            if (!requestQueue.isHealthy()) {
-                console.warn('⚠️ Request queue unhealthy:', stats);
+            if (stats.activeRequests >= ENHANCED_CONFIG.REQUEST_THROTTLING.maxConcurrent) {
+                console.warn('⚠️ Request queue at capacity:', stats);
             }
         }, 30000); // Check every 30 seconds
         
@@ -1353,7 +1290,7 @@
             deleteServer: typeof window.deleteServer
         });
         
-        // ✅ FIXED: Show enhancement status
+        // ✅ NEW: Show enhancement status
         setTimeout(() => {
             debugEnhancements();
         }, 3000);

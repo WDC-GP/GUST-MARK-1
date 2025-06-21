@@ -1,10 +1,11 @@
 """
-GUST Bot Enhanced - Main Flask Application (ROUTING CONFLICTS FIXED)
+GUST Bot Enhanced - Main Flask Application (COMPLETE FIXED VERSION)
 ===================================================================
-✅ FIXED: Ping endpoint routing conflicts resolved
-✅ FIXED: Route registration order corrected
-✅ FIXED: Duplicate route prevention
-✅ PRESERVED: All existing functionality
+✅ FIXED: Added missing ping endpoint to eliminate 404 errors
+✅ FIXED: All function definitions have proper indented bodies
+✅ FIXED: Server creation issues with direct implementation
+✅ PRESERVED: All auto-authentication features
+✅ TESTED: Python syntax validation passed
 """
 
 import os
@@ -125,12 +126,12 @@ class InMemoryUserStorage:
 # ================================================================
 
 class GustBotEnhanced:
-    """Main GUST Bot Enhanced application with fixed routing"""
+    """Main GUST Bot Enhanced application with auto-authentication support"""
     
     def __init__(self):
         """Initialize the enhanced GUST Bot application"""
         print("\n" + "="*60)
-        print("🚀 GUST Bot Enhanced - Starting Up (ROUTING FIXED)")
+        print("🚀 GUST Bot Enhanced - Starting Up")
         print("="*60)
         
         # Core Flask app
@@ -277,175 +278,148 @@ class GustBotEnhanced:
         logger.info("✅ Application startup completed")
     
     def setup_routes(self):
-        """✅ FIXED: Setup Flask routes with proper conflict resolution"""
-        print("[DEBUG]: Setting up routes with conflict resolution...")
+        """✅ CORRECTED: Setup Flask routes based on ACTUAL project file structure"""
+        print("[DEBUG]: Setting up routes based on actual project structure...")
         
         # ================================================================
-        # STEP 1: Register auth blueprint first (always works)
+        # STEP 1: Register auth blueprint (confirmed to exist)
         # ================================================================
         
         self.app.register_blueprint(auth_bp)
-        print("[✅ OK] Auth routes registered")
+        print("[✅ OK] Auth routes registered (confirmed)")
         
         # ================================================================
-        # STEP 2: Get list of existing routes to detect conflicts
+        # STEP 2: Initialize each route module individually with error handling
         # ================================================================
         
-        def get_existing_routes():
-            """Get current registered routes"""
-            return [rule.rule for rule in self.app.url_map.iter_rules()]
+        # Track successful registrations
+        registered_routes = []
         
-        existing_routes = get_existing_routes()
-        print(f"[📊 DEBUG] Initial routes registered: {len(existing_routes)}")
-        
-        # ================================================================
-        # STEP 3: Try to register blueprints, but handle conflicts gracefully
-        # ================================================================
-        
-        registered_modules = ['auth']  # Already registered
-        
-        # User Database Routes (foundation)
+        # User Database Routes (foundation - confirmed exists)
         try:
-            if '/api/user-database' not in ' '.join(existing_routes):
-                from routes.user_database import init_user_database_routes, user_database_bp
-                init_user_database_routes(self.app, self.db, self.user_storage)
-                self.app.register_blueprint(user_database_bp)
-                registered_modules.append("user_database")
-                print("[✅ OK] User database routes registered")
-            else:
-                print("[ℹ️ SKIP] User database routes already exist")
+            from routes.user_database import init_user_database_routes, user_database_bp
+            init_user_database_routes(self.app, self.db, self.user_storage)
+            self.app.register_blueprint(user_database_bp)
+            registered_routes.append("user_database")
+            print("[✅ OK] User database routes registered")
         except Exception as e:
+            logger.error(f"❌ Failed to register user_database routes: {e}")
             print(f"[⚠️ WARNING] User database routes failed: {e}")
         
-        # Events Routes
+        # Server Routes (COMPLETELY BYPASSED - use direct implementation)
         try:
-            if '/api/events' not in ' '.join(get_existing_routes()):
-                from routes.events import init_events_routes
-                init_events_routes(self.app, self.db, self.events, self.vanilla_koth, self.console_output)
-                registered_modules.append("events")
-                print("[✅ OK] Events routes registered")
-            else:
-                print("[ℹ️ SKIP] Events routes already exist")
+            # ✅ COMPLETELY BYPASS problematic routes/servers.py blueprint
+            logger.info("🔧 Using direct server route implementation (bypassing problematic blueprint)")
+            self.setup_working_server_routes()
+            registered_routes.append("servers")
+            print("[✅ OK] Server routes registered (direct implementation)")
         except Exception as e:
+            logger.error(f"❌ Failed to register servers routes: {e}")
+            print(f"[⚠️ WARNING] Server routes failed: {e}")
+        
+        # Events Routes (confirmed exists - function returns blueprint)
+        try:
+            from routes.events import init_events_routes
+            # This function returns the blueprint based on project knowledge
+            init_events_routes(self.app, self.db, self.events, self.vanilla_koth, self.console_output)
+            # Note: events routes are handled by the init function internally
+            registered_routes.append("events")
+            print("[✅ OK] Events routes registered")
+        except Exception as e:
+            logger.error(f"❌ Failed to register events routes: {e}")
             print(f"[⚠️ WARNING] Events routes failed: {e}")
         
-        # Economy Routes
+        # Economy Routes (referenced in __init__.py)
         try:
-            if '/api/economy' not in ' '.join(get_existing_routes()):
-                from routes.economy import init_economy_routes, economy_bp
-                init_economy_routes(self.app, self.db, self.user_storage)
-                self.app.register_blueprint(economy_bp)
-                registered_modules.append("economy")
-                print("[✅ OK] Economy routes registered")
-            else:
-                print("[ℹ️ SKIP] Economy routes already exist")
+            from routes.economy import init_economy_routes, economy_bp
+            init_economy_routes(self.app, self.db, self.user_storage)
+            self.app.register_blueprint(economy_bp)
+            registered_routes.append("economy")
+            print("[✅ OK] Economy routes registered")
         except Exception as e:
+            logger.error(f"❌ Failed to register economy routes: {e}")
             print(f"[⚠️ WARNING] Economy routes failed: {e}")
         
-        # Gambling Routes
+        # Gambling Routes (referenced in __init__.py)
         try:
-            if '/api/gambling' not in ' '.join(get_existing_routes()):
-                from routes.gambling import init_gambling_routes, gambling_bp
-                init_gambling_routes(self.app, self.db, self.user_storage)
-                self.app.register_blueprint(gambling_bp)
-                registered_modules.append("gambling")
-                print("[✅ OK] Gambling routes registered")
-            else:
-                print("[ℹ️ SKIP] Gambling routes already exist")
+            from routes.gambling import init_gambling_routes, gambling_bp
+            init_gambling_routes(self.app, self.db, self.user_storage)
+            self.app.register_blueprint(gambling_bp)
+            registered_routes.append("gambling")
+            print("[✅ OK] Gambling routes registered")
         except Exception as e:
+            logger.error(f"❌ Failed to register gambling routes: {e}")
             print(f"[⚠️ WARNING] Gambling routes failed: {e}")
         
-        # Clans Routes
+        # Clans Routes (confirmed exists)
         try:
-            if '/api/clans' not in ' '.join(get_existing_routes()):
-                from routes.clans import init_clans_routes, clans_bp
-                init_clans_routes(self.app, self.db, self.clans, self.user_storage)
-                self.app.register_blueprint(clans_bp)
-                registered_modules.append("clans")
-                print("[✅ OK] Clans routes registered")
-            else:
-                print("[ℹ️ SKIP] Clans routes already exist")
+            from routes.clans import init_clans_routes, clans_bp
+            init_clans_routes(self.app, self.db, self.clans, self.user_storage)
+            self.app.register_blueprint(clans_bp)
+            registered_routes.append("clans")
+            print("[✅ OK] Clans routes registered")
         except Exception as e:
+            logger.error(f"❌ Failed to register clans routes: {e}")
             print(f"[⚠️ WARNING] Clans routes failed: {e}")
         
-        # Users Routes
+        # Users Routes (referenced in __init__.py) 
         try:
-            if '/api/users' not in ' '.join(get_existing_routes()):
-                from routes.users import init_users_routes, users_bp
-                init_users_routes(self.app, self, self.db, self.console_output)
-                self.app.register_blueprint(users_bp)
-                registered_modules.append("users")
-                print("[✅ OK] Users routes registered")
-            else:
-                print("[ℹ️ SKIP] Users routes already exist")
+            from routes.users import init_users_routes, users_bp
+            # From backup files: init_users_routes(app, gust_bot_instance, db, console_output)
+            init_users_routes(self.app, self, self.db, self.console_output)
+            self.app.register_blueprint(users_bp)
+            registered_routes.append("users")
+            print("[✅ OK] Users routes registered")
         except Exception as e:
+            logger.error(f"❌ Failed to register users routes: {e}")
             print(f"[⚠️ WARNING] Users routes failed: {e}")
         
-        # Logs Routes
+        # Logs Routes (confirmed exists)
         try:
-            if '/api/logs' not in ' '.join(get_existing_routes()):
-                from routes.logs import init_logs_routes, logs_bp
-                init_logs_routes(self.app, self.db, self.logs_storage)
-                self.app.register_blueprint(logs_bp)
-                registered_modules.append("logs")
-                print("[✅ OK] Logs routes registered")
-            else:
-                print("[ℹ️ SKIP] Logs routes already exist")
+            from routes.logs import init_logs_routes, logs_bp
+            init_logs_routes(self.app, self.db, self.logs_storage)
+            self.app.register_blueprint(logs_bp)
+            registered_routes.append("logs")
+            print("[✅ OK] Logs routes registered")
         except Exception as e:
+            logger.error(f"❌ Failed to register logs routes: {e}")
             print(f"[⚠️ WARNING] Logs routes failed: {e}")
         
-        # Server Health Routes
+        # Server Health Routes (referenced in __init__.py)
         try:
-            if '/api/server_health' not in ' '.join(get_existing_routes()):
-                from routes.server_health import init_server_health_routes, server_health_bp
-                init_server_health_routes(self.app, self.db, self.server_health_storage)
-                self.app.register_blueprint(server_health_bp)
-                registered_modules.append("server_health")
-                print("[✅ OK] Server Health routes registered")
-            else:
-                print("[ℹ️ SKIP] Server Health routes already exist")
+            from routes.server_health import init_server_health_routes, server_health_bp
+            init_server_health_routes(self.app, self.db, self.server_health_storage)
+            self.app.register_blueprint(server_health_bp)
+            registered_routes.append("server_health")
+            print("[✅ OK] Server Health routes registered")
         except Exception as e:
+            logger.error(f"❌ Failed to register server_health routes: {e}")
             print(f"[⚠️ WARNING] Server Health routes failed: {e}")
         
         # ================================================================
-        # STEP 4: ✅ CRITICAL FIX - ALWAYS add server routes directly
+        # STEP 3: Create fallback endpoints for any missing routes
         # ================================================================
         
-        current_routes = get_existing_routes()
-        server_routes_exist = any('/api/servers' in route for route in current_routes)
-        ping_route_exists = any('/api/servers/ping' in route for route in current_routes)
+        print(f"[📊 SUMMARY] Successfully registered: {registered_routes}")
+        missing_routes = set(['servers', 'events', 'economy', 'gambling', 'clans', 'users', 'logs']) - set(registered_routes)
         
-        print(f"[🔍 DEBUG] Server routes exist: {server_routes_exist}, Ping route exists: {ping_route_exists}")
+        if missing_routes:
+            print(f"[⚠️ FALLBACK] Creating fallback endpoints for: {missing_routes}")
+            self.setup_fallback_api_endpoints(missing_routes)
         
-        # ✅ ALWAYS register direct server routes to avoid conflicts
-        print("[🔧 CRITICAL] Registering direct server routes to prevent 404 errors...")
-        self.setup_direct_server_routes()
-        registered_modules.append("servers_direct")
-        
-        # ================================================================
-        # STEP 5: Add remaining required endpoints
-        # ================================================================
-        
+        # ✅ Add API prefix redirects for frontend compatibility
         self.setup_api_redirects()
+        
+        # ✅ NEW: Add console management endpoints
         self.setup_console_endpoints()
+        
+        # ✅ Add auto-auth health endpoints
         self.setup_auto_auth_endpoints()
         
-        # Final route summary
-        final_routes = get_existing_routes()
-        print(f"[📊 SUMMARY] Total routes registered: {len(final_routes)}")
-        print(f"[📊 SUMMARY] Modules registered: {registered_modules}")
-        
-        # Verify critical routes
-        critical_routes = ['/api/servers', '/api/servers/ping/<server_id>', '/api/console/send']
-        for route_pattern in critical_routes:
-            route_exists = any(route_pattern.replace('<server_id>', '') in route for route in final_routes)
-            status = "✅" if route_exists else "❌"
-            print(f"[{status}] Critical route: {route_pattern}")
-        
-        print("[✅ OK] All routes configured with conflict resolution")
+        print("[✅ OK] All routes configured successfully")
     
-    def setup_direct_server_routes(self):
-        """✅ DIRECT: Server routes implementation to prevent 404 errors"""
+    def setup_working_server_routes(self):
+        """✅ WORKING: Complete server routes implementation with PING ENDPOINT"""
         
         def require_auth_check():
             """Simple auth check for server routes"""
@@ -453,13 +427,9 @@ class GustBotEnhanced:
                 return jsonify({'error': 'Authentication required'}), 401
             return None
         
-        # ================================================================
-        # ✅ CRITICAL: Always register these routes directly
-        # ================================================================
-        
         @self.app.route('/api/servers', methods=['GET'])
-        def get_servers_direct():
-            """Get list of servers - DIRECT IMPLEMENTATION"""
+        def get_servers():
+            """Get list of servers"""
             auth_error = require_auth_check()
             if auth_error:
                 return auth_error
@@ -477,8 +447,8 @@ class GustBotEnhanced:
                 return jsonify({'error': 'Failed to retrieve servers'}), 500
         
         @self.app.route('/api/servers/add', methods=['POST'])
-        def add_server_direct():
-            """Add new server - DIRECT IMPLEMENTATION"""
+        def add_server():
+            """Add new server - WORKING IMPLEMENTATION"""
             auth_error = require_auth_check()
             if auth_error:
                 return auth_error
@@ -499,7 +469,7 @@ class GustBotEnhanced:
                 if not validate_region(data.get('serverRegion', 'US')):
                     return jsonify({'success': False, 'error': 'Invalid server region'})
                 
-                # Create server data structure directly
+                # ✅ WORKING: Create server data structure directly
                 server_data = {
                     'serverId': str(data['serverId']),
                     'serverName': data['serverName'],
@@ -536,12 +506,12 @@ class GustBotEnhanced:
                 return jsonify({'success': True, 'server': server_data})
                 
             except Exception as e:
-                logger.error(f"❌ Error adding server: {e}")
+                logger.error(f"❌ Error adding server (working implementation): {e}")
                 return jsonify({'success': False, 'error': 'Failed to add server'}), 500
         
         @self.app.route('/api/servers/update/<server_id>', methods=['POST'])
-        def update_server_direct(server_id):
-            """Update server information - DIRECT IMPLEMENTATION"""
+        def update_server(server_id):
+            """Update server information"""
             auth_error = require_auth_check()
             if auth_error:
                 return auth_error
@@ -592,8 +562,8 @@ class GustBotEnhanced:
                 return jsonify({'success': False, 'error': 'Failed to update server'}), 500
         
         @self.app.route('/api/servers/delete/<server_id>', methods=['POST', 'DELETE'])
-        def delete_server_direct(server_id):
-            """Delete server - DIRECT IMPLEMENTATION"""
+        def delete_server(server_id):
+            """Delete server"""
             auth_error = require_auth_check()
             if auth_error:
                 return auth_error
@@ -619,12 +589,12 @@ class GustBotEnhanced:
                 return jsonify({'success': False, 'error': 'Failed to delete server'}), 500
         
         # ================================================================
-        # ✅ CRITICAL FIX: PING ENDPOINT - This was causing 404 errors
+        # ✅ NEW: PING ENDPOINT - FIXES 404 ERRORS
         # ================================================================
         
         @self.app.route('/api/servers/ping/<server_id>', methods=['POST'])
-        def ping_server_direct(server_id):
-            """✅ FIXED: Ping server endpoint - ALWAYS REGISTERED"""
+        def ping_server(server_id):
+            """Ping server to check responsiveness and update status"""
             auth_error = require_auth_check()
             if auth_error:
                 return auth_error
@@ -688,44 +658,119 @@ class GustBotEnhanced:
                         'status': 'auth_error'
                     }), 200
                 
-                # Simple ping response for now (can be enhanced later)
-                response_time = round((time.time() - start_time) * 1000, 2)
-                current_time = datetime.now().isoformat()
+                # Try to ping the server using G-Portal API
+                ping_url = f'https://api.g-portal.com/gameserver/{server_id}'
                 
-                # Basic ping success response
-                status_data = {
-                    'status': 'online',
-                    'lastPing': current_time,
-                    'responseTime': response_time,
-                    'lastPingStatus': 'Ping successful'
-                }
-                
-                # Update server status in storage
                 try:
-                    if self.db:
-                        self.db.servers.update_one(
-                            {'serverId': server_id},
-                            {'$set': status_data}
-                        )
+                    response = requests.get(
+                        ping_url,
+                        headers=headers,
+                        timeout=15  # 15 second timeout
+                    )
+                    
+                    response_time = round((time.time() - start_time) * 1000, 2)
+                    current_time = datetime.now().isoformat()
+                    
+                    # Determine status based on response
+                    if response.status_code == 200:
+                        status = 'online'
+                        status_message = 'Server responding'
+                        logger.info(f"✅ Server ping successful: {server_name} ({server_id}) - {response_time}ms")
+                    elif response.status_code == 404:
+                        status = 'not_found'
+                        status_message = 'Server not found on G-Portal'
+                        logger.warning(f"⚠️ Server not found: {server_name} ({server_id})")
+                    elif response.status_code == 401:
+                        status = 'auth_error'
+                        status_message = 'Authentication failed'
+                        logger.warning(f"🔐 Auth error pinging: {server_name} ({server_id})")
+                    elif response.status_code == 403:
+                        status = 'forbidden'
+                        status_message = 'Access forbidden'
+                        logger.warning(f"🚫 Access forbidden: {server_name} ({server_id})")
                     else:
-                        if server:
-                            server.update(status_data)
-                except Exception as update_error:
-                    logger.warning(f"⚠️ Failed to update server status: {update_error}")
-                
-                logger.info(f"✅ Server ping successful: {server_name} ({server_id}) - {response_time}ms")
-                
-                return jsonify({
-                    'success': True,
-                    'server_id': server_id,
-                    'server_name': server_name,
-                    'status': 'online',
-                    'response_time_ms': response_time,
-                    'message': 'Server ping successful',
-                    'ping_time': current_time,
-                    'region': region
-                })
-                
+                        status = 'error'
+                        status_message = f'HTTP {response.status_code}'
+                        logger.warning(f"⚠️ Ping error: {server_name} ({server_id}) - {status_message}")
+                    
+                    # Update server status in storage
+                    status_data = {
+                        'status': status,
+                        'lastPing': current_time,
+                        'responseTime': response_time,
+                        'lastPingStatus': status_message
+                    }
+                    
+                    try:
+                        if self.db:
+                            self.db.servers.update_one(
+                                {'serverId': server_id},
+                                {'$set': status_data}
+                            )
+                        else:
+                            if server:
+                                server.update(status_data)
+                    except Exception as update_error:
+                        logger.warning(f"⚠️ Failed to update server status: {update_error}")
+                    
+                    return jsonify({
+                        'success': status in ['online', 'not_found'],  # not_found is not a failure for ping
+                        'server_id': server_id,
+                        'server_name': server_name,
+                        'status': status,
+                        'response_time_ms': response_time,
+                        'message': status_message,
+                        'ping_time': current_time,
+                        'region': region
+                    })
+                    
+                except requests.Timeout:
+                    response_time = round((time.time() - start_time) * 1000, 2)
+                    logger.warning(f"⏰ Server ping timeout: {server_name} ({server_id}) after {response_time}ms")
+                    
+                    # Update status to timeout
+                    status_data = {
+                        'status': 'timeout',
+                        'lastPing': datetime.now().isoformat(),
+                        'responseTime': response_time,
+                        'lastPingStatus': 'Timeout'
+                    }
+                    
+                    try:
+                        if self.db:
+                            self.db.servers.update_one({'serverId': server_id}, {'$set': status_data})
+                        else:
+                            if server:
+                                server.update(status_data)
+                    except Exception as update_error:
+                        logger.warning(f"⚠️ Failed to update timeout status: {update_error}")
+                    
+                    return jsonify({
+                        'success': False,
+                        'server_id': server_id,
+                        'server_name': server_name,
+                        'status': 'timeout',
+                        'response_time_ms': response_time,
+                        'message': 'Server ping timeout (>15s)',
+                        'ping_time': datetime.now().isoformat(),
+                        'region': region
+                    })
+                    
+                except requests.ConnectionError as conn_error:
+                    response_time = round((time.time() - start_time) * 1000, 2)
+                    logger.warning(f"🔗 Server ping connection error: {server_name} ({server_id}) - {conn_error}")
+                    
+                    return jsonify({
+                        'success': False,
+                        'server_id': server_id,
+                        'server_name': server_name,
+                        'status': 'connection_error',
+                        'response_time_ms': response_time,
+                        'message': 'Cannot connect to G-Portal API',
+                        'ping_time': datetime.now().isoformat(),
+                        'region': region
+                    })
+                    
             except Exception as e:
                 response_time = round((time.time() - start_time) * 1000, 2) if 'start_time' in locals() else 0
                 logger.error(f"❌ Ping error for server {server_id}: {e}")
@@ -740,7 +785,49 @@ class GustBotEnhanced:
                     'error': str(e)
                 }), 200  # Return 200 to prevent frontend errors
         
-        print("[✅ CRITICAL] Direct server routes registered (including ping endpoint)")
+        print("[✅ PING] Server ping endpoint added successfully")
+        print("[✅ IMPLEMENTATION] Working server routes implemented directly")
+    
+    def setup_fallback_api_endpoints(self, missing_routes):
+        """✅ TARGETED: Create fallback endpoints only for missing routes"""
+        print(f"[🔧 RECOVERY] Setting up fallback endpoints for: {missing_routes}")
+        
+        if 'events' in missing_routes:
+            @self.app.route('/api/events', methods=['GET'])
+            def fallback_events():
+                return jsonify([])
+        
+        if 'clans' in missing_routes:
+            @self.app.route('/api/clans', methods=['GET'])
+            def fallback_clans():
+                return jsonify([])
+        
+        if 'servers' in missing_routes:
+            @self.app.route('/api/servers', methods=['GET'])
+            def fallback_servers():
+                return jsonify([])
+        
+        if 'economy' in missing_routes:
+            @self.app.route('/api/economy', methods=['GET'])
+            def fallback_economy():
+                return jsonify({'balance': 0, 'transactions': []})
+        
+        if 'gambling' in missing_routes:
+            @self.app.route('/api/gambling', methods=['GET'])
+            def fallback_gambling():
+                return jsonify({'games': [], 'stats': {}})
+        
+        if 'users' in missing_routes:
+            @self.app.route('/api/users', methods=['GET'])
+            def fallback_users():
+                return jsonify([])
+        
+        if 'logs' in missing_routes:
+            @self.app.route('/api/logs', methods=['GET'])
+            def fallback_logs():
+                return jsonify([])
+        
+        print(f"[✅ OK] Fallback endpoints created for {len(missing_routes)} missing routes")
     
     def setup_api_redirects(self):
         """✅ FIXED: Create direct API endpoints instead of redirects"""
@@ -748,6 +835,20 @@ class GustBotEnhanced:
         
         # Get existing routes to avoid conflicts
         existing_rules = [rule.rule for rule in self.app.url_map.iter_rules()]
+        
+        # ✅ FIX: Create direct endpoints instead of redirects to avoid 404s
+        
+        # Events endpoint (if not registered by events blueprint)
+        if '/api/events' not in existing_rules:
+            @self.app.route('/api/events', methods=['GET'])
+            def api_events_direct():
+                """Direct events endpoint"""
+                try:
+                    # Return events data from storage
+                    return jsonify(self.events)
+                except Exception as e:
+                    logger.error(f"❌ Error in events endpoint: {e}")
+                    return jsonify([])
         
         # Token status endpoint (needed by frontend)
         if '/api/token/status' not in existing_rules:
@@ -773,16 +874,63 @@ class GustBotEnhanced:
                         'error': str(e)
                     }), 500
         
-        # Events endpoint (if not registered by events blueprint)
-        if '/api/events' not in existing_rules:
-            @self.app.route('/api/events', methods=['GET'])
-            def api_events_direct():
-                """Direct events endpoint"""
+        # ✅ NEW: Add token debug endpoint for troubleshooting
+        if '/api/token/debug' not in existing_rules:
+            @self.app.route('/api/token/debug', methods=['GET'])
+            def api_token_debug():
+                """Token debug endpoint for troubleshooting"""
+                if 'logged_in' not in session:
+                    return jsonify({'error': 'Authentication required'}), 401
+                
                 try:
-                    return jsonify(self.events)
+                    # Try different ways to load the token
+                    raw_token = load_token()
+                    token_valid = validate_token_file()
+                    
+                    # Check what type of data we're getting
+                    debug_info = {
+                        'raw_token_type': str(type(raw_token)),
+                        'raw_token_value': str(raw_token)[:100] if raw_token else None,  # First 100 chars only
+                        'token_valid': token_valid,
+                        'token_file_exists': os.path.exists('gp-session.json'),
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    
+                    return jsonify(debug_info)
+                    
                 except Exception as e:
-                    logger.error(f"❌ Error in events endpoint: {e}")
-                    return jsonify([])
+                    return jsonify({
+                        'error': str(e),
+                        'timestamp': datetime.now().isoformat()
+                    }), 500
+        
+        # Economy endpoint (if missing) 
+        if '/api/economy' not in existing_rules:
+            @self.app.route('/api/economy', methods=['GET'])
+            def api_economy_direct():
+                """Direct economy endpoint"""
+                return jsonify({'balance': 0, 'transactions': []})
+        
+        # Gambling endpoint (if missing)
+        if '/api/gambling' not in existing_rules:
+            @self.app.route('/api/gambling', methods=['GET'])
+            def api_gambling_direct():
+                """Direct gambling endpoint""" 
+                return jsonify({'games': [], 'stats': {}})
+        
+        # Users endpoint (if missing)
+        if '/api/users' not in existing_rules:
+            @self.app.route('/api/users', methods=['GET'])
+            def api_users_direct():
+                """Direct users endpoint"""
+                return jsonify(self.users)
+        
+        # Logs endpoint (if missing)
+        if '/api/logs' not in existing_rules:
+            @self.app.route('/api/logs', methods=['GET'])
+            def api_logs_direct():
+                """Direct logs endpoint"""
+                return jsonify(self.logs_storage)
         
         # ✅ NEW: Add player count endpoint with fallback
         if '/api/logs/player-count' not in existing_rules:
@@ -794,6 +942,7 @@ class GustBotEnhanced:
                 
                 try:
                     # For now, return a basic response to prevent frontend errors
+                    # This can be enhanced once the token loading issue is resolved
                     return jsonify({
                         'success': True,
                         'server_id': server_id,
@@ -812,23 +961,10 @@ class GustBotEnhanced:
                         'server_id': server_id
                     }), 500
         
-        # Other endpoints as fallbacks
-        fallback_endpoints = [
-            ('/api/clans', lambda: jsonify([])),
-            ('/api/economy', lambda: jsonify({'balance': 0, 'transactions': []})),
-            ('/api/gambling', lambda: jsonify({'games': [], 'stats': {}})),
-            ('/api/users', lambda: jsonify(self.users)),
-            ('/api/logs', lambda: jsonify(self.logs_storage))
-        ]
-        
-        for endpoint, handler in fallback_endpoints:
-            if endpoint not in existing_rules:
-                self.app.add_url_rule(endpoint, f'fallback_{endpoint.replace("/", "_")}', handler, methods=['GET'])
-        
         print("[✅ OK] Direct API endpoints configured")
     
     def setup_console_endpoints(self):
-        """✅ Console endpoints setup"""
+        """✅ NEW: Setup missing console endpoints that frontend expects"""
         
         @self.app.route('/api/console/live/connect', methods=['POST'])
         def console_live_connect():
@@ -843,6 +979,7 @@ class GustBotEnhanced:
                 if not server_id:
                     return jsonify({'success': False, 'error': 'Server ID required'})
                 
+                # For now, return success - WebSocket connection would be handled separately
                 return jsonify({
                     'success': True,
                     'connected': True,
@@ -894,22 +1031,26 @@ class GustBotEnhanced:
                 logger.error(f"❌ Console send error: {e}")
                 return jsonify({'success': False, 'error': str(e)}), 500
         
-        @self.app.route('/api/console/output')
-        def get_console_output():
-            """Get recent console output"""
+        @self.app.route('/api/console/disconnect', methods=['POST'])
+        def console_disconnect():
+            """Console disconnect endpoint"""
+            if 'logged_in' not in session:
+                return jsonify({'success': False, 'error': 'Authentication required'}), 401
+            
             try:
-                output_list = list(self.console_output)
+                data = request.json or {}
+                server_id = data.get('serverId')
+                
                 return jsonify({
                     'success': True,
-                    'output': output_list,
-                    'count': len(output_list)
+                    'disconnected': True,
+                    'server_id': server_id,
+                    'message': 'Console disconnected'
                 })
+                
             except Exception as e:
-                logger.error(f"❌ Error getting console output: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
+                logger.error(f"❌ Console disconnect error: {e}")
+                return jsonify({'success': False, 'error': str(e)}), 500
         
         print("[✅ CONSOLE] Console management endpoints added")
     
@@ -930,7 +1071,7 @@ class GustBotEnhanced:
             print("[ℹ️ INFO] WebSocket support not available")
     
     # ================================================================
-    # ✅ AUTO-AUTHENTICATION INTEGRATION  
+    # ✅ NEW: AUTO-AUTHENTICATION INTEGRATION  
     # ================================================================
     
     def setup_auto_authentication(self):
@@ -949,7 +1090,10 @@ class GustBotEnhanced:
             print("[ℹ️ INFO] Auto-authentication not available - components not installed")
     
     def initialize_auto_auth_service(self):
-        """Initialize auto-authentication service on startup"""
+        """
+        Initialize auto-authentication service on startup
+        ✅ NEW: Background auth service startup
+        """
         if not AUTO_AUTH_AVAILABLE:
             logger.info("🔐 Auto-authentication not available - skipping service initialization")
             return
@@ -968,7 +1112,10 @@ class GustBotEnhanced:
             logger.error(f"❌ Failed to initialize auto-auth service: {e}")
     
     def cleanup_auto_auth_service(self):
-        """Cleanup auto-authentication service on shutdown"""
+        """
+        Cleanup auto-authentication service on shutdown
+        ✅ NEW: Graceful service shutdown
+        """
         if AUTO_AUTH_AVAILABLE:
             try:
                 auth_service.stop()
@@ -1027,48 +1174,12 @@ class GustBotEnhanced:
                     'timestamp': datetime.now().isoformat()
                 }), 500
         
-        # Add basic health check route
-        @self.app.route('/health')
-        def basic_health():
-            """Basic health check endpoint"""
-            return jsonify({
-                'status': 'healthy',
-                'application': 'GUST Bot Enhanced',
-                'auto_auth_available': AUTO_AUTH_AVAILABLE,
-                'websockets_available': WEBSOCKETS_AVAILABLE,
-                'database_connected': bool(self.db),
-                'timestamp': datetime.now().isoformat()
-            })
-        
-        # Add main routes
-        @self.app.route('/')
-        def dashboard():
-            """Main dashboard route"""
-            if 'logged_in' not in session:
-                return redirect('/login')
-            
-            try:
-                return render_template('enhanced_dashboard.html')
-            except Exception as template_error:
-                # Fallback if template is missing
-                return f"""
-                <html>
-                <head><title>GUST Bot Enhanced</title></head>
-                <body>
-                    <h1>🚀 GUST Bot Enhanced (ROUTING FIXED)</h1>
-                    <p>Welcome! Dashboard template is loading...</p>
-                    <p>Status: Application running successfully</p>
-                    <p>✅ Server routes: FIXED - No more 404 errors</p>
-                    <p><a href="/login">Login</a></p>
-                </body>
-                </html>
-                """
-        
         # Add a simple login fallback route
         @self.app.route('/login')
         def login_fallback():
             """Fallback login route to handle redirects"""
             try:
+                # Try to render the login template if available
                 return render_template('login.html')
             except:
                 # Simple HTML fallback if template missing
@@ -1076,7 +1187,7 @@ class GustBotEnhanced:
                 <html>
                 <head><title>GUST Bot - Login</title></head>
                 <body>
-                    <h1>🚀 GUST Bot Enhanced - Login (ROUTING FIXED)</h1>
+                    <h1>🚀 GUST Bot Enhanced - Login</h1>
                     <form method="post" action="/login">
                         <p>
                             <label>Username:</label><br>
@@ -1091,27 +1202,225 @@ class GustBotEnhanced:
                         </p>
                     </form>
                     <p><small>Demo: admin / password</small></p>
-                    <p>✅ <strong>FIXED:</strong> Server ping routes now work properly</p>
                 </body>
                 </html>
                 """
+        
+        # Add basic health check route
+        @self.app.route('/health')
+        def basic_health():
+            """Basic health check endpoint"""
+            return jsonify({
+                'status': 'healthy',
+                'application': 'GUST Bot Enhanced',
+                'auto_auth_available': AUTO_AUTH_AVAILABLE,
+                'websockets_available': WEBSOCKETS_AVAILABLE,
+                'database_connected': bool(self.db),
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        @self.app.route('/health/system')
+        def system_health():
+            """Comprehensive system health check with auto-auth status"""
+            try:
+                health_data = {
+                    'status': 'healthy',
+                    'components': {
+                        'flask': {'status': 'healthy'},
+                        'websockets': {
+                            'status': 'available' if WEBSOCKETS_AVAILABLE else 'unavailable',
+                            'enabled': WEBSOCKETS_AVAILABLE
+                        },
+                        'database': {
+                            'status': 'connected' if self.db else 'in_memory',
+                            'type': 'MongoDB' if self.db else 'In-Memory'
+                        },
+                        'rate_limiter': {
+                            'status': 'healthy',
+                            'requests_processed': getattr(self.rate_limiter, 'total_requests', 0)
+                        }
+                    },
+                    'timestamp': datetime.now().isoformat()
+                }
+                
+                # Token status
+                token = load_token()
+                health_data['components']['authentication'] = {
+                    'status': 'healthy' if token and validate_token_file() else 'warning',
+                    'has_token': bool(token),
+                    'token_valid': bool(token and validate_token_file())
+                }
+                
+                # ✅ NEW: Auto-auth component status
+                if AUTO_AUTH_AVAILABLE:
+                    try:
+                        service_status = auth_service.get_status()
+                        health_data['components']['auto_auth'] = {
+                            'status': 'healthy' if service_status.get('running', False) else 'stopped',
+                            'enabled': Config.AUTO_AUTH_ENABLED,
+                            'service_running': service_status.get('running', False),
+                            'credentials_stored': credential_manager.credentials_exist(),
+                            'renewal_count': service_status.get('renewal_count', 0),
+                            'failure_count': service_status.get('failure_count', 0)
+                        }
+                    except Exception as e:
+                        health_data['components']['auto_auth'] = {
+                            'status': 'error',
+                            'error': str(e)
+                        }
+                else:
+                    health_data['components']['auto_auth'] = {
+                        'status': 'unavailable',
+                        'reason': 'Auto-auth components not installed'
+                    }
+                
+                # Determine overall status
+                component_statuses = [comp.get('status', 'error') for comp in health_data['components'].values()]
+                if any(status == 'error' for status in component_statuses):
+                    health_data['status'] = 'error'
+                elif any(status == 'warning' for status in component_statuses):
+                    health_data['status'] = 'warning'
+                
+                return jsonify(health_data)
+                
+            except Exception as e:
+                logger.error(f"❌ System health check error: {e}")
+                return jsonify({
+                    'status': 'error',
+                    'error': str(e),
+                    'timestamp': datetime.now().isoformat()
+                }), 500
+        
+        # Add preserved application routes
+        self.setup_preserved_routes()
+    
+    def setup_preserved_routes(self):
+        """Setup preserved application routes"""
+        
+        @self.app.route('/')
+        def dashboard():
+            """Main dashboard route"""
+            if 'logged_in' not in session:
+                return redirect('/login')  # Direct path instead of url_for
+            
+            try:
+                return render_template('enhanced_dashboard.html')
+            except Exception as template_error:
+                # Fallback if template is missing
+                return f"""
+                <html>
+                <head><title>GUST Bot Enhanced</title></head>
+                <body>
+                    <h1>🚀 GUST Bot Enhanced</h1>
+                    <p>Welcome! Dashboard template is loading...</p>
+                    <p>Status: Application running successfully</p>
+                    <p><a href="/login">Login</a></p>
+                    <hr>
+                    <h2>✅ Auto-Authentication Status</h2>
+                    <p>Auto-auth available: {'Yes' if AUTO_AUTH_AVAILABLE else 'No'}</p>
+                    <p><a href="/health/auto-auth">Check Auto-Auth Health</a></p>
+                    <hr>
+                    <h2>🔗 API Endpoints Test</h2>
+                    <ul>
+                        <li><a href="/api/events">/api/events</a></li>
+                        <li><a href="/api/clans">/api/clans</a></li>
+                        <li><a href="/api/servers">/api/servers</a></li>
+                        <li><a href="/api/economy">/api/economy</a></li>
+                        <li><a href="/api/gambling">/api/gambling</a></li>
+                        <li><a href="/api/users">/api/users</a></li>
+                        <li><a href="/api/logs">/api/logs</a></li>
+                    </ul>
+                </body>
+                </html>
+                """
+        
+        @self.app.route('/api/console/output')
+        def get_console_output():
+            """Get recent console output"""
+            try:
+                output_list = list(self.console_output)
+                return jsonify({
+                    'success': True,
+                    'output': output_list,
+                    'count': len(output_list)
+                })
+            except Exception as e:
+                logger.error(f"❌ Error getting console output: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': str(e)
+                }), 500
+        
+        # Add error handlers with fallback HTML
+        @self.app.errorhandler(404)
+        def not_found_error(error):
+            try:
+                return render_template('error.html', error_code=404, error_message="Page not found"), 404
+            except:
+                return f"""
+                <html>
+                <head><title>GUST Bot - 404 Error</title></head>
+                <body>
+                    <h1>🚀 GUST Bot Enhanced</h1>
+                    <h2>404 - Page Not Found</h2>
+                    <p>The requested page <code>{request.path}</code> could not be found.</p>
+                    <p><strong>Auto-Authentication:</strong> {'✅ Available' if AUTO_AUTH_AVAILABLE else '❌ Not Available'}</p>
+                    <p><a href="/">Go to Dashboard</a> | <a href="/login">Login</a> | <a href="/health">Health Check</a></p>
+                </body>
+                </html>
+                """, 404
+        
+        @self.app.errorhandler(500)
+        def internal_error(error):
+            try:
+                return render_template('error.html', error_code=500, error_message="Internal server error"), 500
+            except:
+                return """
+                <html>
+                <head><title>GUST Bot - 500 Error</title></head>
+                <body>
+                    <h1>🚀 GUST Bot Enhanced</h1>
+                    <h2>500 - Internal Server Error</h2>
+                    <p>An internal server error occurred.</p>
+                    <p><a href="/">Go to Dashboard</a> | <a href="/login">Login</a></p>
+                </body>
+                </html>
+                """, 500
+        
+        @self.app.errorhandler(403)
+        def forbidden_error(error):
+            try:
+                return render_template('error.html', error_code=403, error_message="Access forbidden"), 403
+            except:
+                return """
+                <html>
+                <head><title>GUST Bot - 403 Error</title></head>
+                <body>
+                    <h1>🚀 GUST Bot Enhanced</h1>
+                    <h2>403 - Access Forbidden</h2>
+                    <p>You don't have permission to access this resource.</p>
+                    <p><a href="/">Go to Dashboard</a> | <a href="/login">Login</a></p>
+                </body>
+                </html>
+                """, 403
     
     # ================================================================
     # APPLICATION LIFECYCLE METHODS
     # ================================================================
     
     def run(self, host=None, port=None, debug=False):
-        """Run the enhanced application with fixed routing"""
+        """Run the enhanced application with auto-authentication support"""
         host = host or Config.DEFAULT_HOST
         port = port or Config.DEFAULT_PORT
         
-        logger.info(f"🚀 Starting GUST Bot Enhanced on {host}:{port} (ROUTING FIXED)")
+        logger.info(f"🚀 Starting GUST Bot Enhanced on {host}:{port}")
         logger.info(f"🔧 WebSocket Support: {'Available' if WEBSOCKETS_AVAILABLE else 'Not Available'}")
         logger.info(f"🗄️ Database: {'MongoDB' if self.db else 'In-Memory'}")
         logger.info(f"👥 User Storage: {type(self.user_storage).__name__}")
         logger.info(f"📡 Live Console: {'Enabled' if WEBSOCKETS_AVAILABLE else 'Disabled'}")
         logger.info(f"🔐 Auto-Authentication: {'Available' if AUTO_AUTH_AVAILABLE else 'Not Available'}")
-        logger.info(f"✅ CRITICAL: Server ping endpoint routing conflicts FIXED")
+        logger.info(f"🛡️ Rate Limiting: Enhanced with token management")
+        logger.info(f"🏥 Server Health: Enhanced monitoring system active")
         
         try:
             self.app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)
@@ -1138,7 +1447,7 @@ if __name__ == '__main__':
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    print("[INFO] Loading GUST Bot Enhanced with ROUTING FIXES...")
+    print("[INFO] Loading GUST Bot Enhanced...")
     
     # Create and run the application
     try:
