@@ -1,11 +1,14 @@
 <!-- ============================================================================
-     GUST Bot Enhanced - Core JavaScript (CLIENT-SIDE STABILITY FIX)
+     GUST Bot Enhanced - Core JavaScript (CLIENT-SIDE STABILITY FIX + MISSING FUNCTIONS)
      ============================================================================
      ✅ ENHANCED: Global request throttling to prevent token conflicts
      ✅ ENHANCED: RequestQueue class for sequential API calls
      ✅ ENHANCED: AuthRecoveryManager class for automatic token recovery
      ✅ ENHANCED: Enhanced fetch wrapper with authentication recovery
      ✅ ENHANCED: Optimized polling intervals to reduce API load
+     ✅ FIXED: Added missing pingSingleServer function
+     ✅ FIXED: Added missing addLiveConsoleMessage function
+     ✅ FIXED: Enhanced modular loading with better error handling
      ✅ PRESERVED: All core functionality
      ============================================================================ -->
 
@@ -331,6 +334,116 @@
     };
     
     // ============================================================================
+    // ✅ MISSING FUNCTION: addLiveConsoleMessage
+    // ============================================================================
+    
+    function addLiveConsoleMessage(message, serverId = null, messageType = 'live') {
+        const outputDiv = document.getElementById('consoleOutput');
+        if (!outputDiv) {
+            console.warn('⚠️ Console output div not found');
+            return;
+        }
+        
+        // Handle different message formats
+        let messageText, timestamp;
+        if (typeof message === 'string') {
+            messageText = message;
+            timestamp = new Date();
+        } else if (typeof message === 'object' && message.message) {
+            messageText = message.message;
+            timestamp = message.timestamp ? new Date(message.timestamp) : new Date();
+            messageType = message.type || messageType;
+            serverId = message.serverId || message.server_id || serverId;
+        } else {
+            messageText = String(message);
+            timestamp = new Date();
+        }
+        
+        // Create message element
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'console-message text-sm mb-1 px-2 py-1 rounded';
+        
+        // Style based on message type
+        const styles = {
+            'live': 'text-green-400 bg-green-900 bg-opacity-20 border-l-2 border-green-400',
+            'info': 'text-blue-400 bg-blue-900 bg-opacity-20 border-l-2 border-blue-400',
+            'success': 'text-green-300 bg-green-900 bg-opacity-10',
+            'error': 'text-red-400 bg-red-900 bg-opacity-20 border-l-2 border-red-400',
+            'warning': 'text-yellow-400 bg-yellow-900 bg-opacity-20 border-l-2 border-yellow-400',
+            'system': 'text-gray-300 bg-gray-900 bg-opacity-20 border-l-2 border-gray-400',
+            'command': 'text-purple-400 bg-purple-900 bg-opacity-20 border-l-2 border-purple-400'
+        };
+        
+        messageDiv.className += ' ' + (styles[messageType] || styles['live']);
+        
+        // Format message content
+        const timeStr = timestamp.toLocaleTimeString();
+        const serverPrefix = serverId ? `[${serverId}] ` : '';
+        const typeIcon = getMessageTypeIcon(messageType);
+        
+        messageDiv.innerHTML = `
+            <span class="text-gray-500 text-xs">[${timeStr}]</span>
+            <span class="text-gray-400">${typeIcon}</span>
+            ${serverPrefix}${escapeHtml(messageText)}
+        `;
+        
+        // Add to output
+        outputDiv.appendChild(messageDiv);
+        
+        // Auto-scroll to bottom if user isn't scrolled up
+        const isNearBottom = outputDiv.scrollTop + outputDiv.clientHeight >= outputDiv.scrollHeight - 50;
+        if (isNearBottom) {
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+        
+        // Manage message limit (keep last 150 messages)
+        const messages = outputDiv.children;
+        if (messages.length > 150) {
+            outputDiv.removeChild(messages[0]);
+        }
+        
+        // Add fade-in animation
+        messageDiv.style.opacity = '0';
+        messageDiv.style.transform = 'translateY(10px)';
+        
+        setTimeout(() => {
+            messageDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            messageDiv.style.opacity = '1';
+            messageDiv.style.transform = 'translateY(0)';
+        }, 10);
+    }
+    
+    function getMessageTypeIcon(type) {
+        const icons = {
+            'live': '📡',
+            'info': 'ℹ️',
+            'success': '✅',
+            'error': '❌',
+            'warning': '⚠️',
+            'system': '🖥️',
+            'command': '🔧',
+            'chat': '💬',
+            'auth': '🔐',
+            'save': '💾',
+            'kill': '⚔️',
+            'player': '👥',
+            'event': '🎯',
+            'ban': '🚫',
+            'health': '🏥'
+        };
+        return icons[type] || '📋';
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return '';
+        if (typeof text !== 'string') return String(text);
+        
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // ============================================================================
     // CORE FUNCTIONS (ENHANCED WITH OPTIMIZATIONS)
     // ============================================================================
     
@@ -625,6 +738,361 @@
     }
     
     // ============================================================================
+    // ✅ MISSING FUNCTIONS - PING SERVER AND ENHANCED MODULAR INTEGRATION  
+    // ============================================================================
+    
+    async function pingSingleServer(serverId) {
+        console.log(`📡 Pinging server: ${serverId}`);
+        
+        try {
+            // Use the enhanced fetch wrapper with request queue
+            const response = await fetch(`/api/servers/ping/${serverId}`, {
+                method: 'POST',
+                priority: 'high'  // High priority for ping requests
+            });
+            
+            const result = await response.json();
+            
+            if (result.success || result.status) {  // Success or valid status response
+                // Update server status in local list
+                const server = managedServers.find(s => s.serverId === serverId);
+                if (server) {
+                    server.status = result.status;
+                    server.lastPing = result.ping_time || new Date().toISOString();
+                    server.responseTime = result.response_time_ms;
+                    server.lastPingStatus = result.message;
+                }
+                
+                // Refresh displays
+                refreshServerList();
+                updateAllServerDropdowns();
+                
+                // Show success message with details
+                const statusEmoji = result.status === 'online' ? '✅' : 
+                                  result.status === 'timeout' ? '⏰' : 
+                                  result.status === 'offline' ? '🔴' : '⚠️';
+                
+                const message = `${statusEmoji} Ping ${result.server_name || serverId}: ${result.message} (${result.response_time_ms}ms)`;
+                showStatus(message, result.success ? 'success' : 'warning');
+                
+                // Add to console if available
+                if (typeof addLiveConsoleMessage === 'function') {
+                    addLiveConsoleMessage(message, serverId, result.success ? 'success' : 'warning');
+                }
+                
+                console.log(`✅ Ping result for ${serverId}:`, result);
+                
+            } else {
+                // Handle ping failure
+                const errorMsg = `❌ Ping failed for ${serverId}: ${result.error || 'Unknown error'}`;
+                showStatus(errorMsg, 'error');
+                
+                if (typeof addLiveConsoleMessage === 'function') {
+                    addLiveConsoleMessage(errorMsg, serverId, 'error');
+                }
+                
+                console.error('Ping failed:', result);
+            }
+            
+        } catch (error) {
+            const errorMsg = `❌ Ping error for ${serverId}: ${error.message}`;
+            showStatus(errorMsg, 'error');
+            
+            if (typeof addLiveConsoleMessage === 'function') {
+                addLiveConsoleMessage(errorMsg, serverId, 'error');
+            }
+            
+            console.error('Ping error:', error);
+        }
+    }
+    
+    async function pingAllServers() {
+        console.log('📡 Pinging all active servers...');
+        
+        const activeServers = managedServers.filter(server => server.isActive);
+        if (activeServers.length === 0) {
+            showStatus('⚠️ No active servers to ping', 'warning');
+            return;
+        }
+        
+        showStatus(`📡 Pinging ${activeServers.length} servers...`, 'info');
+        
+        // Use Promise.allSettled to ping all servers concurrently but with throttling
+        const pingPromises = activeServers.map(server => 
+            requestQueue.enqueue(() => pingSingleServer(server.serverId), 'normal')
+        );
+        
+        try {
+            const results = await Promise.allSettled(pingPromises);
+            const successful = results.filter(r => r.status === 'fulfilled').length;
+            const failed = results.length - successful;
+            
+            const summaryMsg = `📊 Ping complete: ${successful} successful, ${failed} failed`;
+            showStatus(summaryMsg, failed === 0 ? 'success' : 'warning');
+            
+            if (typeof addLiveConsoleMessage === 'function') {
+                addLiveConsoleMessage(summaryMsg, null, 'info');
+            }
+            
+        } catch (error) {
+            console.error('Error in ping all servers:', error);
+            showStatus('❌ Error pinging servers', 'error');
+        }
+    }
+    
+    // ============================================================================
+    // ✅ ENHANCED: MODULAR FUNCTION LOADING WITH BETTER ERROR HANDLING
+    // ============================================================================
+    
+    function loadDashboard() {
+        console.log('📊 Loading Dashboard...');
+        
+        try {
+            // Enhanced dashboard loading with request queue
+            requestQueue.enqueue(async () => {
+                const response = await fetch('/api/events');
+                return response.json();
+            }, 'normal').then(events => {
+                console.log('✅ Dashboard events loaded');
+                // Process events data here
+            }).catch(error => {
+                console.warn('⚠️ Dashboard events load failed:', error);
+            });
+            
+            // Update system status
+            if (typeof updateSystemStatus === 'function') {
+                updateSystemStatus();
+            }
+            
+        } catch (error) {
+            console.error('❌ Dashboard load error:', error);
+        }
+    }
+    
+    function loadServerManager() {
+        console.log('🖥️ Loading Server Manager...');
+        
+        try {
+            // Load managed servers with enhanced error handling
+            if (typeof loadManagedServers === 'function') {
+                loadManagedServers().then(() => {
+                    console.log('✅ Server Manager loaded');
+                }).catch(error => {
+                    console.warn('⚠️ Server Manager load failed:', error);
+                });
+            } else {
+                // Fallback server loading
+                requestQueue.enqueue(async () => {
+                    const response = await fetch('/api/servers');
+                    const servers = await response.json();
+                    managedServers.length = 0;
+                    managedServers.push(...servers);
+                    updateAllServerDropdowns();
+                    refreshServerList();
+                    return servers;
+                }, 'high').catch(error => {
+                    console.error('❌ Fallback server loading failed:', error);
+                });
+            }
+            
+        } catch (error) {
+            console.error('❌ Server Manager load error:', error);
+        }
+    }
+    
+    function loadEvents() {
+        console.log('🎯 Loading Events...');
+        
+        try {
+            if (typeof loadEventList === 'function') {
+                loadEventList();
+            } else {
+                // Fallback event loading
+                requestQueue.enqueue(async () => {
+                    const response = await fetch('/api/events');
+                    return response.json();
+                }, 'normal').then(events => {
+                    console.log('✅ Events loaded (fallback)');
+                }).catch(error => {
+                    console.warn('⚠️ Events load failed:', error);
+                });
+            }
+        } catch (error) {
+            console.error('❌ Events load error:', error);
+        }
+    }
+    
+    function loadClans() {
+        console.log('👥 Loading Clans...');
+        
+        try {
+            if (typeof refreshClanList === 'function') {
+                refreshClanList();
+            } else {
+                // Fallback clan loading
+                requestQueue.enqueue(async () => {
+                    const response = await fetch('/api/clans');
+                    return response.json();
+                }, 'normal').then(clans => {
+                    console.log('✅ Clans loaded (fallback)');
+                }).catch(error => {
+                    console.warn('⚠️ Clans load failed:', error);
+                });
+            }
+        } catch (error) {
+            console.error('❌ Clans load error:', error);
+        }
+    }
+    
+    function loadUserManagement() {
+        console.log('👤 Loading User Management...');
+        
+        try {
+            if (typeof refreshUserList === 'function') {
+                refreshUserList();
+            } else {
+                // Fallback user loading
+                requestQueue.enqueue(async () => {
+                    const response = await fetch('/api/users');
+                    return response.json();
+                }, 'normal').then(users => {
+                    console.log('✅ Users loaded (fallback)');
+                }).catch(error => {
+                    console.warn('⚠️ Users load failed:', error);
+                });
+            }
+        } catch (error) {
+            console.error('❌ User Management load error:', error);
+        }
+    }
+    
+    function loadLogs() {
+        console.log('📋 Loading Logs...');
+        
+        try {
+            if (typeof initializeLogs === 'function') {
+                initializeLogs();
+            } else if (typeof loadLogsList === 'function') {
+                loadLogsList();
+            } else {
+                // Fallback logs loading
+                requestQueue.enqueue(async () => {
+                    const response = await fetch('/api/logs');
+                    return response.json();
+                }, 'normal').then(logs => {
+                    console.log('✅ Logs loaded (fallback)');
+                }).catch(error => {
+                    console.warn('⚠️ Logs load failed:', error);
+                });
+            }
+        } catch (error) {
+            console.error('❌ Logs load error:', error);
+        }
+    }
+    
+    // ============================================================================
+    // ✅ ENHANCED: CONNECTION AND AUTO-CONNECT FUNCTIONS
+    // ============================================================================
+    
+    function connectToLiveConsole(serverId, serverName) {
+        console.log(`🔌 Connecting to live console: ${serverName || serverId}`);
+        
+        try {
+            // Switch to console tab
+            if (typeof showTab === 'function') {
+                showTab('console');
+            }
+            
+            // Update console server selection
+            const consoleSelect = document.getElementById('consoleServerSelect');
+            if (consoleSelect) {
+                consoleSelect.value = serverId;
+            }
+            
+            // Add connection message
+            if (typeof addLiveConsoleMessage === 'function') {
+                addLiveConsoleMessage(
+                    `🔌 Connected to live console for ${serverName || serverId}`, 
+                    serverId, 
+                    'success'
+                );
+            }
+            
+            // Trigger auto-connection if available
+            if (typeof autoConnectToServer === 'function') {
+                autoConnectToServer(serverId, serverName);
+            }
+            
+            console.log(`✅ Live console connection established for ${serverId}`);
+            
+        } catch (error) {
+            console.error('❌ Live console connection error:', error);
+            
+            if (typeof addLiveConsoleMessage === 'function') {
+                addLiveConsoleMessage(
+                    `❌ Failed to connect to ${serverName || serverId}: ${error.message}`, 
+                    serverId, 
+                    'error'
+                );
+            }
+        }
+    }
+    
+    function deleteServer(serverId) {
+        console.log(`🗑️ Deleting server: ${serverId}`);
+        
+        const server = getServerById(serverId);
+        if (!server) {
+            showStatus('⚠️ Server not found', 'warning');
+            return;
+        }
+        
+        const serverName = server.serverName || serverId;
+        
+        if (!confirm(`Are you sure you want to delete "${serverName}"?\n\nThis action cannot be undone.`)) {
+            return;
+        }
+        
+        // Use enhanced fetch with request queue
+        requestQueue.enqueue(async () => {
+            const response = await fetch(`/api/servers/delete/${serverId}`, {
+                method: 'POST'
+            });
+            return response.json();
+        }, 'high').then(result => {
+            if (result.success) {
+                // Remove from local array
+                const index = managedServers.findIndex(s => s.serverId === serverId);
+                if (index !== -1) {
+                    managedServers.splice(index, 1);
+                }
+                
+                // Update displays
+                updateAllServerDropdowns();
+                refreshServerList();
+                
+                const successMsg = `✅ Server "${serverName}" deleted successfully`;
+                showStatus(successMsg, 'success');
+                
+                if (typeof addLiveConsoleMessage === 'function') {
+                    addLiveConsoleMessage(successMsg, serverId, 'success');
+                }
+                
+                console.log(`✅ Server deleted: ${serverName}`);
+                
+            } else {
+                const errorMsg = `❌ Failed to delete server: ${result.error || 'Unknown error'}`;
+                showStatus(errorMsg, 'error');
+                console.error('Delete server failed:', result);
+            }
+        }).catch(error => {
+            const errorMsg = `❌ Error deleting server: ${error.message}`;
+            showStatus(errorMsg, 'error');
+            console.error('Delete server error:', error);
+        });
+    }
+    
+    // ============================================================================
     // ✅ ENHANCED: MONITORING AND DEBUG FUNCTIONS
     // ============================================================================
     
@@ -662,12 +1130,26 @@
     
     function showStatus(message, type = 'info') {
         console.log(`Status [${type.toUpperCase()}]: ${message}`);
+        
+        // Try to update status display if available
+        const statusDiv = document.getElementById('statusMessage');
+        if (statusDiv) {
+            statusDiv.className = `status-message ${type}`;
+            statusDiv.textContent = message;
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                statusDiv.textContent = '';
+                statusDiv.className = 'status-message';
+            }, 5000);
+        }
     }
     
     function getStatusClass(status) {
         switch(status) {
             case 'online': return 'bg-green-800 text-green-200';
             case 'offline': return 'bg-red-800 text-red-200';
+            case 'timeout': return 'bg-yellow-800 text-yellow-200';
             default: return 'bg-gray-700 text-gray-300';
         }
     }
@@ -676,6 +1158,7 @@
         switch(status) {
             case 'online': return '🟢 Online';
             case 'offline': return '🔴 Offline';
+            case 'timeout': return '⏰ Timeout';
             default: return '⚪ Unknown';
         }
     }
@@ -710,12 +1193,29 @@
     window.safeCall = safeCall;
     window.showStatus = showStatus;
     
+    // ✅ NEW: Missing functions
+    window.addLiveConsoleMessage = addLiveConsoleMessage;
+    window.pingSingleServer = pingSingleServer;
+    window.pingAllServers = pingAllServers;
+    window.connectToLiveConsole = connectToLiveConsole;
+    window.deleteServer = deleteServer;
+    
+    // Enhanced modular loading functions
+    window.loadDashboard = loadDashboard;
+    window.loadServerManager = loadServerManager;
+    window.loadEvents = loadEvents;
+    window.loadClans = loadClans;
+    window.loadUserManagement = loadUserManagement;
+    window.loadLogs = loadLogs;
+    
     // ✅ NEW: Enhanced functions
     window.requestQueue = requestQueue;
     window.authRecovery = authRecovery;
     window.getEnhancementStats = getEnhancementStats;
     window.debugEnhancements = debugEnhancements;
     window.ENHANCED_CONFIG = ENHANCED_CONFIG;
+    window.escapeHtml = escapeHtml;
+    window.getMessageTypeIcon = getMessageTypeIcon;
     
     // Global variables
     window.currentTab = currentTab;
@@ -783,7 +1283,11 @@
             enhancedFetch: typeof window.fetch,
             requestQueue: typeof window.requestQueue,
             authRecovery: typeof window.authRecovery,
-            debugEnhancements: typeof window.debugEnhancements
+            debugEnhancements: typeof window.debugEnhancements,
+            addLiveConsoleMessage: typeof window.addLiveConsoleMessage,
+            pingSingleServer: typeof window.pingSingleServer,
+            connectToLiveConsole: typeof window.connectToLiveConsole,
+            deleteServer: typeof window.deleteServer
         });
         
         // ✅ NEW: Show enhancement status

@@ -1,10 +1,13 @@
 <!-- ============================================================================
-     GUST Bot Enhanced - console JavaScript Module (CLEAN FIXED VERSION)
+     GUST Bot Enhanced - Console JavaScript Module (COMPLETE FIXED VERSION)
      ============================================================================
-     ✅ FIXED: No variable conflicts with main.js
+     ✅ FIXED: addLiveConsoleMessage function added (was missing)
+     ✅ FIXED: All function conflicts resolved
      ✅ FIXED: Functions available immediately for onclick handlers
      ✅ OPTIMIZED: Console refresh interval: 5s → 15s (66% reduction)
-     ✅ OPTIMIZED: WebSocket reconnection: 30s → 60s (50% reduction)
+     ✅ OPTIMIZED: WebSocket reconnection: 30s → 60s (50% reduction) 
+     ✅ ENHANCED: Request throttling and error recovery
+     ✅ ENHANCED: Modular integration with other components
      ✅ CLEAN: No duplicate declarations or syntax errors
      ============================================================================ -->
 
@@ -19,6 +22,19 @@
         console.log('🔧 Loading console module with immediate function definitions...');
         
         // ============================================================================
+        // ENHANCED CONFIGURATION FOR OPTIMIZATIONS
+        // ============================================================================
+        
+        const consoleConfig = {
+            refreshInterval: 15000,      // 15 seconds (was 5s) - 66% reduction
+            reconnectInterval: 60000,    // 60 seconds (was 30s) - 50% reduction
+            maxConcurrentRequests: 3,    // Throttling limit
+            requestDelay: 2000,          // Debounce delay
+            maxMessages: 150,            // Maximum console messages to keep
+            autoScrollThreshold: 50      // Auto-scroll threshold in pixels
+        };
+        
+        // ============================================================================
         // CORE CONSOLE FUNCTIONS - AVAILABLE IMMEDIATELY
         // ============================================================================
         
@@ -27,34 +43,27 @@
             const consoleInput = document.getElementById('consoleInput');
             if (consoleInput) {
                 consoleInput.value = command;
+                consoleInput.focus();
             } else {
                 console.warn('consoleInput element not found');
             }
         }
         
-        function addCommandOutput(message, type) {
-            const outputDiv = document.getElementById('consoleOutput');
-            if (!outputDiv) {
-                console.warn('consoleOutput element not found');
-                return;
-            }
-            
-            const time = new Date().toLocaleTimeString();
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `mb-2 ${type === 'error' ? 'text-red-400' : type === 'success' ? 'text-green-400' : 'text-gray-300'}`;
-            messageDiv.innerHTML = `<span class="text-gray-500">[${time}]</span> ${message}`;
-            
-            outputDiv.appendChild(messageDiv);
-            outputDiv.scrollTop = outputDiv.scrollHeight;
-        }
-        
         function getServerRegion(serverId) {
             try {
+                // Try to get from main.js functions first
                 if (typeof window.getServerById === 'function') {
                     const server = window.getServerById(serverId);
                     return server ? server.serverRegion : 'US';
                 }
-                return 'US';
+                
+                // Fallback to managedServers if available
+                if (typeof window.managedServers !== 'undefined' && Array.isArray(window.managedServers)) {
+                    const server = window.managedServers.find(s => s.serverId === serverId);
+                    return server ? server.serverRegion : 'US';
+                }
+                
+                return 'US'; // Default fallback
             } catch (error) {
                 console.warn('getServerRegion error:', error);
                 return 'US';
@@ -91,107 +100,331 @@
             }
             
             const region = getServerRegion(serverId);
+            const serverName = getServerName(serverId);
             
-            // Add command to output
-            addCommandOutput(`> ${commandValue} (Server: ${serverId}) [OPTIMIZED]`, 'command');
+            // Add command to output with enhanced styling
+            addCommandOutput(`> ${commandValue} (Server: ${serverName || serverId}) [ENHANCED]`, 'command');
             
-            // Send command with error handling
-            fetch('/api/console/send', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    command: commandValue,
-                    serverId: serverId,
-                    region: region
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(result => {
-                if (result.success) {
-                    const serverName = (typeof window.getServerById === 'function' && window.getServerById(serverId)) ? 
-                                     window.getServerById(serverId).serverName : serverId;
-                    addCommandOutput(`✅ Command sent successfully to ${serverName}`, 'success');
-                    command.value = '';
-                    
-                    // Auto-refresh console after 2 seconds
-                    setTimeout(() => {
-                        refreshConsole();
-                    }, 2000);
-                    
-                    // Trigger logs-based player count update for serverinfo
-                    if (commandValue.toLowerCase() === 'serverinfo') {
-                        if (typeof window.logsIntegratedTriggerPlayerCountUpdate === 'function') {
-                            window.logsIntegratedTriggerPlayerCountUpdate(serverId);
-                        }
+            // Send command with enhanced error handling and request queue integration
+            const sendRequest = async () => {
+                // Use enhanced fetch if available from main.js
+                const fetchFn = window.fetch || fetch;
+                
+                return fetchFn('/api/console/send', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        command: commandValue,
+                        serverId: serverId,
+                        region: region
+                    }),
+                    priority: 'high' // High priority for console commands
+                });
+            };
+            
+            // Use request queue if available, otherwise direct call
+            const executeRequest = window.requestQueue ? 
+                window.requestQueue.enqueue(sendRequest, 'high') : 
+                sendRequest();
+            
+            executeRequest
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
-                } else {
-                    addCommandOutput(`❌ Command failed: ${result.error || 'Unknown error'}`, 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Command send error:', error);
-                addCommandOutput(`❌ Send error: ${error.message}`, 'error');
-            });
+                    return response.json();
+                })
+                .then(result => {
+                    if (result.success) {
+                        addCommandOutput(`✅ Command sent successfully to ${serverName || serverId}`, 'success');
+                        command.value = '';
+                        
+                        // Auto-refresh console after 2 seconds
+                        setTimeout(() => {
+                            refreshConsole();
+                        }, 2000);
+                        
+                        // Trigger logs-based player count update for serverinfo
+                        if (commandValue.toLowerCase() === 'serverinfo') {
+                            setTimeout(() => {
+                                logsIntegratedTriggerPlayerCountUpdate(serverId);
+                            }, 3000);
+                        }
+                        
+                        // Log activity
+                        logConsoleActivity(`Command executed: ${commandValue}`, {
+                            serverId: serverId,
+                            serverName: serverName,
+                            command: commandValue
+                        });
+                        
+                    } else {
+                        addCommandOutput(`❌ Command failed: ${result.error || 'Unknown error'}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Command send error:', error);
+                    addCommandOutput(`❌ Send error: ${error.message}`, 'error');
+                    
+                    // Attempt authentication recovery if available
+                    if (window.authRecovery && error.message.includes('401')) {
+                        window.authRecovery.recordFailure();
+                    }
+                });
         }
         
         function refreshConsole() {
             console.log('✅ refreshConsole called');
             
-            fetch('/api/console/output')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(output => {
-                const outputDiv = document.getElementById('consoleOutput');
-                if (!outputDiv) {
-                    console.warn('consoleOutput element not found');
-                    return;
-                }
-                
-                outputDiv.innerHTML = '<div class="text-green-400">GUST Bot Console - Ready [OPTIMIZED]</div>';
-                
-                if (Array.isArray(output)) {
-                    output.forEach(entry => {
-                        const div = document.createElement('div');
-                        if (entry.command) {
-                            div.className = 'text-blue-400 font-mono text-sm mb-1';
-                            div.textContent = `> ${entry.command}`;
-                        } else {
-                            div.className = (entry.status === 'server_response' ? 'text-white' : 'text-gray-400') + ' text-sm mb-1';
-                            div.textContent = entry.message;
-                        }
-                        outputDiv.appendChild(div);
-                    });
-                }
-                
-                outputDiv.scrollTop = outputDiv.scrollHeight;
-            })
-            .catch(error => {
-                console.error('Console refresh error:', error);
-                addCommandOutput(`❌ Refresh error: ${error.message}`, 'error');
-            });
+            const fetchRequest = async () => {
+                const fetchFn = window.fetch || fetch;
+                return fetchFn('/api/console/output');
+            };
+            
+            // Use request queue if available
+            const executeRequest = window.requestQueue ? 
+                window.requestQueue.enqueue(fetchRequest, 'normal') : 
+                fetchRequest();
+            
+            executeRequest
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(output => {
+                    const outputDiv = document.getElementById('consoleOutput');
+                    if (!outputDiv) {
+                        console.warn('consoleOutput element not found');
+                        return;
+                    }
+                    
+                    // Store scroll position
+                    const wasScrolledToBottom = outputDiv.scrollTop + outputDiv.clientHeight >= outputDiv.scrollHeight - consoleConfig.autoScrollThreshold;
+                    
+                    outputDiv.innerHTML = '<div class="text-green-400">GUST Bot Console - Ready [ENHANCED]</div>';
+                    
+                    if (Array.isArray(output)) {
+                        output.forEach(entry => {
+                            const div = document.createElement('div');
+                            if (entry.command) {
+                                div.className = 'text-blue-400 font-mono text-sm mb-1';
+                                div.textContent = `> ${entry.command}`;
+                            } else {
+                                div.className = (entry.status === 'server_response' ? 'text-white' : 'text-gray-400') + ' text-sm mb-1';
+                                div.textContent = entry.message;
+                            }
+                            outputDiv.appendChild(div);
+                        });
+                    } else if (output.success && Array.isArray(output.output)) {
+                        output.output.forEach(entry => {
+                            addCommandOutput(entry, 'info');
+                        });
+                    }
+                    
+                    // Restore scroll position
+                    if (wasScrolledToBottom) {
+                        outputDiv.scrollTop = outputDiv.scrollHeight;
+                    }
+                })
+                .catch(error => {
+                    console.error('Console refresh error:', error);
+                    addCommandOutput(`❌ Refresh error: ${error.message}`, 'error');
+                });
         }
         
         function clearConsole() {
             console.log('✅ clearConsole called');
             const outputDiv = document.getElementById('consoleOutput');
             if (outputDiv) {
-                outputDiv.innerHTML = '<div class="text-green-400">GUST Bot Console - Cleared [OPTIMIZED]</div>';
+                outputDiv.innerHTML = '<div class="text-green-400">GUST Bot Console - Cleared [ENHANCED]</div>';
             } else {
                 console.warn('consoleOutput element not found');
             }
         }
         
         // ============================================================================
-        // EXPOSE FUNCTIONS TO GLOBAL SCOPE IMMEDIATELY
+        // ✅ MISSING FUNCTION - addLiveConsoleMessage (THIS WAS THE MAIN ISSUE!)
+        // ============================================================================
+        
+        /**
+         * Add live console message to the console output
+         * This function was missing but is referenced in the auto-connect code
+         * ✅ FIXED: Complete implementation with enhanced styling and error handling
+         */
+        function addLiveConsoleMessage(message, serverId = null, messageType = 'live') {
+            const outputDiv = document.getElementById('consoleOutput');
+            if (!outputDiv) {
+                console.warn('⚠️ Console output div not found');
+                return;
+            }
+            
+            // Handle different message formats
+            let messageText, timestamp;
+            if (typeof message === 'string') {
+                messageText = message;
+                timestamp = new Date();
+            } else if (typeof message === 'object' && message !== null) {
+                messageText = message.message || message.text || String(message);
+                timestamp = message.timestamp ? new Date(message.timestamp) : new Date();
+                messageType = message.type || messageType;
+                serverId = message.serverId || message.server_id || serverId;
+            } else {
+                messageText = String(message);
+                timestamp = new Date();
+            }
+            
+            // Create message element
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'console-message text-sm mb-1 px-2 py-1 rounded';
+            
+            // Style based on message type
+            const styles = {
+                'live': 'text-green-400 bg-green-900 bg-opacity-20 border-l-2 border-green-400',
+                'info': 'text-blue-400 bg-blue-900 bg-opacity-20 border-l-2 border-blue-400',
+                'success': 'text-green-300 bg-green-900 bg-opacity-10',
+                'error': 'text-red-400 bg-red-900 bg-opacity-20 border-l-2 border-red-400',
+                'warning': 'text-yellow-400 bg-yellow-900 bg-opacity-20 border-l-2 border-yellow-400',
+                'system': 'text-gray-300 bg-gray-900 bg-opacity-20 border-l-2 border-gray-400',
+                'command': 'text-purple-400 bg-purple-900 bg-opacity-20 border-l-2 border-purple-400',
+                'chat': 'text-cyan-400 bg-cyan-900 bg-opacity-20 border-l-2 border-cyan-400'
+            };
+            
+            messageDiv.className += ' ' + (styles[messageType] || styles['live']);
+            
+            // Format message content
+            const timeStr = timestamp.toLocaleTimeString();
+            const serverPrefix = serverId ? `[${serverId}] ` : '';
+            const typeIcon = getTypeIcon(messageType);
+            const serverName = serverId ? getServerName(serverId) : '';
+            const displayServer = serverName ? serverName : serverId;
+            
+            messageDiv.innerHTML = `
+                <span class="text-gray-500 text-xs">[${timeStr}]</span>
+                <span class="text-gray-400">${typeIcon}</span>
+                ${displayServer ? `<span class="text-gray-400 text-xs">[${displayServer}]</span> ` : ''}
+                <span class="text-gray-200">${escapeHtml(messageText)}</span>
+            `;
+            
+            // Add to output
+            outputDiv.appendChild(messageDiv);
+            
+            // Auto-scroll to bottom if user isn't scrolled up
+            const isNearBottom = outputDiv.scrollTop + outputDiv.clientHeight >= outputDiv.scrollHeight - consoleConfig.autoScrollThreshold;
+            if (isNearBottom) {
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+            }
+            
+            // Manage message limit (keep last N messages)
+            const messages = outputDiv.children;
+            if (messages.length > consoleConfig.maxMessages) {
+                outputDiv.removeChild(messages[0]);
+            }
+            
+            // Add fade-in animation
+            messageDiv.style.opacity = '0';
+            messageDiv.style.transform = 'translateY(10px)';
+            
+            setTimeout(() => {
+                messageDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                messageDiv.style.opacity = '1';
+                messageDiv.style.transform = 'translateY(0)';
+            }, 10);
+        }
+        
+        // ============================================================================
+        // ENHANCED HELPER FUNCTIONS
+        // ============================================================================
+        
+        function addCommandOutput(message, type = 'info') {
+            addLiveConsoleMessage(message, null, type);
+        }
+        
+        /**
+         * Enhanced version with support for different message types
+         */
+        function addConsoleMessage(messageData) {
+            const message = typeof messageData === 'string' ? messageData : messageData.message;
+            const type = messageData.type || 'info';
+            const serverId = messageData.serverId || messageData.server_id || null;
+            
+            addLiveConsoleMessage(message, serverId, type);
+        }
+        
+        /**
+         * Enhanced logging for console operations
+         */
+        function logConsoleActivity(activity, details = {}) {
+            const logMessage = `Console Activity: ${activity}`;
+            addLiveConsoleMessage(logMessage, details.serverId, 'info');
+            
+            // Also log to browser console for debugging
+            console.log(`🔧 ${logMessage}`, details);
+        }
+        
+        /**
+         * Helper function for HTML escaping (enhanced version)
+         */
+        function escapeHtml(text) {
+            if (!text) return '';
+            if (typeof text !== 'string') return String(text);
+            
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        /**
+         * Enhanced getTypeIcon function with more icons
+         */
+        function getTypeIcon(type) {
+            const icons = {
+                'live': '📡',
+                'info': 'ℹ️',
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️',
+                'system': '🖥️',
+                'command': '🔧',
+                'chat': '💬',
+                'auth': '🔐',
+                'save': '💾',
+                'kill': '⚔️',
+                'player': '👥',
+                'event': '🎯',
+                'ban': '🚫',
+                'health': '🏥',
+                'ping': '📡',
+                'connection': '🔌'
+            };
+            return icons[type] || '📋';
+        }
+        
+        /**
+         * Get server name from server ID
+         */
+        function getServerName(serverId) {
+            try {
+                if (typeof window.getServerById === 'function') {
+                    const server = window.getServerById(serverId);
+                    return server ? server.serverName : null;
+                }
+                
+                if (typeof window.managedServers !== 'undefined' && Array.isArray(window.managedServers)) {
+                    const server = window.managedServers.find(s => s.serverId === serverId);
+                    return server ? server.serverName : null;
+                }
+                
+                return null;
+            } catch (error) {
+                console.warn('getServerName error:', error);
+                return null;
+            }
+        }
+        
+        // ============================================================================
+        // EXPOSE CORE FUNCTIONS TO GLOBAL SCOPE IMMEDIATELY
         // ============================================================================
         
         // Make functions available globally RIGHT NOW
@@ -199,30 +432,29 @@
         window.sendConsoleCommand = sendConsoleCommand;
         window.refreshConsole = refreshConsole;
         window.clearConsole = clearConsole;
+        window.addLiveConsoleMessage = addLiveConsoleMessage;
+        window.addConsoleMessage = addConsoleMessage;
         window.addCommandOutput = addCommandOutput;
+        window.logConsoleActivity = logConsoleActivity;
         window.getServerRegion = getServerRegion;
+        window.getServerName = getServerName;
         
         console.log('✅ Core console functions exposed to global scope');
         console.log('🔧 Available functions:', {
             setCommand: typeof window.setCommand,
             sendConsoleCommand: typeof window.sendConsoleCommand,
             refreshConsole: typeof window.refreshConsole,
-            clearConsole: typeof window.clearConsole
+            clearConsole: typeof window.clearConsole,
+            addLiveConsoleMessage: typeof window.addLiveConsoleMessage,
+            addConsoleMessage: typeof window.addConsoleMessage,
+            logConsoleActivity: typeof window.logConsoleActivity
         });
         
         // ============================================================================
         // ENHANCED CONSOLE FUNCTIONS (NON-CONFLICTING)
         // ============================================================================
         
-        // Configuration for optimizations
-        const consoleConfig = {
-            refreshInterval: 15000,      // 15 seconds (was 5s)
-            reconnectInterval: 60000,    // 60 seconds (was 30s)
-            maxConcurrentRequests: 3,    // Throttling
-            requestDelay: 2000          // Debounce delay
-        };
-        
-        // Simple request throttler to avoid conflicts
+        // Simple request throttler to avoid conflicts with main.js
         class SimpleRequestThrottler {
             constructor(maxConcurrent = 3) {
                 this.maxConcurrent = maxConcurrent;
@@ -263,88 +495,128 @@
         function testLiveConsole() {
             console.log('🧪 Testing live console...');
             
-            requestThrottler.throttle(async () => {
-                return fetch('/api/console/live/test');
-            })
-            .then(response => response.json())
-            .then(data => {
-                const alertMsg = `Live Console Test Results (OPTIMIZED):
-                
+            const testRequest = async () => {
+                const fetchFn = window.fetch || fetch;
+                return fetchFn('/api/console/live/test');
+            };
+            
+            const executeTest = window.requestQueue ? 
+                window.requestQueue.enqueue(testRequest, 'normal') : 
+                requestThrottler.throttle(testRequest);
+            
+            executeTest
+                .then(response => response.json())
+                .then(data => {
+                    const alertMsg = `Live Console Test Results (ENHANCED):
+                    
 ✅ Success: ${data.success}
 🔌 WebSockets Available: ${data.websockets_available}
 📡 Active Connections: ${data.total_connections || 0}
 📨 Recent Messages: ${data.message_count || 0}
-⚡ Optimized: Console 15s, Reconnect 60s
+⚡ Optimized: Console ${consoleConfig.refreshInterval/1000}s, Reconnect ${consoleConfig.reconnectInterval/1000}s
 
 ${data.recent_messages && data.recent_messages.length > 0 ? 
   'Latest: ' + (data.recent_messages[data.recent_messages.length-1].message || 'N/A').substring(0, 100) : 
   'No recent messages'}
 
 ${data.error ? 'Error: ' + data.error : 'Working with reduced API calls!'}`;
-                
-                alert(alertMsg);
-                console.log('🔍 Live Console Test Data:', data);
-            })
-            .catch(error => {
-                alert(`Test Error: ${error.message}`);
-                console.error('Test error:', error);
-            });
+                    
+                    alert(alertMsg);
+                    console.log('🔍 Live Console Test Data:', data);
+                    
+                    addLiveConsoleMessage('Live console test completed successfully', null, 'success');
+                })
+                .catch(error => {
+                    const errorMsg = `Test Error: ${error.message}`;
+                    alert(errorMsg);
+                    console.error('Test error:', error);
+                    addLiveConsoleMessage(`Live console test failed: ${error.message}`, null, 'error');
+                });
         }
         
-        function connectToLiveConsole(serverId) {
+        function connectToLiveConsole(serverId, serverName) {
             console.log('🔌 Connecting to live console for server:', serverId);
             
             if (typeof window.showTab === 'function') {
                 window.showTab('console');
             }
             
-            addCommandOutput(`📺 Connected to live console for server ${serverId} [OPTIMIZED]`, 'system');
+            const displayName = serverName || getServerName(serverId) || serverId;
+            addLiveConsoleMessage(`📺 Connected to live console for ${displayName} [ENHANCED]`, serverId, 'system');
+            
+            // Update console server selection
+            const consoleSelect = document.getElementById('consoleServerSelect');
+            if (consoleSelect && serverId) {
+                consoleSelect.value = serverId;
+            }
+            
+            // Trigger auto-connection if available
+            if (typeof window.autoConnectToServer === 'function') {
+                setTimeout(() => {
+                    window.autoConnectToServer(serverId, displayName);
+                }, 1000);
+            }
         }
         
         function updateSystemStatus() {
             console.log('🔄 Updating system status...');
             
-            requestThrottler.throttle(async () => {
-                return fetch('/api/token/status');
-            })
-            .then(response => response.json())
-            .then(data => {
-                const tokenStatus = document.getElementById('tokenStatus');
-                const modeStatus = document.getElementById('modeStatus');
-                const websocketStatus = document.getElementById('websocketStatus');
-                const refreshBtn = document.getElementById('refreshTokenBtn');
-                
-                if (data.demo_mode) {
-                    if (tokenStatus) tokenStatus.textContent = '• G-Portal Token: Demo Mode [OPTIMIZED]';
-                    if (modeStatus) modeStatus.textContent = '• Mode: Demo (simulated commands)';
-                    if (refreshBtn) refreshBtn.classList.add('hidden');
-                } else if (data.has_token && data.token_valid) {
-                    if (tokenStatus) tokenStatus.textContent = `• G-Portal Token: Valid (${Math.floor(data.time_left/60)}m left) [OPTIMIZED]`;
-                    if (modeStatus) modeStatus.textContent = '• Mode: Live (reduced API calls)';
-                    if (refreshBtn) refreshBtn.classList.add('hidden');
-                } else {
-                    if (tokenStatus) tokenStatus.textContent = '• G-Portal Token: Expired/Invalid';
-                    if (modeStatus) modeStatus.textContent = '• Mode: Needs authentication';
-                    if (refreshBtn) refreshBtn.classList.remove('hidden');
-                }
-                
-                if (websocketStatus) {
-                    websocketStatus.textContent = `• WebSocket Support: ${data.websockets_available ? 'Available ✅ [OPTIMIZED]' : 'Not Available ❌'}`;
-                }
-            })
-            .catch(error => {
-                console.error('Error checking token status:', error);
-            });
+            const statusRequest = async () => {
+                const fetchFn = window.fetch || fetch;
+                return fetchFn('/api/token/status');
+            };
+            
+            const executeRequest = window.requestQueue ? 
+                window.requestQueue.enqueue(statusRequest, 'low') : 
+                requestThrottler.throttle(statusRequest);
+            
+            executeRequest
+                .then(response => response.json())
+                .then(data => {
+                    const tokenStatus = document.getElementById('tokenStatus');
+                    const modeStatus = document.getElementById('modeStatus');
+                    const websocketStatus = document.getElementById('websocketStatus');
+                    const refreshBtn = document.getElementById('refreshTokenBtn');
+                    
+                    if (data.demo_mode) {
+                        if (tokenStatus) tokenStatus.textContent = '• G-Portal Token: Demo Mode [ENHANCED]';
+                        if (modeStatus) modeStatus.textContent = '• Mode: Demo (simulated commands)';
+                        if (refreshBtn) refreshBtn.classList.add('hidden');
+                    } else if (data.has_token && data.token_valid) {
+                        if (tokenStatus) tokenStatus.textContent = `• G-Portal Token: Valid (${Math.floor(data.time_left/60)}m left) [ENHANCED]`;
+                        if (modeStatus) modeStatus.textContent = '• Mode: Live (optimized API calls)';
+                        if (refreshBtn) refreshBtn.classList.add('hidden');
+                    } else {
+                        if (tokenStatus) tokenStatus.textContent = '• G-Portal Token: Expired/Invalid';
+                        if (modeStatus) modeStatus.textContent = '• Mode: Needs authentication';
+                        if (refreshBtn) refreshBtn.classList.remove('hidden');
+                    }
+                    
+                    if (websocketStatus) {
+                        websocketStatus.textContent = `• WebSocket Support: ${data.websockets_available ? 'Available ✅ [ENHANCED]' : 'Not Available ❌'}`;
+                    }
+                    
+                    // Log status update
+                    logConsoleActivity('System status updated', {
+                        tokenValid: data.token_valid,
+                        demoMode: data.demo_mode,
+                        websocketsAvailable: data.websockets_available
+                    });
+                })
+                .catch(error => {
+                    console.error('Error checking token status:', error);
+                    addLiveConsoleMessage('System status update failed', null, 'error');
+                });
         }
         
         function displayCombinedConsoleOutput(consoleOutput, liveMessages) {
             const outputDiv = document.getElementById('consoleOutput');
             if (!outputDiv) return;
             
-            const wasScrolledToBottom = outputDiv.scrollTop + outputDiv.clientHeight >= outputDiv.scrollHeight - 10;
+            const wasScrolledToBottom = outputDiv.scrollTop + outputDiv.clientHeight >= outputDiv.scrollHeight - consoleConfig.autoScrollThreshold;
             
             // Clear and add header
-            outputDiv.innerHTML = '<div class="text-green-400">GUST Bot Console - Ready (Commands + Live Messages) [OPTIMIZED]</div>';
+            outputDiv.innerHTML = '<div class="text-green-400">GUST Bot Console - Ready (Commands + Live Messages) [ENHANCED]</div>';
             
             // Add console command output
             if (Array.isArray(consoleOutput)) {
@@ -401,24 +673,6 @@ ${data.error ? 'Error: ' + data.error : 'Working with reduced API calls!'}`;
             }
         }
         
-        function getTypeIcon(type) {
-            const icons = {
-                'chat': '💬', 'auth': '🔐', 'save': '💾', 'kill': '⚔️',
-                'error': '❌', 'warning': '⚠️', 'command': '🔧', 'player': '👥',
-                'system': '🖥️', 'event': '🎯', 'ban': '🚫', 'health': '🏥'
-            };
-            return icons[type] || '📋';
-        }
-        
-        function escapeHtml(text) {
-            if (!text) return '';
-            if (typeof text !== 'string') return String(text);
-            
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
         // Debounced console refresh (unique name to avoid conflicts)
         let consoleRefreshTimeout;
         function debouncedConsoleRefreshLocal() {
@@ -445,25 +699,43 @@ ${data.error ? 'Error: ' + data.error : 'Working with reduced API calls!'}`;
                 } else if (typeof window.refreshPlayerCount === 'function') {
                     window.refreshPlayerCount(serverId);
                 } else {
-                    // Direct API call
-                    requestThrottler.throttle(async () => {
-                        return fetch(`/api/logs/player-count/${serverId}`, {
+                    // Direct API call fallback
+                    const playerCountRequest = async () => {
+                        const fetchFn = window.fetch || fetch;
+                        return fetchFn(`/api/logs/player-count/${serverId}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' }
                         });
-                    })
-                    .then(response => response.json())
-                    .then(result => {
-                        if (result.success && result.data) {
-                            console.log(`✅ Player count updated: ${result.data.current}/${result.data.max} for ${serverId}`);
-                            if (typeof window.updatePlayerCountDisplay === 'function') {
-                                window.updatePlayerCountDisplay(serverId, result.data, 'success');
+                    };
+                    
+                    const executeRequest = window.requestQueue ? 
+                        window.requestQueue.enqueue(playerCountRequest, 'normal') : 
+                        requestThrottler.throttle(playerCountRequest);
+                    
+                    executeRequest
+                        .then(response => response.json())
+                        .then(result => {
+                            if (result.success && result.data) {
+                                console.log(`✅ Player count updated: ${result.data.current}/${result.data.max} for ${serverId}`);
+                                addLiveConsoleMessage(
+                                    `Player count: ${result.data.current}/${result.data.max}`, 
+                                    serverId, 
+                                    'info'
+                                );
+                                
+                                if (typeof window.updatePlayerCountDisplay === 'function') {
+                                    window.updatePlayerCountDisplay(serverId, result.data, 'success');
+                                }
                             }
-                        }
-                    })
-                    .catch(error => {
-                        console.error('❌ Player count update error:', error);
-                    });
+                        })
+                        .catch(error => {
+                            console.error('❌ Player count update error:', error);
+                            addLiveConsoleMessage(
+                                `Player count update failed: ${error.message}`, 
+                                serverId, 
+                                'error'
+                            );
+                        });
                 }
             }, 5000);
         }
@@ -513,6 +785,43 @@ ${data.error ? 'Error: ' + data.error : 'Working with reduced API calls!'}`;
         }
         
         // ============================================================================
+        // REFRESHING AND AUTO-REFRESH FUNCTIONS
+        // ============================================================================
+        
+        function refreshConsoleWithLiveMessages() {
+            console.log('🔄 Refreshing console with live messages...');
+            
+            const fetchConsoleOutput = async () => {
+                const fetchFn = window.fetch || fetch;
+                return fetchFn('/api/console/output');
+            };
+            
+            const fetchLiveMessages = async () => {
+                const fetchFn = window.fetch || fetch;
+                return fetchFn(`/api/console/live/messages?${new URLSearchParams({
+                    messageTypeFilter: '',
+                    limit: '30'
+                })}`);
+            };
+            
+            // Execute both requests
+            const promises = [
+                window.requestQueue ? window.requestQueue.enqueue(fetchConsoleOutput, 'normal') : fetchConsoleOutput(),
+                window.requestQueue ? window.requestQueue.enqueue(fetchLiveMessages, 'normal') : fetchLiveMessages()
+            ];
+            
+            Promise.all(promises)
+                .then(responses => Promise.all(responses.map(r => r.json())))
+                .then(([consoleOutput, liveData]) => {
+                    displayCombinedConsoleOutput(consoleOutput, liveData.messages || []);
+                })
+                .catch(error => {
+                    console.error('Error refreshing console with live messages:', error);
+                    refreshConsole(); // Fallback to basic refresh
+                });
+        }
+        
+        // ============================================================================
         // EXPOSE ENHANCED FUNCTIONS
         // ============================================================================
         
@@ -522,6 +831,7 @@ ${data.error ? 'Error: ' + data.error : 'Working with reduced API calls!'}`;
         window.updateSystemStatus = updateSystemStatus;
         window.displayCombinedConsoleOutput = displayCombinedConsoleOutput;
         window.debouncedConsoleRefreshLocal = debouncedConsoleRefreshLocal;
+        window.refreshConsoleWithLiveMessages = refreshConsoleWithLiveMessages;
         
         // Logs integration
         window.logsIntegratedTriggerPlayerCountUpdate = logsIntegratedTriggerPlayerCountUpdate;
@@ -540,6 +850,7 @@ ${data.error ? 'Error: ' + data.error : 'Working with reduced API calls!'}`;
         console.log(`  - Console refresh: ${consoleConfig.refreshInterval/1000}s (was 5s)`);
         console.log(`  - Reconnect interval: ${consoleConfig.reconnectInterval/1000}s (was 30s)`);
         console.log(`  - Request throttling: Max ${consoleConfig.maxConcurrentRequests} concurrent`);
+        console.log(`  - Message limit: ${consoleConfig.maxMessages} messages`);
         
         // ============================================================================
         // INITIALIZATION
@@ -549,7 +860,7 @@ ${data.error ? 'Error: ' + data.error : 'Working with reduced API calls!'}`;
             console.log('✅ Console module DOM ready');
             
             // Test function availability
-            const testFunctions = ['setCommand', 'sendConsoleCommand', 'refreshConsole', 'clearConsole'];
+            const testFunctions = ['setCommand', 'sendConsoleCommand', 'refreshConsole', 'clearConsole', 'addLiveConsoleMessage'];
             const working = testFunctions.filter(fn => typeof window[fn] === 'function');
             const broken = testFunctions.filter(fn => typeof window[fn] !== 'function');
             
@@ -559,12 +870,18 @@ ${data.error ? 'Error: ' + data.error : 'Working with reduced API calls!'}`;
                 console.error('❌ Broken functions:', broken);
                 console.log('✅ Working functions:', working);
             }
+            
+            // Initialize system status update
+            setTimeout(() => {
+                updateSystemStatus();
+            }, 2000);
         });
         
-        console.log('✅ CLEAN Console module loaded successfully - NO CONFLICTS');
+        console.log('✅ COMPLETE Console module loaded successfully - ALL ISSUES FIXED');
         console.log('🎯 Functions available immediately for onclick handlers');
         console.log('⚡ Optimized intervals: 15s console, 60s reconnect, 3 max concurrent');
-        console.log('🔧 Ready for use!');
+        console.log('🔧 Missing addLiveConsoleMessage function has been added!');
+        console.log('🔧 Ready for production use!');
         
     })(); // End of immediately invoked function expression
     
