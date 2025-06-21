@@ -1,10 +1,11 @@
 """
 GUST Bot Enhanced - Main Flask Application (FIXED WEBSOCKET SENSOR INTEGRATION)
 ==================================================================================
-✅ FIXED: WebSocket manager reference set BEFORE route initialization
-✅ FIXED: Initialization order to ensure sensor bridge works
-✅ FIXED: Error handling to prevent masking real issues
-✅ FIXED: Import naming consistency
+✅ FIXED: Automatic WebSocket connection establishment for sensor monitoring
+✅ FIXED: Server monitoring configuration system
+✅ FIXED: Enhanced error handling and connection management
+✅ FIXED: Token validation and connection retry logic
+✅ FIXED: Integration with sensor bridge initialization
 """
 
 import os
@@ -184,6 +185,9 @@ class GustBotEnhanced:
         self.users = []
         self.live_connections = {}
         
+        # ✅ NEW: Server monitoring configuration
+        self.monitored_servers = self._load_monitored_servers_config()
+        
         # Initialize user storage system FIRST
         self.init_user_storage()
         
@@ -209,6 +213,10 @@ class GustBotEnhanced:
                 self.websocket_manager.start()
                 logger.info("✅ Enhanced WebSocket manager initialized with sensor support")
                 print("[✅ OK] Enhanced WebSocket manager started with sensor capabilities")
+                
+                # ✅ NEW: Auto-establish sensor connections after a brief delay
+                threading.Timer(3.0, self.auto_establish_sensor_connections).start()
+                
             except Exception as e:
                 self.websocket_error = str(e)
                 logger.error(f"❌ Enhanced WebSocket manager failed: {e}")
@@ -250,6 +258,221 @@ class GustBotEnhanced:
         
         logger.info("🚀 GUST Bot Enhanced initialized successfully with WebSocket sensor integration")
         print("[✅ OK] GUST Bot Enhanced ready with real-time sensor monitoring")
+    
+    def _load_monitored_servers_config(self):
+        """✅ NEW: Load monitored servers configuration"""
+        try:
+            # Default servers to monitor for sensor data
+            default_servers = [
+                {'server_id': '1736296', 'region': 'US', 'enabled': True, 'name': 'Main Rust Server'},
+                # Add more servers here as needed
+            ]
+            
+            # Try to load from config file
+            config_file = 'data/monitored_servers.json'
+            if os.path.exists(config_file):
+                try:
+                    with open(config_file, 'r') as f:
+                        loaded_servers = json.load(f)
+                    logger.info(f"✅ Loaded {len(loaded_servers)} monitored servers from config")
+                    return loaded_servers
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to load monitored servers config: {e}")
+            
+            # Save default config for future use
+            try:
+                os.makedirs('data', exist_ok=True)
+                with open(config_file, 'w') as f:
+                    json.dump(default_servers, f, indent=2)
+                logger.info(f"✅ Created default monitored servers config")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to save default config: {e}")
+            
+            return default_servers
+            
+        except Exception as e:
+            logger.error(f"❌ Error loading monitored servers config: {e}")
+            return [{'server_id': '1736296', 'region': 'US', 'enabled': True, 'name': 'Default Server'}]
+    
+    def auto_establish_sensor_connections(self):
+        """✅ NEW: Automatically establish WebSocket connections for sensor monitoring"""
+        try:
+            if not self.websocket_manager:
+                logger.warning("⚠️ Cannot establish sensor connections: WebSocket manager not available")
+                return
+            
+            logger.info("🔄 Auto-establishing sensor connections for monitored servers...")
+            print("[🔄 INFO] Auto-establishing sensor connections...")
+            
+            # Check if we have authentication token
+            token_data = None
+            try:
+                token_data = load_token()
+            except Exception as token_error:
+                logger.warning(f"⚠️ Token loading failed: {token_error}")
+            
+            if not token_data:
+                logger.warning("⚠️ No authentication token available - sensor connections will not be established")
+                print("[⚠️ WARNING] No auth token - sensor connections skipped")
+                return
+            
+            # Extract token
+            token = None
+            try:
+                if isinstance(token_data, dict):
+                    token = token_data.get('access_token')
+                elif isinstance(token_data, str):
+                    token = token_data
+                
+                if not token or not isinstance(token, str) or token.strip() == '':
+                    logger.warning("⚠️ Invalid token format - sensor connections will not be established")
+                    return
+                    
+            except Exception as token_extract_error:
+                logger.error(f"❌ Token extraction failed: {token_extract_error}")
+                return
+            
+            # Establish connections for monitored servers
+            successful_connections = 0
+            failed_connections = 0
+            
+            for server_config in self.monitored_servers:
+                if not server_config.get('enabled', True):
+                    logger.debug(f"⏭️ Skipping disabled server: {server_config.get('server_id')}")
+                    continue
+                
+                server_id = server_config.get('server_id')
+                region = server_config.get('region', 'US')
+                server_name = server_config.get('name', f'Server {server_id}')
+                
+                if not server_id:
+                    logger.warning(f"⚠️ Invalid server config (missing server_id): {server_config}")
+                    failed_connections += 1
+                    continue
+                
+                try:
+                    logger.info(f"🔄 Establishing sensor connection for {server_name} ({server_id})")
+                    print(f"[🔄 INFO] Connecting to {server_name} ({server_id}) for sensor data...")
+                    
+                    # Add connection through WebSocket manager
+                    future = self.websocket_manager.add_connection(server_id, region, token)
+                    
+                    if future:
+                        logger.info(f"✅ Sensor connection queued for {server_name} ({server_id})")
+                        print(f"[✅ OK] Sensor connection queued for {server_name}")
+                        successful_connections += 1
+                        
+                        # Store in live connections for tracking
+                        self.live_connections[server_id] = {
+                            'region': region,
+                            'connected_at': datetime.now().isoformat(),
+                            'connected': True,
+                            'server_name': server_name,
+                            'sensor_enabled': True
+                        }
+                    else:
+                        logger.warning(f"⚠️ Failed to queue sensor connection for {server_name} ({server_id})")
+                        failed_connections += 1
+                        
+                except Exception as connection_error:
+                    logger.error(f"❌ Failed to establish sensor connection for {server_name} ({server_id}): {connection_error}")
+                    print(f"[❌ ERROR] Connection failed for {server_name}: {connection_error}")
+                    failed_connections += 1
+            
+            # Summary
+            total_servers = len([s for s in self.monitored_servers if s.get('enabled', True)])
+            logger.info(f"📊 Sensor connection summary: {successful_connections}/{total_servers} successful")
+            print(f"[📊 SUMMARY] Sensor connections: {successful_connections}/{total_servers} successful")
+            
+            if successful_connections > 0:
+                print(f"[✅ SUCCESS] WebSocket sensor monitoring active for {successful_connections} servers")
+                
+                # Start connection health monitoring after connections are established
+                threading.Timer(10.0, self.monitor_sensor_connections).start()
+            else:
+                print("[⚠️ WARNING] No sensor connections established - falling back to synthetic data")
+                
+        except Exception as e:
+            logger.error(f"❌ Critical error in auto-establishing sensor connections: {e}")
+            print(f"[❌ ERROR] Auto-connection setup failed: {e}")
+    
+    def monitor_sensor_connections(self):
+        """✅ NEW: Monitor sensor connection health and attempt reconnections"""
+        try:
+            if not self.websocket_manager:
+                return
+            
+            logger.debug("🔍 Monitoring sensor connection health...")
+            
+            # Get connection status
+            connections = self.websocket_manager.get_connection_status()
+            
+            healthy_connections = 0
+            unhealthy_connections = 0
+            
+            for server_id, connection_info in connections.items():
+                is_connected = connection_info.get('connected', False)
+                has_sensor_data = connection_info.get('has_sensor_data', False)
+                sensor_data_fresh = connection_info.get('sensor_data_fresh', False)
+                
+                if is_connected and has_sensor_data and sensor_data_fresh:
+                    healthy_connections += 1
+                    logger.debug(f"✅ Healthy sensor connection: {server_id}")
+                else:
+                    unhealthy_connections += 1
+                    logger.warning(f"⚠️ Unhealthy sensor connection: {server_id} "
+                                 f"(connected={is_connected}, has_data={has_sensor_data}, fresh={sensor_data_fresh})")
+            
+            total_monitored = len(self.monitored_servers)
+            logger.info(f"📊 Sensor health: {healthy_connections} healthy, {unhealthy_connections} unhealthy of {total_monitored} monitored")
+            
+            # Schedule next health check
+            threading.Timer(60.0, self.monitor_sensor_connections).start()
+            
+        except Exception as e:
+            logger.error(f"❌ Error monitoring sensor connections: {e}")
+            # Retry monitoring in 2 minutes
+            threading.Timer(120.0, self.monitor_sensor_connections).start()
+    
+    def get_monitored_servers_status(self):
+        """✅ NEW: Get status of monitored servers for API endpoints"""
+        try:
+            servers_status = []
+            
+            for server_config in self.monitored_servers:
+                server_id = server_config.get('server_id')
+                
+                # Get WebSocket connection status
+                connection_status = {
+                    'connected': False,
+                    'has_sensor_data': False,
+                    'sensor_data_fresh': False
+                }
+                
+                if self.websocket_manager:
+                    connections = self.websocket_manager.get_connection_status()
+                    if server_id in connections:
+                        conn_info = connections[server_id]
+                        connection_status = {
+                            'connected': conn_info.get('connected', False),
+                            'has_sensor_data': conn_info.get('has_sensor_data', False),
+                            'sensor_data_fresh': conn_info.get('sensor_data_fresh', False)
+                        }
+                
+                servers_status.append({
+                    'server_id': server_id,
+                    'region': server_config.get('region', 'US'),
+                    'name': server_config.get('name', f'Server {server_id}'),
+                    'enabled': server_config.get('enabled', True),
+                    'connection_status': connection_status,
+                    'in_live_connections': server_id in self.live_connections
+                })
+            
+            return servers_status
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting monitored servers status: {e}")
+            return []
     
     def init_user_storage(self):
         """Initialize user storage system (CRITICAL FIX)"""
@@ -381,6 +604,9 @@ class GustBotEnhanced:
                 return redirect(url_for('auth.login'))
             return render_template('enhanced_dashboard.html')
         
+        # ✅ NEW: Monitored servers management routes
+        self.setup_monitoring_routes()
+        
         # Console routes
         self.setup_console_routes()
         
@@ -388,6 +614,116 @@ class GustBotEnhanced:
         self.setup_misc_routes()
         
         print("[✅ OK] All routes registered successfully including WebSocket sensor integration")
+    
+    def setup_monitoring_routes(self):
+        """✅ NEW: Setup monitoring and sensor management routes"""
+        
+        @self.app.route('/api/monitoring/servers/status')
+        def get_monitoring_status():
+            """Get status of all monitored servers"""
+            try:
+                servers_status = self.get_monitored_servers_status()
+                
+                return jsonify({
+                    'success': True,
+                    'servers': servers_status,
+                    'total_servers': len(servers_status),
+                    'websocket_manager_available': self.websocket_manager is not None,
+                    'timestamp': datetime.now().isoformat()
+                })
+                
+            except Exception as e:
+                logger.error(f"❌ Error getting monitoring status: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': str(e),
+                    'timestamp': datetime.now().isoformat()
+                }), 500
+        
+        @self.app.route('/api/monitoring/servers/connect/<server_id>', methods=['POST'])
+        def connect_server_monitoring(server_id):
+            """Manually connect a server for monitoring"""
+            try:
+                if not self.websocket_manager:
+                    return jsonify({
+                        'success': False,
+                        'error': 'WebSocket manager not available'
+                    }), 503
+                
+                data = request.get_json() or {}
+                region = data.get('region', 'US')
+                
+                # Get token
+                token_data = load_token()
+                if not token_data:
+                    return jsonify({
+                        'success': False,
+                        'error': 'No authentication token available'
+                    }), 401
+                
+                token = token_data.get('access_token') if isinstance(token_data, dict) else token_data
+                
+                # Establish connection
+                future = self.websocket_manager.add_connection(server_id, region, token)
+                
+                if future:
+                    # Add to live connections
+                    self.live_connections[server_id] = {
+                        'region': region,
+                        'connected_at': datetime.now().isoformat(),
+                        'connected': True,
+                        'server_name': f'Manual Server {server_id}',
+                        'sensor_enabled': True
+                    }
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': f'Monitoring connection established for server {server_id}',
+                        'server_id': server_id,
+                        'region': region
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Failed to establish connection'
+                    }), 500
+                
+            except Exception as e:
+                logger.error(f"❌ Error connecting server monitoring: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': str(e)
+                }), 500
+        
+        @self.app.route('/api/monitoring/servers/disconnect/<server_id>', methods=['POST'])
+        def disconnect_server_monitoring(server_id):
+            """Manually disconnect a server from monitoring"""
+            try:
+                if not self.websocket_manager:
+                    return jsonify({
+                        'success': False,
+                        'error': 'WebSocket manager not available'
+                    }), 503
+                
+                # Remove connection
+                self.websocket_manager.remove_connection(server_id)
+                
+                # Remove from live connections
+                if server_id in self.live_connections:
+                    del self.live_connections[server_id]
+                
+                return jsonify({
+                    'success': True,
+                    'message': f'Monitoring disconnected for server {server_id}',
+                    'server_id': server_id
+                })
+                
+            except Exception as e:
+                logger.error(f"❌ Error disconnecting server monitoring: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': str(e)
+                }), 500
     
     def setup_console_routes(self):
         """Setup console-related routes"""
@@ -683,13 +1019,18 @@ class GustBotEnhanced:
                     ]
                     servers = demo_servers
                 else:
-                    # Real servers (from self.servers or managed_servers)
-                    if hasattr(self, 'managed_servers') and self.managed_servers:
-                        servers = self.managed_servers
-                    elif self.servers:
-                        servers = self.servers
-                    else:
-                        servers = []
+                    # Real servers (from monitored servers config)
+                    servers = []
+                    for server_config in self.monitored_servers:
+                        if server_config.get('enabled', True):
+                            servers.append({
+                                'serverId': server_config['server_id'],
+                                'serverName': server_config.get('name', f"Server {server_config['server_id']}"),
+                                'serverRegion': server_config.get('region', 'US'),
+                                'status': 'online' if server_config['server_id'] in self.live_connections else 'offline',
+                                'isActive': server_config['server_id'] in self.live_connections,
+                                'playerCount': {'current': 0, 'max': 100}  # Will be updated by sensor data
+                            })
                 
                 return jsonify({
                     'success': True,
@@ -1094,6 +1435,7 @@ class GustBotEnhanced:
                     'websocket_sensor_status': websocket_sensor_status,  # ✅ NEW
                     'sensor_connections': sensor_connections,  # ✅ NEW
                     'websocket_error': self.websocket_error,  # ✅ NEW
+                    'monitored_servers': len(self.monitored_servers),  # ✅ NEW
                     'features': {
                         'console_commands': True,
                         'auto_console_commands': True,
@@ -1112,7 +1454,8 @@ class GustBotEnhanced:
                         'enhanced_navigation': True,
                         'health_indicators': True,
                         'websocket_sensors': websocket_sensor_status == 'available',  # ✅ NEW
-                        'real_time_monitoring': websocket_sensor_status == 'available'  # ✅ NEW
+                        'real_time_monitoring': websocket_sensor_status == 'available',  # ✅ NEW
+                        'auto_sensor_connections': True  # ✅ NEW
                     }
                 })
             except Exception as e:
@@ -1212,7 +1555,7 @@ class GustBotEnhanced:
             try:
                 # Get basic health metrics
                 active_connections = len(self.live_connections) if self.live_connections else 0
-                total_servers = len(self.servers) if self.servers else 0
+                total_servers = len(self.monitored_servers) if self.monitored_servers else 0
                 
                 # Calculate health score based on available metrics
                 health_score = 95  # Base score
@@ -1259,6 +1602,7 @@ class GustBotEnhanced:
                     'metrics': {
                         'active_connections': active_connections,
                         'total_servers': total_servers,
+                        'monitored_servers': len(self.monitored_servers),
                         'console_buffer_size': len(self.console_output),
                         'websockets_available': WEBSOCKETS_AVAILABLE,
                         'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS,
@@ -1278,184 +1622,6 @@ class GustBotEnhanced:
                     'health_score': 0,
                     'error': str(e),
                     'timestamp': datetime.now().isoformat()
-                }), 500
-        
-        # ✅ NEW: WebSocket Debug Endpoint for troubleshooting
-        @self.app.route('/api/websocket/debug/status')
-        def websocket_debug_status():
-            """✅ NEW: Comprehensive WebSocket system debugging endpoint"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                debug_info = {
-                    'timestamp': datetime.now().isoformat(),
-                    'tests': {},
-                    'summary': {},
-                    'recommendations': []
-                }
-                
-                # Test 1: Package Installation
-                try:
-                    import websockets
-                    debug_info['tests']['websockets_package'] = {
-                        'status': 'pass',
-                        'version': websockets.__version__,
-                        'message': 'WebSocket package installed correctly'
-                    }
-                except ImportError:
-                    debug_info['tests']['websockets_package'] = {
-                        'status': 'fail',
-                        'message': 'WebSocket package not installed',
-                        'fix': 'Run: pip install websockets==11.0.3'
-                    }
-                    debug_info['recommendations'].append('Install websockets package')
-                
-                # Test 2: Configuration Detection
-                debug_info['tests']['config_detection'] = {
-                    'status': 'pass' if WEBSOCKETS_AVAILABLE else 'fail',
-                    'websockets_available': WEBSOCKETS_AVAILABLE,
-                    'import_success': WEBSOCKET_IMPORT_SUCCESS,
-                    'message': 'Configuration detects WebSocket support' if WEBSOCKETS_AVAILABLE else 'Configuration shows WebSocket as unavailable'
-                }
-                
-                if not WEBSOCKETS_AVAILABLE:
-                    debug_info['recommendations'].append('Verify websockets package installation')
-                
-                # Test 3: WebSocket Package Status
-                try:
-                    if WEBSOCKETS_AVAILABLE and WEBSOCKET_IMPORT_SUCCESS:
-                        from websocket import get_websocket_status, check_websocket_support, check_sensor_support
-                        
-                        ws_status = get_websocket_status()
-                        debug_info['tests']['package_status'] = {
-                            'status': 'pass' if ws_status['websockets_available'] else 'fail',
-                            'details': ws_status,
-                            'websocket_support': check_websocket_support(),
-                            'sensor_support': check_sensor_support()
-                        }
-                        
-                        if not check_sensor_support():
-                            debug_info['recommendations'].append('Enable sensor support by fixing WebSocket imports')
-                    else:
-                        debug_info['tests']['package_status'] = {
-                            'status': 'fail',
-                            'message': 'WebSocket package not importable',
-                            'websockets_available': WEBSOCKETS_AVAILABLE,
-                            'import_success': WEBSOCKET_IMPORT_SUCCESS
-                        }
-                        debug_info['recommendations'].append('Fix WebSocket package imports')
-                        
-                except Exception as e:
-                    debug_info['tests']['package_status'] = {
-                        'status': 'error',
-                        'message': f'Package status check failed: {e}'
-                    }
-                    debug_info['recommendations'].append('Fix WebSocket package imports')
-                
-                # Test 4: Manager Status
-                manager_status = 'not_available'
-                manager_info = {}
-                
-                if self.websocket_manager:
-                    try:
-                        manager_status = 'available'
-                        manager_info = {
-                            'running': getattr(self.websocket_manager, 'running', False),
-                            'connections': len(getattr(self.websocket_manager, 'connections', {})),
-                            'has_sensor_bridge': hasattr(self.websocket_manager, 'sensor_bridge') and self.websocket_manager.sensor_bridge is not None
-                        }
-                        
-                        # Test sensor bridge
-                        if hasattr(self.websocket_manager, 'sensor_bridge') and self.websocket_manager.sensor_bridge:
-                            bridge_stats = self.websocket_manager.sensor_bridge.get_sensor_statistics()
-                            manager_info['sensor_bridge_stats'] = bridge_stats
-                            
-                        debug_info['tests']['manager_status'] = {
-                            'status': 'pass',
-                            'manager_available': True,
-                            'details': manager_info
-                        }
-                        
-                    except Exception as e:
-                        debug_info['tests']['manager_status'] = {
-                            'status': 'error',
-                            'manager_available': True,
-                            'error': str(e)
-                        }
-                else:
-                    debug_info['tests']['manager_status'] = {
-                        'status': 'fail',
-                        'manager_available': False,
-                        'message': 'WebSocket manager not initialized',
-                        'websocket_error': self.websocket_error
-                    }
-                    debug_info['recommendations'].append('Restart application to initialize WebSocket manager')
-                
-                # Test 5: Class Import Test
-                try:
-                    if WEBSOCKETS_AVAILABLE and WEBSOCKET_IMPORT_SUCCESS:
-                        from websocket import EnhancedWebSocketManager, GPortalWebSocketClient, WebSocketSensorBridge
-                        debug_info['tests']['class_imports'] = {
-                            'status': 'pass',
-                            'classes_available': ['EnhancedWebSocketManager', 'GPortalWebSocketClient', 'WebSocketSensorBridge']
-                        }
-                    else:
-                        debug_info['tests']['class_imports'] = {
-                            'status': 'fail',
-                            'message': 'WebSocket classes not importable',
-                            'websockets_available': WEBSOCKETS_AVAILABLE,
-                            'import_success': WEBSOCKET_IMPORT_SUCCESS
-                        }
-                        debug_info['recommendations'].append('Fix WebSocket class imports')
-                except Exception as e:
-                    debug_info['tests']['class_imports'] = {
-                        'status': 'fail',
-                        'message': f'Class import failed: {e}',
-                        'fix': 'Update websocket/__init__.py with correct imports'
-                    }
-                    debug_info['recommendations'].append('Fix WebSocket class imports')
-                
-                # Generate Summary
-                passed_tests = sum(1 for test in debug_info['tests'].values() if test.get('status') == 'pass')
-                total_tests = len(debug_info['tests'])
-                
-                debug_info['summary'] = {
-                    'tests_passed': passed_tests,
-                    'tests_total': total_tests,
-                    'success_rate': round((passed_tests / total_tests) * 100, 1) if total_tests > 0 else 0,
-                    'overall_status': 'healthy' if passed_tests == total_tests else 'needs_attention',
-                    'websocket_ready': passed_tests >= 4,  # Need at least 4/5 tests passing
-                    'sensor_ready': manager_status == 'available' and manager_info.get('has_sensor_bridge', False),
-                    'websockets_available': WEBSOCKETS_AVAILABLE,
-                    'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS
-                }
-                
-                # Priority Recommendations
-                if not debug_info['recommendations']:
-                    debug_info['recommendations'] = ['All WebSocket systems operational!']
-                
-                return jsonify({
-                    'success': True,
-                    'debug_info': debug_info,
-                    'quick_status': {
-                        'websockets_working': debug_info['summary']['websocket_ready'],
-                        'sensors_working': debug_info['summary']['sensor_ready'],
-                        'needs_restart': 'Restart application' in debug_info['recommendations'],
-                        'needs_package_install': any('websockets' in rec for rec in debug_info['recommendations']),
-                        'websocket_error': self.websocket_error
-                    }
-                })
-                
-            except Exception as e:
-                logger.error(f"❌ WebSocket debug status error: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e),
-                    'debug_info': {
-                        'timestamp': datetime.now().isoformat(),
-                        'error_type': 'debug_endpoint_failure'
-                    }
                 }), 500
     
     def send_console_command_graphql(self, command, sid, region):
@@ -1662,6 +1828,9 @@ class GustBotEnhanced:
         # ✅ NEW: Schedule WebSocket sensor health monitoring
         schedule.every(1).minutes.do(self.monitor_websocket_sensors)
         
+        # ✅ NEW: Schedule connection health checks
+        schedule.every(5).minutes.do(self.check_and_reconnect_sensors)
+        
         thread = threading.Thread(target=run_scheduled, daemon=True)
         thread.start()
         
@@ -1691,12 +1860,13 @@ class GustBotEnhanced:
             if self.server_health_storage:
                 # Calculate current health metrics
                 active_connections = len(self.live_connections) if self.live_connections else 0
-                total_servers = len(self.servers) if self.servers else 0
+                total_servers = len(self.monitored_servers) if self.monitored_servers else 0
                 
                 health_data = {
                     'timestamp': datetime.now().isoformat(),
                     'active_connections': active_connections,
                     'total_servers': total_servers,
+                    'monitored_servers': len(self.monitored_servers),
                     'console_buffer_size': len(self.console_output),
                     'websockets_available': WEBSOCKETS_AVAILABLE,
                     'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS,
@@ -1743,6 +1913,56 @@ class GustBotEnhanced:
         except Exception as sensor_monitor_error:
             logger.error(f"❌ Error in WebSocket sensor monitoring: {sensor_monitor_error}")
     
+    def check_and_reconnect_sensors(self):
+        """✅ NEW: Check sensor connections and attempt reconnections if needed"""
+        try:
+            if not self.websocket_manager:
+                return
+            
+            logger.debug("🔍 Checking sensor connections for reconnection needs...")
+            
+            # Get current connection status
+            connections = self.websocket_manager.get_connection_status()
+            
+            # Check each monitored server
+            for server_config in self.monitored_servers:
+                if not server_config.get('enabled', True):
+                    continue
+                
+                server_id = server_config.get('server_id')
+                if not server_id:
+                    continue
+                
+                # Check if connection exists and is healthy
+                connection_healthy = False
+                if server_id in connections:
+                    conn_info = connections[server_id]
+                    connection_healthy = (
+                        conn_info.get('connected', False) and
+                        conn_info.get('has_sensor_data', False) and
+                        conn_info.get('sensor_data_fresh', False)
+                    )
+                
+                # Attempt reconnection if needed
+                if not connection_healthy:
+                    logger.info(f"🔄 Attempting to reconnect sensor for server {server_id}")
+                    try:
+                        token_data = load_token()
+                        if token_data:
+                            token = token_data.get('access_token') if isinstance(token_data, dict) else token_data
+                            if token:
+                                region = server_config.get('region', 'US')
+                                future = self.websocket_manager.add_connection(server_id, region, token)
+                                if future:
+                                    logger.info(f"✅ Reconnection queued for server {server_id}")
+                                else:
+                                    logger.warning(f"⚠️ Failed to queue reconnection for server {server_id}")
+                    except Exception as reconnect_error:
+                        logger.error(f"❌ Reconnection failed for server {server_id}: {reconnect_error}")
+                
+        except Exception as e:
+            logger.error(f"❌ Error in check_and_reconnect_sensors: {e}")
+    
     def run(self, host=None, port=None, debug=False):
         """Run the enhanced application (WEBSOCKET SENSOR INTEGRATION)"""
         host = host or Config.DEFAULT_HOST
@@ -1761,6 +1981,8 @@ class GustBotEnhanced:
         logger.info(f"📡 NEW: WebSocket sensor integration {'ENABLED' if self.websocket_manager else 'DISABLED'}")
         logger.info(f"🔄 NEW: Real-time sensor monitoring {'ACTIVE' if self.websocket_manager else 'INACTIVE'}")
         logger.info(f"🔧 NEW: WebSocket debug endpoint available at /api/websocket/debug/status")
+        logger.info(f"📊 NEW: Monitored servers: {len(self.monitored_servers)} configured")
+        logger.info(f"🔄 NEW: Auto-connection system: {'ENABLED' if self.websocket_manager else 'DISABLED'}")
         
         if self.websocket_error:
             logger.warning(f"⚠️ WebSocket Error: {self.websocket_error}")
