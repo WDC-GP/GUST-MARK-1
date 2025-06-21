@@ -1,6 +1,8 @@
 """
 GUST Bot Enhanced - Logs Management Routes (OPTIMIZED + 30s BUFFER FIX)
 ========================================================================
+✅ FIXED: Dual authentication system support (OAuth + Session Cookies)
+✅ FIXED: Token loading returns actual token strings, not 'healthy' status
 ✅ FIXED: Reduced buffer time to 30 seconds for maximum G-Portal compatibility  
 ✅ ENHANCED: Integration with optimized config.py settings
 ✅ ENHANCED: Request throttling and batching based on config
@@ -27,8 +29,11 @@ import requests
 # Local imports
 from routes.auth import require_auth, require_live_mode
 
-# ✅ OPTIMIZED: Use centralized token management with enhanced validation
-from utils.helpers import load_token, refresh_token, monitor_token_health, validate_token_file
+# ✅ FIXED: Use new dual authentication system with proper token extraction
+from utils.helpers import (
+    load_token, refresh_token, monitor_token_health, validate_token_file,
+    get_api_token, get_websocket_token, is_valid_jwt_token
+)
 
 # ✅ NEW: Import optimized configuration and rate limiter
 from config import Config, get_optimization_config
@@ -73,7 +78,7 @@ api_rate_limiter = RateLimiter(
 
 class OptimizedGPortalLogAPI:
     """
-    ✅ OPTIMIZED: G-Portal API client with 30s buffer time and enhanced optimization
+    ✅ FIXED: G-Portal API client with dual auth support and 30s buffer time
     """
     
     def __init__(self):
@@ -132,7 +137,7 @@ class OptimizedGPortalLogAPI:
         
     def get_server_logs(self, server_id, region="us", use_cache=True):
         """
-        ✅ OPTIMIZED: Retrieve logs with caching, throttling, and 30s buffer time
+        ✅ FIXED: Retrieve logs with dual auth support, caching, throttling, and 30s buffer time
         
         Args:
             server_id (str): Server ID
@@ -168,7 +173,7 @@ class OptimizedGPortalLogAPI:
         # ✅ OPTIMIZED: Rate limiting and throttling
         self._wait_for_rate_limit()
         
-        # ✅ CRITICAL FIX: Use load_token with 30s buffer enhancement
+        # ✅ CRITICAL FIX: Use new dual auth system with proper token extraction
         token = self._get_optimized_token()
         if not token:
             logger.warning(f"❌ No authentication token available for server {server_id}")
@@ -178,7 +183,7 @@ class OptimizedGPortalLogAPI:
             }
         
         # ✅ ENHANCED: JWT token validation
-        if len(token) < 20 or not self._is_valid_jwt_token(token):
+        if len(token) < 20 or not is_valid_jwt_token(token):
             logger.error(f"❌ Invalid JWT token format for server {server_id}")
             return {
                 'success': False,
@@ -318,41 +323,73 @@ class OptimizedGPortalLogAPI:
     
     def _get_optimized_token(self):
         """
-        ✅ CRITICAL OPTIMIZATION: Enhanced token loading with 30s buffer time
+        ✅ CRITICAL FIX: Enhanced token loading with dual auth support and 30s buffer time
+        
+        This now properly handles both OAuth and session cookie authentication
+        and returns actual token strings instead of health status strings.
         """
         try:
             # Check token health first
             token_health = monitor_token_health()
             
-            if not token_health['healthy']:
-                logger.warning(f"⚠️ Token health check failed: {token_health['message']}")
+            # Handle the new health structure
+            if not token_health.get('healthy', False):
+                logger.warning(f"⚠️ Token health check failed: {token_health.get('message', 'Unknown error')}")
                 
-                # Try refresh if possible
-                if token_health['action'] == 'refresh_now':
+                # Try refresh if possible based on action
+                action = token_health.get('action', 'login_required')
+                if action == 'refresh_now':
                     if self._refresh_token_with_optimization():
                         logger.info("✅ Token refreshed successfully during health check")
                     else:
                         logger.error("❌ Token refresh failed during health check")
                         return ''
-                elif token_health['action'] == 'login_required':
+                elif action == 'login_required':
                     logger.error("❌ Login required - token cannot be refreshed")
                     return ''
             
-            # Get token using centralized function
-            token = load_token()
+            # ✅ CRITICAL FIX: Use new get_api_token() function to extract actual token string
+            token = get_api_token()
+            
+            if not token or not isinstance(token, str):
+                logger.error(f"❌ Invalid token received from get_api_token(): {type(token).__name__} = '{str(token)[:50]}...'")
+                return ''
+            
+            # Clean and validate the token
+            token = token.strip()
+            
+            if len(token) < 20:
+                logger.error(f"❌ Token too short: {len(token)} characters")
+                return ''
+            
+            # Check for problematic status strings that shouldn't be returned as tokens
+            problematic_values = ['healthy', 'expired', 'invalid', 'error', 'unknown', 'none']
+            if token.lower() in problematic_values:
+                logger.error(f"🚨 CRITICAL: get_api_token() returned status string '{token}' instead of actual token!")
+                return ''
             
             # ✅ ENHANCED: Additional validation with 30s buffer check
-            if token:
-                validation = validate_token_file()
-                if validation['time_left'] < 30:  # 30 second buffer
-                    logger.info(f"🔄 Token expires in {validation['time_left']}s, proactive refresh...")
-                    if self._refresh_token_with_optimization():
-                        token = load_token()  # Get refreshed token
-                        logger.info("✅ Proactive token refresh successful")
-                    else:
-                        logger.warning("❌ Proactive token refresh failed")
+            validation = validate_token_file()
+            time_left = validation.get('time_left', 0)
             
-            return token
+            if time_left < 30:  # 30 second buffer
+                logger.info(f"🔄 Token expires in {time_left}s, proactive refresh...")
+                if self._refresh_token_with_optimization():
+                    # Get the refreshed token
+                    refreshed_token = get_api_token()
+                    if refreshed_token and isinstance(refreshed_token, str) and len(refreshed_token.strip()) > 20:
+                        token = refreshed_token.strip()
+                        logger.info("✅ Using refreshed token")
+                    else:
+                        logger.warning("❌ Refreshed token invalid, using original")
+            
+            # Final validation before returning
+            if token and len(token) > 20 and is_valid_jwt_token(token):
+                logger.debug(f"✅ Returning valid token (length: {len(token)})")
+                return token
+            else:
+                logger.error(f"❌ Final token validation failed: length={len(token)}, valid_jwt={is_valid_jwt_token(token) if token else False}")
+                return ''
             
         except Exception as e:
             logger.error(f"❌ Error in optimized token loading: {e}")
@@ -360,7 +397,7 @@ class OptimizedGPortalLogAPI:
     
     def _refresh_token_with_optimization(self):
         """
-        ✅ OPTIMIZED: Enhanced token refresh with rate limiting
+        ✅ OPTIMIZED: Enhanced token refresh with rate limiting and dual auth support
         """
         try:
             # Rate limit token refresh attempts
@@ -396,25 +433,6 @@ class OptimizedGPortalLogAPI:
             del self.cache[key]
         
         logger.debug(f"🧹 Cleared {len(keys_to_remove)} cache entries after token refresh")
-    
-    def _is_valid_jwt_token(self, token):
-        """
-        ✅ ENHANCED: JWT-compatible token validation for logs API
-        """
-        if not token or not isinstance(token, str):
-            return False
-        
-        token = token.strip()
-        
-        # Minimum length check
-        if len(token) < 20:
-            return False
-        
-        # JWT tokens can contain: letters, numbers, dots, hyphens, underscores, plus, slash, equals
-        allowed_chars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_+/=')
-        
-        # Check if all characters are allowed
-        return all(c in allowed_chars for c in token)
     
     def format_log_entries(self, raw_logs):
         """
@@ -581,7 +599,7 @@ class OptimizedGPortalLogAPI:
 
 def init_logs_routes(app, db, logs_storage):
     """
-    ✅ OPTIMIZED: Initialize logs routes with comprehensive optimization and 30s buffer
+    ✅ FIXED: Initialize logs routes with dual auth support and comprehensive optimization
     """
     
     api_client = OptimizedGPortalLogAPI()
@@ -700,7 +718,7 @@ def init_logs_routes(app, db, logs_storage):
     @require_auth
     @require_live_mode  # ✅ OPTIMIZED: Require live mode for log downloads
     def download_logs():
-        """✅ OPTIMIZED: Download logs with 30s buffer time and comprehensive optimization"""
+        """✅ FIXED: Download logs with dual auth support and 30s buffer time"""
         try:
             data = request.json or {}
             server_id = data.get('server_id')
@@ -735,7 +753,7 @@ def init_logs_routes(app, db, logs_storage):
             
             logger.info(f"📥 Downloading logs for {server_name} ({server_id}) in region {region}")
             
-            # ✅ OPTIMIZED: Download logs using enhanced API client with 30s buffer
+            # ✅ FIXED: Download logs using enhanced API client with dual auth support
             result = api_client.get_server_logs(server_id, region, use_cache)
             
             if result['success']:
@@ -927,7 +945,7 @@ def init_logs_routes(app, db, logs_storage):
     @require_auth
     def get_player_count_from_logs(server_id):
         """
-        ✅ OPTIMIZED: Get player count with 30s buffer time and comprehensive optimization
+        ✅ FIXED: Get player count with dual auth support and 30s buffer time
         """
         try:
             logger.info(f"📊 Getting player count from logs for server {server_id}")
@@ -991,7 +1009,7 @@ def init_logs_routes(app, db, logs_storage):
             if not server_found:
                 logger.warning(f"⚠️ Server {server_id} not found in configuration, using defaults")
             
-            # ✅ OPTIMIZED: Try to get fresh logs for analysis using 30s buffer
+            # ✅ FIXED: Try to get fresh logs for analysis using dual auth system
             logger.info(f"📥 Fetching fresh logs for player count analysis...")
             result = api_client.get_server_logs(server_id, region, use_cache=True)
             
@@ -1098,23 +1116,26 @@ def init_logs_routes(app, db, logs_storage):
     @logs_bp.route('/api/logs/health')
     @require_auth
     def logs_health_check():
-        """✅ OPTIMIZED: Health check endpoint with comprehensive monitoring"""
+        """✅ FIXED: Health check endpoint with dual auth support"""
         try:
             health_status = {
                 'healthy': True,
                 'timestamp': datetime.now().isoformat(),
                 'components': {},
                 'optimization_stats': backend_scheduler_state['command_stats'],
-                'buffer_time': '30_seconds'  # Indicate the buffer time being used
+                'buffer_time': '30_seconds',  # Indicate the buffer time being used
+                'auth_system': 'dual_oauth_and_cookies'  # Indicate dual auth support
             }
             
             # Check token health using centralized function
             token_health = monitor_token_health()
             health_status['components']['authentication'] = {
-                'healthy': token_health['healthy'],
-                'status': token_health['status'],
-                'message': token_health['message'],
-                'buffer_optimization': '30s_proactive_refresh'
+                'healthy': token_health.get('healthy', False),
+                'status': token_health.get('status', 'unknown'),
+                'message': token_health.get('message', 'No message'),
+                'action': token_health.get('action', 'unknown'),
+                'buffer_optimization': '30s_proactive_refresh',
+                'dual_auth_support': True
             }
             
             # Check logs directory
@@ -1140,7 +1161,8 @@ def init_logs_routes(app, db, logs_storage):
                 'max_retries': api_client.max_retries,
                 'retry_delay': api_client.retry_delay,
                 'cache_size': len(api_client.cache),
-                'rate_limiter_status': api_rate_limiter.get_status('logs_api')
+                'rate_limiter_status': api_rate_limiter.get_status('logs_api'),
+                'dual_auth_ready': True
             }
             
             # Check database/storage
@@ -1166,7 +1188,7 @@ def init_logs_routes(app, db, logs_storage):
                     'log_count': len(logs_storage) if logs_storage else 0
                 }
             
-            # ✅ NEW: Add optimization metrics
+            # ✅ ENHANCED: Add optimization metrics with dual auth info
             health_status['optimization'] = {
                 'config_integration': True,
                 'buffer_time_optimization': '30_seconds',
@@ -1174,7 +1196,9 @@ def init_logs_routes(app, db, logs_storage):
                 'rate_limiting_enabled': True,
                 'request_throttling': True,
                 'cache_hit_rate': _calculate_cache_hit_rate(),
-                'target_reduction': optimization_config.get('target_reduction_percent', 75)
+                'target_reduction': optimization_config.get('target_reduction_percent', 75),
+                'dual_auth_system': 'oauth_and_session_cookies',
+                'token_extraction_method': 'get_api_token'
             }
             
             return jsonify(health_status)
@@ -1185,13 +1209,14 @@ def init_logs_routes(app, db, logs_storage):
                 'healthy': False,
                 'error': str(e),
                 'timestamp': datetime.now().isoformat(),
-                'buffer_time': '30_seconds'
+                'buffer_time': '30_seconds',
+                'auth_system': 'dual_oauth_and_cookies'
             }), 500
 
     @logs_bp.route('/api/logs/optimization/stats')
     @require_auth
     def get_optimization_stats():
-        """✅ NEW: Get detailed optimization statistics"""
+        """✅ ENHANCED: Get detailed optimization statistics with dual auth info"""
         try:
             stats = backend_scheduler_state['command_stats'].copy()
             
@@ -1202,6 +1227,10 @@ def init_logs_routes(app, db, logs_storage):
             cache_requests = stats.get('cache_hits', 0) + stats.get('successful_requests', 0)
             cache_hit_rate = (stats.get('cache_hits', 0) / max(cache_requests, 1)) * 100
             
+            # Check current auth type
+            auth_data = load_token()
+            current_auth_type = auth_data.get('auth_type', 'none') if auth_data else 'none'
+            
             return jsonify({
                 'success': True,
                 'stats': stats,
@@ -1210,7 +1239,14 @@ def init_logs_routes(app, db, logs_storage):
                     'success_rate': round(success_rate, 2),
                     'cache_hit_rate': round(cache_hit_rate, 2),
                     'buffer_time': '30_seconds',
-                    'optimization_level': 'enhanced'
+                    'optimization_level': 'enhanced_with_dual_auth'
+                },
+                'authentication': {
+                    'current_auth_type': current_auth_type,
+                    'dual_auth_support': True,
+                    'oauth_ready': True,
+                    'session_cookie_ready': True,
+                    'websocket_token_available': get_websocket_token() is not None
                 },
                 'rate_limiter': {
                     'logs_api': api_rate_limiter.get_status('logs_api'),

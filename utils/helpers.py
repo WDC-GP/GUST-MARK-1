@@ -3,6 +3,7 @@ GUST Bot Enhanced - Helper Functions (COMPLETE FIXED VERSION + COOKIE SUPPORT)
 ===============================================================================
 ✅ FIXED: Complete save_token() function with OAuth and session cookie support
 ✅ FIXED: Enhanced load_token() function for both auth types  
+✅ FIXED: monitor_token_health() returns structure expected by logs routes
 ✅ ENHANCED: Ultra-aggressive token refresh strategy (30s buffer)
 ✅ ENHANCED: Auto-authentication integration with credential fallback
 ✅ ENHANCED: Better error recovery and automatic re-login detection
@@ -405,6 +406,82 @@ def get_auth_headers():
         logger.error(f"❌ Error getting auth headers: {e}")
         return {}
 
+def get_api_token():
+    """
+    ✅ NEW: Get token string specifically for REST API calls
+    
+    Extracts the actual token string from the auth data structure
+    
+    Returns:
+        str: Token string for API calls, empty string if unavailable
+    """
+    try:
+        auth_data = load_token()
+        
+        if not auth_data:
+            return ''
+        
+        auth_type = auth_data.get('auth_type', 'oauth')
+        
+        if auth_type == 'oauth':
+            # OAuth token authentication - return access_token
+            token = auth_data.get('access_token', '').strip()
+            if token and len(token) > 20:
+                return token
+            else:
+                logger.error("❌ Invalid OAuth access token")
+                return ''
+        
+        elif auth_type == 'cookie':
+            # Session cookie authentication - extract session ID for Bearer token
+            session_cookies = auth_data.get('session_cookies', {})
+            auth_session_id = session_cookies.get('AUTH_SESSION_ID', '')
+            
+            if auth_session_id and len(auth_session_id) > 20:
+                return auth_session_id
+            else:
+                logger.error("❌ Invalid session cookie token")
+                return ''
+        
+        else:
+            logger.error(f"❌ Unknown auth_type: {auth_type}")
+            return ''
+        
+    except Exception as e:
+        logger.error(f"❌ Error getting API token: {e}")
+        return ''
+
+def get_websocket_token():
+    """
+    ✅ NEW: Get token specifically for WebSocket connections
+    
+    WebSocket connections need browser session JWT tokens, not OAuth tokens
+    
+    Returns:
+        dict or None: Session cookies for WebSocket auth
+    """
+    try:
+        auth_data = load_token()
+        
+        if not auth_data:
+            logger.error("❌ No auth data for WebSocket")
+            return None
+        
+        auth_type = auth_data.get('auth_type', 'oauth')
+        
+        if auth_type == 'cookie':
+            # Session cookies are what WebSocket needs
+            session_cookies = auth_data.get('session_cookies', {})
+            return session_cookies if session_cookies else None
+        else:
+            # OAuth tokens won't work for WebSocket - need to get browser session
+            logger.warning("⚠️ OAuth tokens don't work for WebSocket - need browser session")
+            return None
+            
+    except Exception as e:
+        logger.error(f"❌ Error getting WebSocket token: {e}")
+        return None
+
 # ================================================================
 # ENHANCED TOKEN REFRESH WITH COOKIE SUPPORT
 # ================================================================
@@ -722,28 +799,29 @@ def attempt_credential_reauth():
 
 def validate_token_file():
     """
-    Enhanced token file validation with detailed status
+    ✅ FIXED: Enhanced token file validation that returns structure expected by logs routes
     
     Returns:
         dict: Validation status with detailed information
     """
     try:
         current_time = time.time()
-        tokens = load_token()
+        auth_data = load_token()
         
-        if not tokens:
+        if not auth_data:
             return {
                 'valid': False,
                 'error': 'No token file or invalid format',
+                'auth_type': 'none',
                 'time_left': 0,
                 'expires_at': None
             }
         
-        auth_type = tokens.get('auth_type', 'oauth')
+        auth_type = auth_data.get('auth_type', 'oauth')
         
         # Check cookie-based authentication
         if auth_type == 'cookie':
-            expires_at = tokens.get('expires_at', 0)
+            expires_at = auth_data.get('expires_at', 0)
             time_left = max(0, expires_at - current_time)
             
             return {
@@ -751,13 +829,13 @@ def validate_token_file():
                 'auth_type': 'cookie',
                 'time_left': int(time_left),
                 'expires_at': datetime.fromtimestamp(expires_at).isoformat() if expires_at > 0 else None,
-                'username': tokens.get('username', 'unknown'),
-                'last_refresh': tokens.get('last_refresh', 0)
+                'username': auth_data.get('username', 'unknown'),
+                'last_refresh': auth_data.get('last_refresh', 0)
             }
         
         # Check OAuth authentication
         elif auth_type == 'oauth':
-            access_exp = tokens.get('access_token_exp', 0)
+            access_exp = auth_data.get('access_token_exp', 0)
             time_left = max(0, access_exp - current_time)
             
             return {
@@ -765,14 +843,15 @@ def validate_token_file():
                 'auth_type': 'oauth',
                 'time_left': int(time_left),
                 'expires_at': datetime.fromtimestamp(access_exp).isoformat() if access_exp > 0 else None,
-                'username': tokens.get('username', 'unknown'),
-                'last_refresh': tokens.get('last_refresh', 0)
+                'username': auth_data.get('username', 'unknown'),
+                'last_refresh': auth_data.get('last_refresh', 0)
             }
         
         else:
             return {
                 'valid': False,
                 'error': f'Unknown auth_type: {auth_type}',
+                'auth_type': auth_type,
                 'time_left': 0,
                 'expires_at': None
             }
@@ -782,22 +861,49 @@ def validate_token_file():
         return {
             'valid': False,
             'error': str(e),
+            'auth_type': 'error',
             'time_left': 0,
             'expires_at': None
         }
 
 def monitor_token_health():
     """
-    Monitor token health with enhanced diagnostics
+    ✅ FIXED: Monitor token health with structure expected by logs routes
     
     Returns:
-        dict: Comprehensive token health status
+        dict: Health status that works with _get_optimized_token()
     """
     try:
         validation = validate_token_file()
         current_time = time.time()
         
+        # Build health status structure expected by logs routes
+        healthy = validation.get('valid', False)
+        time_left = validation.get('time_left', 0)
+        
+        # Determine action based on validation
+        if not healthy:
+            if validation.get('error') == 'No token file or invalid format':
+                action = 'login_required'
+                message = 'No authentication token available. Please re-login to G-Portal.'
+            else:
+                action = 'login_required' 
+                message = f"Token validation failed: {validation.get('error', 'Unknown error')}"
+        elif time_left < 60:  # Less than 1 minute
+            action = 'refresh_now'
+            message = f'Token expires in {time_left}s - refresh needed'
+        elif time_left < 300:  # Less than 5 minutes
+            action = 'refresh_soon'
+            message = f'Token expires in {int(time_left/60)} minutes - refresh soon'
+        else:
+            action = 'none'
+            message = f'Token healthy - valid for {int(time_left/60)} minutes'
+        
         health_data = {
+            'healthy': healthy,
+            'status': 'healthy' if healthy else 'unhealthy',
+            'action': action,
+            'message': message,
             'timestamp': datetime.now().isoformat(),
             'validation': validation,
             'auth_status': {
@@ -824,9 +930,17 @@ def monitor_token_health():
     except Exception as e:
         logger.error(f"❌ Error monitoring token health: {e}")
         return {
+            'healthy': False,
+            'status': 'error',
+            'action': 'login_required',
+            'message': f'Error checking token health: {e}',
             'timestamp': datetime.now().isoformat(),
-            'error': str(e),
-            'validation': {'valid': False, 'error': str(e)}
+            'validation': {'valid': False, 'error': str(e), 'auth_type': 'error'},
+            'auth_status': {
+                'failure_count': _auth_failure_count,
+                'in_progress': _auth_in_progress,
+                'last_attempt': _last_auth_attempt
+            }
         }
 
 # ================================================================
@@ -1200,7 +1314,7 @@ def format_duration(seconds):
 __all__ = [
     # Token management (enhanced)
     'save_token', 'load_token', 'refresh_token', 'get_auth_headers',
-    'validate_token_file', 'monitor_token_health',
+    'validate_token_file', 'monitor_token_health', 'get_api_token', 'get_websocket_token',
     
     # Auto-authentication
     'attempt_credential_reauth',
