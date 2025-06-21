@@ -6,8 +6,6 @@ GUST Bot Enhanced - Main Flask Application (COMPLETE FIXED VERSION)
 ✅ FIXED: Complete Server Health integration
 ✅ FIXED: Comprehensive None type error prevention
 ✅ FIXED: All GraphQL communication issues resolved
-✅ NEW: Auto command API endpoint for serverinfo commands
-✅ NEW: Enhanced authentication and demo mode handling
 """
 
 import os
@@ -462,134 +460,6 @@ class GustBotEnhanced:
                 logger.error(f"❌ Console route traceback: {traceback.format_exc()}")
                 return jsonify({'success': False, 'error': f'Request processing error: {str(outer_error)}'}), 500
         
-        # ✅ NEW: Auto command endpoint for serverinfo commands
-        @self.app.route('/api/console/send-auto', methods=['POST'])
-        def send_auto_console_command():
-            """
-            NEW: Dedicated endpoint for auto commands (serverinfo)
-            This fixes the auto command system by providing a proper API endpoint
-            """
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                # Get request data
-                data = request.json if request.json else {}
-                command = data.get('command', '').strip()
-                server_id = data.get('serverId', '').strip()
-                region = data.get('region', 'US').strip().upper()
-                
-                logger.debug(f"🤖 Auto command request: command='{command}', server_id='{server_id}', region='{region}'")
-                
-                # Validate inputs
-                if not command or not server_id:
-                    return jsonify({
-                        'success': False, 
-                        'error': 'Command and server ID are required',
-                        'auto_command': True
-                    }), 400
-                
-                # Check demo mode
-                demo_mode = session.get('demo_mode', True)
-                
-                if demo_mode:
-                    logger.info(f"🎭 Auto command demo mode: '{command}' to server {server_id}")
-                    
-                    # Generate realistic demo data for serverinfo
-                    if command.lower() == 'serverinfo':
-                        import random
-                        players = random.randint(0, 50)
-                        max_players = random.choice([50, 100, 150, 200])
-                        fps = random.randint(45, 65)
-                        
-                        demo_response = f"[AUTO-DEMO] Server {server_id}: Players {players}/{max_players}, FPS: {fps}"
-                        
-                        # Add to console output
-                        self.console_output.append({
-                            'timestamp': datetime.now().isoformat(),
-                            'command': command,
-                            'server_id': server_id,
-                            'status': 'sent',
-                            'source': 'auto_demo',
-                            'type': 'auto_command',
-                            'message': f'Auto command: {command}',
-                            'response': demo_response
-                        })
-                        
-                        return jsonify({
-                            'success': True, 
-                            'demo_mode': True,
-                            'auto_command': True,
-                            'response': demo_response,
-                            'player_data': {
-                                'current': players,
-                                'max': max_players,
-                                'percentage': round((players / max_players) * 100, 1) if max_players > 0 else 0
-                            }
-                        })
-                    else:
-                        # Generic demo response
-                        demo_response = f"[AUTO-DEMO] Server {server_id}: Command '{command}' executed"
-                        
-                        self.console_output.append({
-                            'timestamp': datetime.now().isoformat(),
-                            'command': command,
-                            'server_id': server_id,
-                            'status': 'sent',
-                            'source': 'auto_demo',
-                            'type': 'auto_command',
-                            'message': f'Auto command: {command}'
-                        })
-                        
-                        return jsonify({
-                            'success': True, 
-                            'demo_mode': True,
-                            'auto_command': True,
-                            'response': demo_response
-                        })
-                
-                # Live mode - send real command
-                logger.info(f"🌐 Auto command live mode: Sending '{command}' to server {server_id}")
-                
-                try:
-                    result = self.send_console_command_graphql(command, server_id, region)
-                    
-                    # Add to console output with auto command tracking
-                    self.console_output.append({
-                        'timestamp': datetime.now().isoformat(),
-                        'command': command,
-                        'server_id': server_id,
-                        'status': 'sent' if result else 'failed',
-                        'source': 'auto_live',
-                        'type': 'auto_command',
-                        'message': f'Auto command: {command}',
-                        'success': result
-                    })
-                    
-                    return jsonify({
-                        'success': result, 
-                        'demo_mode': False,
-                        'auto_command': True,
-                        'message': f'Auto command {"sent" if result else "failed"}: {command}'
-                    })
-                    
-                except Exception as auto_error:
-                    logger.error(f"❌ Auto command error: {auto_error}")
-                    return jsonify({
-                        'success': False, 
-                        'demo_mode': False,
-                        'auto_command': True,
-                        'error': str(auto_error)
-                    }), 500
-                
-            except Exception as e:
-                logger.error(f"❌ Auto console command error: {e}")
-                return jsonify({
-                    'success': False,
-                    'auto_command': True,
-                    'error': f'Auto command processing error: {str(e)}'
-                }), 500
-        
         @self.app.route('/api/console/output')
         def get_console_output():
             """Get recent console output"""
@@ -598,66 +468,6 @@ class GustBotEnhanced:
             
             # Return last 50 entries
             return jsonify(list(self.console_output)[-50:])
-        
-        # ✅ NEW: Server list endpoint for auto commands
-        @self.app.route('/api/servers/list')
-        def get_server_list():
-            """Get list of managed servers for auto commands"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                # Return managed servers with status information
-                servers = []
-                demo_mode = session.get('demo_mode', True)
-                
-                if demo_mode:
-                    # Demo servers
-                    demo_servers = [
-                        {
-                            'serverId': 'demo-server-1',
-                            'serverName': 'Demo Rust Server #1',
-                            'serverRegion': 'US',
-                            'status': 'online',
-                            'isActive': True,
-                            'playerCount': {'current': 23, 'max': 100}
-                        },
-                        {
-                            'serverId': 'demo-server-2', 
-                            'serverName': 'Demo Rust Server #2',
-                            'serverRegion': 'EU',
-                            'status': 'online',
-                            'isActive': True,
-                            'playerCount': {'current': 45, 'max': 150}
-                        }
-                    ]
-                    servers = demo_servers
-                else:
-                    # Real servers (from self.servers or managed_servers)
-                    if hasattr(self, 'managed_servers') and self.managed_servers:
-                        servers = self.managed_servers
-                    elif self.servers:
-                        servers = self.servers
-                    else:
-                        servers = []
-                
-                return jsonify({
-                    'success': True,
-                    'servers': servers,
-                    'count': len(servers),
-                    'demo_mode': demo_mode,
-                    'timestamp': datetime.now().isoformat()
-                })
-                
-            except Exception as e:
-                logger.error(f"❌ Error getting server list: {e}")
-                return jsonify({
-                    'success': False,
-                    'servers': [],
-                    'count': 0,
-                    'demo_mode': session.get('demo_mode', True),
-                    'error': str(e)
-                }), 500
         
         # Live Console Routes (only if WebSockets are available)
         if WEBSOCKETS_AVAILABLE and self.websocket_manager:
@@ -1017,7 +827,6 @@ class GustBotEnhanced:
                     'server_health_storage': type(self.server_health_storage).__name__,  # NEW: Health storage type
                     'features': {
                         'console_commands': True,
-                        'auto_console_commands': True,  # NEW: Auto command feature flag
                         'event_management': True,
                         'koth_events_fixed': True,
                         'economy_system': True,
@@ -1438,7 +1247,6 @@ class GustBotEnhanced:
         logger.info(f"🏥 Server Health: Complete integration with {type(self.server_health_storage).__name__}")
         logger.info(f"📊 Health Monitoring: 75/25 layout with real-time metrics and command feed")
         logger.info(f"✅ CRITICAL FIX: GraphQL endpoint correctly configured (no '/graphql' suffix)")
-        logger.info(f"🤖 NEW: Auto command API endpoint added for serverinfo commands")
         
         try:
             self.app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)

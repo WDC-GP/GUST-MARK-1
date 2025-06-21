@@ -7,6 +7,7 @@
      ✅ FIXED: Removed dependency conflicts
      ✅ OPTIMIZED: Better performance and reduced API calls
      ✅ ENHANCED: Graceful fallbacks for missing elements
+     ✅ NEW: Auto command function with proper parameter support
      ============================================================================ -->
 
 <script>
@@ -72,7 +73,8 @@
             'ban': '🚫',
             'health': '🏥',
             'ping': '📡',
-            'connection': '🔌'
+            'connection': '🔌',
+            'auto_command': '🤖'
         };
         return icons[type] || '📋';
     }
@@ -178,7 +180,7 @@
         const displayName = serverInfo.name || serverId;
         
         // Add command to output with enhanced styling
-        addLiveConsoleMessage(`> ${commandValue} (Server: ${displayName}) [ENHANCED]`, serverId, 'command');
+        addLiveConsoleMessage(`> ${commandValue} (Server: ${displayName}) [MANUAL]`, serverId, 'command');
         
         // Prepare request
         const requestData = {
@@ -255,6 +257,89 @@
                     window.authRecovery.recordFailure();
                 }
             });
+    }
+    
+    // ✅ NEW: Auto command function with proper parameter support
+    async function sendConsoleCommandAuto(command, serverId, region = 'US') {
+        console.log(`🤖 sendConsoleCommandAuto called: command='${command}', serverId='${serverId}', region='${region}'`);
+        
+        if (!command || !serverId) {
+            console.error('❌ Auto command: Missing required parameters');
+            return { success: false, error: 'Missing command or serverId' };
+        }
+        
+        const serverInfo = getServerInfo(serverId);
+        const displayName = serverInfo.name || serverId;
+        const finalRegion = region || serverInfo.region || 'US';
+        
+        // Add command to output with auto command styling
+        addLiveConsoleMessage(`🤖 ${command} (Server: ${displayName}) [AUTO]`, serverId, 'auto_command');
+        
+        try {
+            // Prepare request for auto command endpoint
+            const requestData = {
+                command: command,
+                serverId: serverId,
+                region: finalRegion
+            };
+            
+            console.log(`🤖 Sending auto command to /api/console/send-auto:`, requestData);
+            
+            const response = await fetch('/api/console/send-auto', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(requestData)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log(`🤖 Auto command success:`, result);
+                
+                // Add success message
+                const responseMsg = result.demo_mode ? 
+                    `🎭 Demo response: ${result.response || 'Command executed'}` :
+                    `✅ Live command executed successfully`;
+                
+                addLiveConsoleMessage(responseMsg, serverId, 'success');
+                
+                // Handle player data if available (for serverinfo commands)
+                if (result.player_data && command.toLowerCase() === 'serverinfo') {
+                    const playerMsg = `👥 Players: ${result.player_data.current}/${result.player_data.max} (${result.player_data.percentage}%)`;
+                    addLiveConsoleMessage(playerMsg, serverId, 'info');
+                    
+                    // Update player count display if function exists
+                    if (typeof window.updatePlayerCountDisplay === 'function') {
+                        window.updatePlayerCountDisplay(serverId, result.player_data, 'success');
+                    }
+                    
+                    // Trigger additional player count update via logs
+                    setTimeout(() => {
+                        logsIntegratedTriggerPlayerCountUpdate(serverId);
+                    }, 2000);
+                }
+                
+                return { success: true, result: result };
+                
+            } else {
+                console.error(`🤖 Auto command failed:`, result);
+                const errorMsg = `❌ Auto command failed: ${result.error || 'Unknown error'}`;
+                addLiveConsoleMessage(errorMsg, serverId, 'error');
+                
+                return { success: false, error: result.error };
+            }
+            
+        } catch (error) {
+            console.error(`🤖 Auto command error:`, error);
+            const errorMsg = `❌ Auto command error: ${error.message}`;
+            addLiveConsoleMessage(errorMsg, serverId, 'error');
+            
+            return { success: false, error: error.message };
+        }
     }
     
     function refreshConsole() {
@@ -377,7 +462,8 @@
                 'warning': 'text-yellow-400 bg-yellow-900 bg-opacity-20 border-l-2 border-yellow-400',
                 'system': 'text-gray-300 bg-gray-900 bg-opacity-20 border-l-2 border-gray-400',
                 'command': 'text-purple-400 bg-purple-900 bg-opacity-20 border-l-2 border-purple-400',
-                'chat': 'text-cyan-400 bg-cyan-900 bg-opacity-20 border-l-2 border-cyan-400'
+                'chat': 'text-cyan-400 bg-cyan-900 bg-opacity-20 border-l-2 border-cyan-400',
+                'auto_command': 'text-orange-400 bg-orange-900 bg-opacity-20 border-l-2 border-orange-400'
             };
             
             messageDiv.className += ' ' + (styles[messageType] || styles['live']);
@@ -504,6 +590,7 @@
     // Make functions available globally RIGHT NOW
     window.setCommand = setCommand;
     window.sendConsoleCommand = sendConsoleCommand;
+    window.sendConsoleCommandAuto = sendConsoleCommandAuto;  // ✅ NEW: Auto command function
     window.refreshConsole = refreshConsole;
     window.clearConsole = clearConsole;
     window.addLiveConsoleMessage = addLiveConsoleMessage;
@@ -517,6 +604,7 @@
     console.log('🔧 Available functions:', {
         setCommand: typeof window.setCommand,
         sendConsoleCommand: typeof window.sendConsoleCommand,
+        sendConsoleCommandAuto: typeof window.sendConsoleCommandAuto,  // ✅ NEW
         refreshConsole: typeof window.refreshConsole,
         clearConsole: typeof window.clearConsole,
         addLiveConsoleMessage: typeof window.addLiveConsoleMessage,
@@ -681,6 +769,7 @@
     console.log(`  - Reconnect interval: ${consoleConfig.reconnectInterval/1000}s (was 30s)`);
     console.log(`  - Request throttling: Max ${consoleConfig.maxConcurrentRequests} concurrent`);
     console.log(`  - Message limit: ${consoleConfig.maxMessages} messages`);
+    console.log('🤖 NEW: Auto command function added for serverinfo automation');
     
     // ============================================================================
     // INITIALIZATION WITH VERIFICATION
@@ -690,7 +779,7 @@
         console.log('✅ Console module DOM ready');
         
         // Verify function availability
-        const testFunctions = ['setCommand', 'sendConsoleCommand', 'refreshConsole', 'clearConsole', 'addLiveConsoleMessage'];
+        const testFunctions = ['setCommand', 'sendConsoleCommand', 'sendConsoleCommandAuto', 'refreshConsole', 'clearConsole', 'addLiveConsoleMessage'];
         const working = testFunctions.filter(fn => typeof window[fn] === 'function');
         const broken = testFunctions.filter(fn => typeof window[fn] !== 'function');
         
@@ -708,7 +797,7 @@
         
         // Add global verification function
         window.verifyConsoleFunctions = function() {
-            const requiredFunctions = ['setCommand', 'sendConsoleCommand', 'refreshConsole', 'clearConsole', 'addLiveConsoleMessage'];
+            const requiredFunctions = ['setCommand', 'sendConsoleCommand', 'sendConsoleCommandAuto', 'refreshConsole', 'clearConsole', 'addLiveConsoleMessage'];
             const available = requiredFunctions.filter(fn => typeof window[fn] === 'function');
             const missing = requiredFunctions.filter(fn => typeof window[fn] !== 'function');
             
@@ -725,6 +814,7 @@
     console.log('🎯 Functions available immediately for onclick handlers');
     console.log('⚡ Optimized intervals: 15s console, 60s reconnect, 3 max concurrent');
     console.log('🔧 Enhanced error handling and timing fixes applied');
+    console.log('🤖 Auto command support: sendConsoleCommandAuto() function ready');
     console.log('🔧 Ready for production use!');
     
 })(); // End of immediately invoked function expression

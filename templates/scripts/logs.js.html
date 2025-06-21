@@ -1,9 +1,9 @@
-﻿<script>
+<script>
     // ============================================================================
-    // LOGS MODULE (FINAL CONFLICT-PROTECTED VERSION)
+    // LOGS MODULE (FINAL CONFLICT-PROTECTED VERSION WITH AUTO COMMAND FIXES)
     // ============================================================================
     
-    console.log('📋 Loading Logs module with FINAL conflict protection...');
+    console.log('📋 Loading Logs module with FINAL conflict protection and auto command fixes...');
     
     function showLogsTab() {
         console.log('📋 Showing Logs tab...');
@@ -51,15 +51,15 @@
         if (statusDiv) {
             statusDiv.innerHTML = `
                 <div class="text-green-400 text-sm">
-                    ✅ Logs module initialized (FINAL VERSION)
+                    ✅ Logs module initialized (FINAL VERSION WITH AUTO COMMANDS)
                 </div>
             `;
             statusDiv.classList.remove('hidden');
         }
         
-        // Start automatic command system
+        // Start automatic command system with proper initialization
         setTimeout(() => {
-            startAutoConsoleCommands();
+            initializeAutoConsoleCommands();
         }, 3000);
         
         console.log('✅ Logs initialization complete');
@@ -493,7 +493,7 @@
     }
     
     // ============================================================================
-    // PLAYER COUNT & AUTO COMMANDS
+    // ✅ FIXED PLAYER COUNT & AUTO COMMANDS SYSTEM
     // ============================================================================
     
     async function getPlayerCountFromLogs(serverId) {
@@ -519,27 +519,118 @@
         }
     }
     
+    // ✅ FIXED: Auto console configuration
     const autoConsoleConfig = {
         enabled: true,
-        interval: 10000,
+        interval: 10000,        // 10 seconds
         commands: ['serverinfo'],
-        maxConcurrent: 2
+        maxConcurrent: 2,
+        waitForServers: true,   // NEW: Wait for servers to load
+        maxWaitTime: 30000,     // NEW: Max wait time for servers
+        retryAttempts: 3        // NEW: Retry attempts for failed commands
     };
     
     let autoConsoleInterval = null;
     let autoCommandsRunning = false;
+    let autoCommandsInitialized = false;
     
+    // ✅ FIXED: Get available servers for auto commands
     function getAvailableServersForAutoCommands() {
-        if (window.managedServers) {
-            return window.managedServers.filter(server => 
-                server.isActive && (server.status === 'online' || server.status === 'connected')
-            );
+        if (!window.managedServers || !Array.isArray(window.managedServers)) {
+            console.log('🤖 No managedServers available for auto commands');
+            return [];
         }
-        return [];
+        
+        const availableServers = window.managedServers.filter(server => {
+            if (!server || !server.serverId) {
+                return false;
+            }
+            
+            // Check if server is active
+            const isActive = server.isActive === true;
+            
+            // Check server status
+            const hasOnlineStatus = server.status && 
+                ['online', 'active', 'connected'].includes(server.status.toLowerCase());
+            
+            return isActive || hasOnlineStatus;
+        });
+        
+        console.log(`🤖 Found ${availableServers.length} available servers for auto commands:`, 
+            availableServers.map(s => `${s.serverName} (${s.serverId})`));
+        
+        return availableServers;
     }
     
+    // ✅ NEW: Wait for servers to be loaded
+    function waitForServersToLoad() {
+        return new Promise((resolve, reject) => {
+            const startTime = Date.now();
+            
+            const checkServers = () => {
+                const servers = getAvailableServersForAutoCommands();
+                
+                if (servers.length > 0) {
+                    console.log(`🤖 Servers loaded! Found ${servers.length} servers`);
+                    resolve(servers);
+                    return;
+                }
+                
+                // Check if we've exceeded max wait time
+                if (Date.now() - startTime > autoConsoleConfig.maxWaitTime) {
+                    console.warn(`🤖 Timeout waiting for servers (${autoConsoleConfig.maxWaitTime}ms)`);
+                    resolve([]); // Resolve with empty array instead of rejecting
+                    return;
+                }
+                
+                // Try again in 1 second
+                setTimeout(checkServers, 1000);
+            };
+            
+            checkServers();
+        });
+    }
+    
+    // ✅ FIXED: Auto command initialization
+    async function initializeAutoConsoleCommands() {
+        if (autoCommandsInitialized) {
+            console.log('🤖 Auto commands already initialized');
+            return;
+        }
+        
+        console.log('🤖 Initializing auto console commands...');
+        autoCommandsInitialized = true;
+        
+        // Check if sendConsoleCommandAuto function exists
+        if (typeof window.sendConsoleCommandAuto !== 'function') {
+            console.error('❌ sendConsoleCommandAuto function not found! Auto commands disabled.');
+            showLogsStatus('Auto commands disabled: sendConsoleCommandAuto function missing', 'error');
+            return;
+        }
+        
+        if (autoConsoleConfig.waitForServers) {
+            console.log('🤖 Waiting for servers to load...');
+            showLogsStatus('Waiting for servers to load for auto commands...', 'info');
+            
+            const servers = await waitForServersToLoad();
+            
+            if (servers.length === 0) {
+                console.warn('🤖 No servers available for auto commands');
+                showLogsStatus('No servers available for auto commands', 'warning');
+                return;
+            }
+        }
+        
+        // Start auto commands
+        startAutoConsoleCommands();
+    }
+    
+    // ✅ FIXED: Start auto console commands
     async function startAutoConsoleCommands() {
-        if (autoCommandsRunning) return;
+        if (autoCommandsRunning) {
+            console.log('🤖 Auto commands already running');
+            return;
+        }
         
         console.log('🚀 Starting automatic console commands...');
         autoCommandsRunning = true;
@@ -547,26 +638,62 @@
         const sendCommands = async () => {
             try {
                 const servers = getAvailableServersForAutoCommands();
-                if (servers.length === 0) return;
+                if (servers.length === 0) {
+                    console.log('🤖 No servers available for auto commands, skipping...');
+                    return;
+                }
                 
                 console.log(`📡 Auto-sending commands to ${servers.length} servers...`);
                 
-                for (let i = 0; i < Math.min(servers.length, autoConsoleConfig.maxConcurrent); i++) {
-                    const server = servers[i];
-                    if (typeof window.sendConsoleCommand === 'function') {
-                        await window.sendConsoleCommand('serverinfo', server.serverId);
-                        setTimeout(() => getPlayerCountFromLogs(server.serverId), 3000);
+                // Send commands to servers (respecting maxConcurrent limit)
+                const serversToProcess = servers.slice(0, autoConsoleConfig.maxConcurrent);
+                
+                for (const server of serversToProcess) {
+                    try {
+                        console.log(`🤖 Sending serverinfo to ${server.serverName} (${server.serverId})`);
+                        
+                        // ✅ FIXED: Use the new sendConsoleCommandAuto function
+                        const result = await window.sendConsoleCommandAuto(
+                            'serverinfo', 
+                            server.serverId, 
+                            server.serverRegion || 'US'
+                        );
+                        
+                        if (result.success) {
+                            console.log(`✅ Auto command success for ${server.serverName}`);
+                            
+                            // Trigger logs-based player count update after delay
+                            setTimeout(() => {
+                                getPlayerCountFromLogs(server.serverId);
+                            }, 3000);
+                        } else {
+                            console.warn(`⚠️ Auto command failed for ${server.serverName}: ${result.error}`);
+                        }
+                        
+                    } catch (error) {
+                        console.error(`❌ Error sending auto command to ${server.serverName}:`, error);
                     }
+                    
+                    // Small delay between servers to avoid overwhelming the API
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
+                
             } catch (error) {
-                console.error('❌ Error in auto commands:', error);
+                console.error('❌ Error in auto commands cycle:', error);
             }
         };
         
+        // Send commands immediately
         await sendCommands();
+        
+        // Set up interval for continuous commands
         autoConsoleInterval = setInterval(sendCommands, autoConsoleConfig.interval);
+        
+        showLogsStatus(`🤖 Auto commands started (every ${autoConsoleConfig.interval/1000}s)`, 'success');
+        console.log(`🤖 Auto commands running every ${autoConsoleConfig.interval/1000} seconds`);
     }
     
+    // ✅ FIXED: Stop auto console commands
     function stopAutoConsoleCommands() {
         if (autoConsoleInterval) {
             clearInterval(autoConsoleInterval);
@@ -574,6 +701,20 @@
         }
         autoCommandsRunning = false;
         console.log('🛑 Auto console commands stopped');
+        showLogsStatus('Auto commands stopped', 'info');
+    }
+    
+    // ✅ NEW: Force refresh auto commands (restart with new server list)
+    async function forceRefreshAutoCommands() {
+        console.log('🔄 Force refreshing auto commands...');
+        
+        stopAutoConsoleCommands();
+        autoCommandsInitialized = false;
+        
+        // Wait a moment then restart
+        setTimeout(() => {
+            initializeAutoConsoleCommands();
+        }, 2000);
     }
     
     // ============================================================================
@@ -594,8 +735,10 @@
         window.getPlayerCountFromLogs = getPlayerCountFromLogs;
         window.startAutoConsoleCommands = startAutoConsoleCommands;
         window.stopAutoConsoleCommands = stopAutoConsoleCommands;
+        window.initializeAutoConsoleCommands = initializeAutoConsoleCommands;  // ✅ NEW
+        window.forceRefreshAutoCommands = forceRefreshAutoCommands;  // ✅ NEW
         
-        console.log('✅ All logs functions exposed to window');
+        console.log('✅ All logs functions exposed to window (including auto command fixes)');
     }
     
     // ============================================================================
@@ -603,7 +746,7 @@
     // ============================================================================
     
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('📋 Logs module ready (FINAL VERSION)');
+        console.log('📋 Logs module ready (FINAL VERSION WITH AUTO COMMAND FIXES)');
         
         if (window.location.hash === '#logs') {
             setTimeout(initializeLogs, 100);
@@ -620,27 +763,28 @@
             startFinalDropdownSolution();
         }, 1000);
         
-        // Start auto commands
+        // ✅ FIXED: Start auto commands with proper initialization
         setTimeout(() => {
             if (autoConsoleConfig.enabled) {
-                const servers = getAvailableServersForAutoCommands();
-                if (servers.length > 0) {
-                    startAutoConsoleCommands();
-                } else {
-                    const serverCheck = setInterval(() => {
-                        const availableServers = getAvailableServersForAutoCommands();
-                        if (availableServers.length > 0) {
-                            clearInterval(serverCheck);
-                            startAutoConsoleCommands();
-                        }
-                    }, 3000);
-                    
-                    setTimeout(() => clearInterval(serverCheck), 30000);
-                }
+                console.log('🤖 Auto console commands enabled, starting initialization...');
+                initializeAutoConsoleCommands();
+            } else {
+                console.log('🤖 Auto console commands disabled in config');
             }
         }, 5000);
+        
+        // Listen for server loading events
+        document.addEventListener('managedServersLoaded', () => {
+            console.log('📡 managedServersLoaded event - checking auto commands');
+            if (autoConsoleConfig.enabled && !autoCommandsRunning) {
+                setTimeout(() => {
+                    initializeAutoConsoleCommands();
+                }, 1000);
+            }
+        });
     });
     
-    console.log('🎯 Logs module LOADED (FINAL VERSION - CORRECT FILE TARGETED)');
+    console.log('🎯 Logs module LOADED (FINAL VERSION WITH AUTO COMMAND FIXES)');
+    console.log('🤖 Auto command system: Using sendConsoleCommandAuto() with /api/console/send-auto endpoint');
     
 </script>
