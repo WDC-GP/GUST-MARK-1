@@ -1,83 +1,578 @@
-﻿<!-- ============================================================================
-     GUST Bot Enhanced - server-manager View Component
+<!-- ============================================================================
+     GUST Bot Enhanced - Server Manager View (COMPLETE FIXED VERSION)
      ============================================================================
-     Extracted from enhanced_dashboard.html on 2025-06-17 12:20:33
-     
-     This view contains the complete tab content for the server-manager section.
-     Advanced boundary detection used to ensure complete content extraction.
+     ✅ FIXED: Add Server button with immediate handler availability
+     ✅ FIXED: Fallback functions for script loading issues
+     ✅ FIXED: Proper error handling and user feedback
+     ✅ FIXED: Loading states and status display
      ============================================================================ -->
 
-<div id="server-manager-view" class="view hidden">
-                <h2 class="text-3xl font-bold mb-6">🖥️ Server Manager</h2>
-                <p class="text-gray-300 mb-6">Centralized server management - add servers here and they'll be available across all tabs.</p>
-                
-                <!-- Add Server Section -->
-                <div class="bg-gray-800 p-6 rounded-lg mb-6">
-                    <h3 class="text-xl font-semibold mb-4">Add New Server</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium mb-2">Server ID *</label>
-                            <input type="text" id="newServerId" placeholder="e.g., 1234567" 
-                                   class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-2">Server Name *</label>
-                            <input type="text" id="newServerName" placeholder="e.g., My Rust Server" 
-                                   class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-2">Region *</label>
-                            <select id="newServerRegion" class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
-                                <option value="US">🇺🇸 United States</option>
-                                <option value="EU">🇪🇺 Europe</option>
-                                <option value="AS">🌏 Asia</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-2">Server Type</label>
-                            <select id="newServerType" class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
-                                <option value="Standard">Standard</option>
-                                <option value="Modded">Modded</option>
-                                <option value="PvP">PvP Focused</option>
-                                <option value="PvE">PvE Focused</option>
-                                <option value="RP">Roleplay</option>
-                                <option value="Vanilla+">Vanilla+</option>
-                            </select>
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium mb-2">Description</label>
-                            <input type="text" id="newServerDescription" placeholder="Optional description" 
-                                   class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500">
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-4 mt-4">
-                        <button onclick="addNewServer()" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded font-medium">
-                            Add Server
-                        </button>
-                        <button onclick="clearServerForm()" class="bg-gray-600 hover:bg-gray-700 px-4 py-3 rounded">
-                            Clear
-                        </button>
-                    </div>
+<div id="server-manager-view" class="view bg-gray-900 p-6">
+    <h2 class="text-3xl font-bold mb-6">🖥️ Server Manager</h2>
+    <p class="text-gray-300 mb-6">Centralized server management - add servers here and they'll be available across all tabs.</p>
+    
+    <!-- Add Server Section -->
+    <div class="bg-gray-800 p-6 rounded-lg mb-6">
+        <h3 class="text-xl font-semibold mb-4">Add New Server</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm font-medium mb-2">Server ID *</label>
+                <input type="text" id="newServerId" placeholder="e.g., 1234567" 
+                       class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500 focus:outline-none">
+                <div class="text-xs text-gray-400 mt-1">Numeric ID from G-Portal</div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Server Name *</label>
+                <input type="text" id="newServerName" placeholder="My Rust Server" 
+                       class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Region</label>
+                <select id="newServerRegion" class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500 focus:outline-none">
+                    <option value="US">United States</option>
+                    <option value="EU">Europe</option>
+                    <option value="AS">Asia</option>
+                    <option value="AU">Australia</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Server Type</label>
+                <select id="newServerType" class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500 focus:outline-none">
+                    <option value="Standard">Standard</option>
+                    <option value="Modded">Modded</option>
+                    <option value="Creative">Creative</option>
+                    <option value="PvE">PvE</option>
+                </select>
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium mb-2">Description (Optional)</label>
+                <input type="text" id="newServerDescription" placeholder="Brief description of your server" 
+                       class="w-full bg-gray-700 p-3 rounded border border-gray-600 focus:border-purple-500 focus:outline-none">
+            </div>
+        </div>
+        
+        <!-- ✅ FIXED: Buttons with immediate handlers -->
+        <div class="flex items-center space-x-4 mt-4">
+            <button onclick="handleAddServerClick()" 
+                    id="addServerBtn"
+                    class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                Add Server
+            </button>
+            <button onclick="handleClearFormClick()" 
+                    id="clearFormBtn"
+                    class="bg-gray-600 hover:bg-gray-700 px-4 py-3 rounded transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                Clear
+            </button>
+            <div id="addServerStatus" class="text-sm flex items-center"></div>
+        </div>
+    </div>
+    
+    <!-- Server Management Section -->
+    <div class="bg-gray-800 p-6 rounded-lg">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-semibold">Managed Servers</h3>
+            <div class="flex items-center space-x-4">
+                <button onclick="handleRefreshClick()" 
+                        id="refreshBtn"
+                        class="bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    🔄 Refresh
+                </button>
+                <div id="serverListStatus" class="text-sm text-gray-400"></div>
+            </div>
+        </div>
+        
+        <!-- Server List Container -->
+        <div id="managedServersList" class="space-y-3">
+            <div class="text-gray-400 text-center py-8" id="emptyServerMessage">
+                <div class="text-4xl mb-4">🖥️</div>
+                <div>No servers added yet</div>
+                <div class="text-sm mt-2">Add your first server above to get started</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ CRITICAL FIX: Immediate availability functions -->
+<script>
+/**
+ * ============================================================================
+ * IMMEDIATE BUTTON HANDLERS - Always Available
+ * ============================================================================
+ * These functions are available immediately when the template loads,
+ * preventing "function not defined" errors when users click buttons.
+ */
+
+let isAddingServer = false;
+let serverOperationInProgress = false;
+
+/**
+ * ✅ MAIN FIX: Add Server button handler with comprehensive error handling
+ */
+async function handleAddServerClick() {
+    if (isAddingServer) {
+        console.log('⏳ Add server operation already in progress');
+        return;
+    }
+
+    console.log('🔄 Add Server button clicked');
+    isAddingServer = true;
+    
+    const btn = document.getElementById('addServerBtn');
+    const status = document.getElementById('addServerStatus');
+    
+    // Set loading state
+    setButtonLoadingState(btn, true, 'Adding...');
+    showStatus(status, '⏳ Processing request...', 'info');
+    
+    try {
+        // Get and validate form data
+        const formData = getServerFormData();
+        
+        if (!validateServerFormData(formData)) {
+            return; // Validation errors are shown by validateServerFormData
+        }
+        
+        // Check for existing server
+        if (await checkForDuplicateServer(formData.serverId)) {
+            throw new Error('A server with this ID already exists!');
+        }
+        
+        // Try primary function first, fallback if needed
+        let result;
+        if (typeof window.addNewServer === 'function') {
+            console.log('✅ Using primary addNewServer function');
+            await window.addNewServer();
+            result = { success: true };
+        } else {
+            console.log('⚠️ Primary function not available, using direct API call');
+            result = await directAddServerAPI(formData);
+        }
+        
+        if (result && result.success !== false) {
+            // Success
+            clearServerForm();
+            showStatus(status, '✅ Server added successfully!', 'success');
+            
+            // Refresh server list
+            await refreshServerListSafely();
+            
+            console.log('✅ Server added successfully');
+        } else {
+            throw new Error(result?.error || 'Unknown error occurred');
+        }
+        
+    } catch (error) {
+        console.error('❌ Add server error:', error);
+        showStatus(status, `❌ Error: ${error.message}`, 'error');
+    } finally {
+        // Reset button state
+        setButtonLoadingState(btn, false, 'Add Server');
+        isAddingServer = false;
+    }
+}
+
+/**
+ * ✅ DIRECT API IMPLEMENTATION: Fallback when module isn't loaded
+ */
+async function directAddServerAPI(formData) {
+    console.log('🔧 Making direct API call to add server');
+    
+    try {
+        const response = await fetch('/api/servers/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(formData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Server rejected the request');
+        }
+        
+        return result;
+        
+    } catch (error) {
+        console.error('❌ Direct API call failed:', error);
+        throw new Error(`API Error: ${error.message}`);
+    }
+}
+
+/**
+ * ✅ FORM DATA COLLECTION
+ */
+function getServerFormData() {
+    return {
+        serverId: document.getElementById('newServerId').value.trim(),
+        serverName: document.getElementById('newServerName').value.trim(),
+        serverRegion: document.getElementById('newServerRegion').value,
+        serverType: document.getElementById('newServerType').value,
+        description: document.getElementById('newServerDescription').value.trim()
+    };
+}
+
+/**
+ * ✅ FORM VALIDATION
+ */
+function validateServerFormData(data) {
+    const status = document.getElementById('addServerStatus');
+    
+    if (!data.serverId || !data.serverName) {
+        showStatus(status, '❌ Server ID and Server Name are required', 'error');
+        
+        // Focus first empty field
+        if (!data.serverId) {
+            document.getElementById('newServerId').focus();
+        } else {
+            document.getElementById('newServerName').focus();
+        }
+        
+        return false;
+    }
+    
+    if (!/^\d+$/.test(data.serverId)) {
+        showStatus(status, '❌ Server ID must be numeric', 'error');
+        document.getElementById('newServerId').focus();
+        return false;
+    }
+    
+    if (data.serverId.length < 6 || data.serverId.length > 10) {
+        showStatus(status, '❌ Server ID must be 6-10 digits', 'error');
+        document.getElementById('newServerId').focus();
+        return false;
+    }
+    
+    if (data.serverName.length < 3 || data.serverName.length > 50) {
+        showStatus(status, '❌ Server Name must be 3-50 characters', 'error');
+        document.getElementById('newServerName').focus();
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * ✅ DUPLICATE CHECK
+ */
+async function checkForDuplicateServer(serverId) {
+    try {
+        // Check global managedServers if available
+        if (window.managedServers && Array.isArray(window.managedServers)) {
+            return window.managedServers.some(server => server.serverId === serverId);
+        }
+        
+        // Fallback: Check via API
+        const response = await fetch('/api/servers', {
+            method: 'GET',
+            credentials: 'same-origin'
+        });
+        
+        if (response.ok) {
+            const servers = await response.json();
+            return servers.some(server => server.serverId === serverId);
+        }
+        
+        return false; // If we can't check, allow the attempt
+        
+    } catch (error) {
+        console.warn('⚠️ Could not check for duplicate servers:', error);
+        return false; // If we can't check, allow the attempt
+    }
+}
+
+/**
+ * ✅ CLEAR FORM HANDLER
+ */
+function handleClearFormClick() {
+    if (typeof window.clearServerForm === 'function') {
+        window.clearServerForm();
+    } else {
+        clearServerForm();
+    }
+}
+
+function clearServerForm() {
+    document.getElementById('newServerId').value = '';
+    document.getElementById('newServerName').value = '';
+    document.getElementById('newServerDescription').value = '';
+    document.getElementById('newServerRegion').value = 'US';
+    document.getElementById('newServerType').value = 'Standard';
+    
+    // Clear status messages
+    const status = document.getElementById('addServerStatus');
+    if (status) status.innerHTML = '';
+}
+
+/**
+ * ✅ REFRESH HANDLER
+ */
+async function handleRefreshClick() {
+    if (serverOperationInProgress) {
+        console.log('⏳ Server operation already in progress');
+        return;
+    }
+    
+    const btn = document.getElementById('refreshBtn');
+    const status = document.getElementById('serverListStatus');
+    
+    serverOperationInProgress = true;
+    setButtonLoadingState(btn, true, '🔄 Refreshing...');
+    showStatus(status, 'Refreshing server list...', 'info');
+    
+    try {
+        await refreshServerListSafely();
+        showStatus(status, '✅ Server list updated', 'success');
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+            if (status) status.innerHTML = '';
+        }, 3000);
+        
+    } catch (error) {
+        console.error('❌ Refresh error:', error);
+        showStatus(status, '❌ Refresh failed', 'error');
+    } finally {
+        setButtonLoadingState(btn, false, '🔄 Refresh');
+        serverOperationInProgress = false;
+    }
+}
+
+/**
+ * ✅ SAFE REFRESH FUNCTION
+ */
+async function refreshServerListSafely() {
+    console.log('🔄 Attempting to refresh server list');
+    
+    // Try available functions in order of preference
+    const refreshFunctions = [
+        'loadManagedServers',
+        'refreshServerList', 
+        'loadServerManager'
+    ];
+    
+    for (const funcName of refreshFunctions) {
+        if (typeof window[funcName] === 'function') {
+            console.log(`✅ Using ${funcName} for refresh`);
+            await window[funcName]();
+            return;
+        }
+    }
+    
+    // Fallback: Direct API refresh
+    console.log('🔧 Using direct API refresh');
+    await directRefreshServerList();
+}
+
+/**
+ * ✅ DIRECT REFRESH IMPLEMENTATION
+ */
+async function directRefreshServerList() {
+    try {
+        const response = await fetch('/api/servers', {
+            method: 'GET',
+            credentials: 'same-origin'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const servers = await response.json();
+        
+        // Update display
+        updateServerListDisplay(servers);
+        
+        // Update global variable if available
+        if (window.managedServers) {
+            window.managedServers = servers;
+        }
+        
+        console.log(`✅ Refreshed ${servers.length} servers`);
+        
+    } catch (error) {
+        console.error('❌ Direct refresh failed:', error);
+        throw error;
+    }
+}
+
+/**
+ * ✅ UPDATE SERVER LIST DISPLAY
+ */
+function updateServerListDisplay(servers) {
+    const container = document.getElementById('managedServersList');
+    const emptyMessage = document.getElementById('emptyServerMessage');
+    
+    if (!container) return;
+    
+    if (!servers || servers.length === 0) {
+        // Show empty message
+        if (emptyMessage) {
+            emptyMessage.style.display = 'block';
+        }
+        return;
+    }
+    
+    // Hide empty message
+    if (emptyMessage) {
+        emptyMessage.style.display = 'none';
+    }
+    
+    // Create server cards
+    const serverHTML = servers.map(server => `
+        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <h4 class="font-semibold text-lg">${escapeHtml(server.serverName || 'Unknown Server')}</h4>
+                    <p class="text-gray-400 text-sm">ID: ${escapeHtml(server.serverId || 'N/A')}</p>
+                    <p class="text-gray-400 text-xs">Region: ${escapeHtml(server.serverRegion || 'Unknown')} | Type: ${escapeHtml(server.serverType || 'Standard')}</p>
+                    ${server.description ? `<p class="text-gray-300 text-sm mt-1">${escapeHtml(server.description)}</p>` : ''}
                 </div>
-                
-                <!-- Server Management Section -->
-                <div class="bg-gray-800 p-6 rounded-lg">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-xl font-semibold">Managed Servers</h3>
-                        <div class="flex items-center space-x-4">
-                            <button onclick="refreshServerList()" class="bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-sm">
-                                Refresh
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Server List -->
-                    <div id="managedServersList" class="space-y-3">
-                        <div class="text-gray-400 text-center py-8">
-                            <div class="text-4xl mb-4">🖥️</div>
-                            <div>No servers added yet</div>
-                            <div class="text-sm mt-2">Add your first server above to get started</div>
-                        </div>
-                    </div>
+                <div class="flex items-center space-x-2">
+                    <span class="px-2 py-1 rounded text-xs ${getStatusClass(server.status || 'unknown')}">
+                        ${getStatusText(server.status || 'unknown')}
+                    </span>
+                    <button onclick="handleDeleteServer('${server.serverId}')" 
+                            class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs transition-colors">
+                        Delete
+                    </button>
                 </div>
             </div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = serverHTML;
+}
+
+/**
+ * ✅ DELETE SERVER HANDLER (if needed)
+ */
+async function handleDeleteServer(serverId) {
+    if (!confirm('Are you sure you want to delete this server?')) {
+        return;
+    }
+    
+    try {
+        if (typeof window.deleteServer === 'function') {
+            await window.deleteServer(serverId);
+        } else {
+            // Direct API call fallback
+            const response = await fetch(`/api/servers/delete/${serverId}`, {
+                method: 'DELETE',
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            await refreshServerListSafely();
+        }
+    } catch (error) {
+        console.error('❌ Delete server error:', error);
+        alert(`Error deleting server: ${error.message}`);
+    }
+}
+
+/**
+ * ✅ UTILITY FUNCTIONS
+ */
+function setButtonLoadingState(button, isLoading, loadingText) {
+    if (!button) return;
+    
+    if (isLoading) {
+        button.disabled = true;
+        button.textContent = loadingText;
+        button.className = button.className.replace(/bg-\w+-600/, 'bg-gray-600').replace(/hover:bg-\w+-700/, '') + ' cursor-not-allowed';
+    } else {
+        button.disabled = false;
+        button.textContent = button.id === 'addServerBtn' ? 'Add Server' : button.textContent.replace(/^🔄 /, '🔄 ');
+        // Restore original colors based on button type
+        if (button.id === 'addServerBtn') {
+            button.className = 'bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500';
+        } else if (button.id === 'refreshBtn') {
+            button.className = 'bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded text-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500';
+        }
+    }
+}
+
+function showStatus(element, message, type) {
+    if (!element) return;
+    
+    const colors = {
+        'info': 'text-blue-400',
+        'success': 'text-green-400', 
+        'error': 'text-red-400',
+        'warning': 'text-yellow-400'
+    };
+    
+    element.innerHTML = `<span class="${colors[type] || 'text-gray-400'}">${message}</span>`;
+    
+    // Auto-clear non-error messages
+    if (type !== 'error') {
+        setTimeout(() => {
+            if (element) element.innerHTML = '';
+        }, 5000);
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function getStatusClass(status) {
+    switch(status) {
+        case 'online': return 'bg-green-800 text-green-200';
+        case 'offline': return 'bg-red-800 text-red-200';
+        default: return 'bg-gray-700 text-gray-300';
+    }
+}
+
+function getStatusText(status) {
+    switch(status) {
+        case 'online': return '🟢 Online';
+        case 'offline': return '🔴 Offline';  
+        default: return '⚪ Unknown';
+    }
+}
+
+/**
+ * ✅ KEYBOARD SHORTCUTS
+ */
+document.addEventListener('keydown', function(e) {
+    // Enter key in form fields
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+        const form = e.target.closest('#server-manager-view');
+        if (form && !isAddingServer) {
+            e.preventDefault();
+            handleAddServerClick();
+        }
+    }
+    
+    // Escape key to clear form
+    if (e.key === 'Escape') {
+        const form = document.querySelector('#server-manager-view');
+        if (form && document.activeElement && form.contains(document.activeElement)) {
+            clearServerForm();
+        }
+    }
+});
+
+console.log('✅ Server Manager template loaded with immediate button handlers');
+console.log('🔧 Available functions:', {
+    handleAddServerClick: typeof handleAddServerClick,
+    handleClearFormClick: typeof handleClearFormClick,
+    handleRefreshClick: typeof handleRefreshClick,
+    directAddServerAPI: typeof directAddServerAPI
+});
+</script>
