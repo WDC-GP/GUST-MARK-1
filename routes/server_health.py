@@ -1,6 +1,6 @@
 """
-Server Health API Routes for WDC-GP/GUST-MARK-1 (WEBSOCKET SENSOR INTEGRATION)
-==============================================================================
+Server Health API Routes for WDC-GP/GUST-MARK-1 (WEBSOCKET SENSOR INTEGRATION + SERVICE ID SUPPORT)
+=================================================================================================
 ✅ NEW: WebSocket sensor data integration for real-time CPU, memory, uptime
 ✅ NEW: GraphQL ServiceSensors subscription support  
 ✅ NEW: Sensor bridge for connecting WebSocket data to health endpoints
@@ -8,6 +8,9 @@ Server Health API Routes for WDC-GP/GUST-MARK-1 (WEBSOCKET SENSOR INTEGRATION)
 ✅ NEW: Enhanced comprehensive endpoint with WebSocket priority
 ✅ ENHANCED: Intelligent fallback when WebSocket sensors unavailable
 ✅ PRESERVED: All existing functionality and fallback systems
+✅ NEW: Service ID integration for dual ID system support
+✅ NEW: Server capabilities-aware health monitoring
+✅ NEW: Enhanced error handling for servers without Service IDs
 """
 
 from flask import Blueprint, jsonify, request
@@ -34,17 +37,26 @@ try:
 except ImportError:
     LOGS_DIRECT_IMPORT = False
 
+# ✅ NEW: Import Service ID discovery for server capability detection
+try:
+    from utils.service_id_discovery import ServiceIDMapper
+    SERVICE_ID_DISCOVERY_AVAILABLE = True
+except ImportError:
+    SERVICE_ID_DISCOVERY_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Blueprint setup
 server_health_bp = Blueprint('server_health', __name__)
 _server_health_storage = None
 _websocket_sensor_bridge = None  # NEW: WebSocket sensor bridge
+_servers_storage = None  # NEW: Servers storage for capability checking
 
-def init_server_health_routes(app, db, server_health_storage):
-    """Initialize Enhanced Server Health routes with WebSocket Sensors storage"""
-    global _server_health_storage, _websocket_sensor_bridge
+def init_server_health_routes(app, db, server_health_storage, servers_storage=None):
+    """Initialize Enhanced Server Health routes with WebSocket Sensors storage and Service ID support"""
+    global _server_health_storage, _websocket_sensor_bridge, _servers_storage
     _server_health_storage = server_health_storage
+    _servers_storage = servers_storage
     
     # NEW: Initialize WebSocket sensor bridge
     _websocket_sensor_bridge = None
@@ -54,17 +66,107 @@ def init_server_health_routes(app, db, server_health_storage):
     else:
         logger.warning("[Enhanced Server Health Routes] ⚠️ No WebSocket manager available")
     
-    logger.info("[Enhanced Server Health Routes] ✅ Initialized with GraphQL WebSocket Sensors")
-    print("✅ Server Health routes initialized with real-time WebSocket sensors")
+    logger.info("[Enhanced Server Health Routes] ✅ Initialized with GraphQL WebSocket Sensors and Service ID support")
+    print("✅ Server Health routes initialized with real-time WebSocket sensors and Service ID integration")
     return server_health_bp
 
-# ===== ✅ NEW: WEBSOCKET SENSORS COMPREHENSIVE ENDPOINTS =====
+# ===== ✅ NEW: SERVICE ID AWARE HELPER FUNCTIONS =====
+
+def get_server_capabilities(server_id):
+    """
+    ✅ NEW: Get server capabilities from server storage
+    
+    Returns server configuration including Service ID status
+    """
+    try:
+        server_config = None
+        
+        # Try to get server from storage
+        if _servers_storage:
+            if hasattr(_servers_storage, 'find_one'):
+                # MongoDB-style access
+                server_config = _servers_storage.find_one({'serverId': server_id})
+            elif isinstance(_servers_storage, list):
+                # List-style access
+                server_config = next((s for s in _servers_storage if s.get('serverId') == server_id), None)
+        
+        if server_config:
+            return {
+                'has_service_id': server_config.get('serviceId') is not None,
+                'service_id': server_config.get('serviceId'),
+                'capabilities': server_config.get('capabilities', {}),
+                'discovery_status': server_config.get('discovery_status', 'unknown'),
+                'server_region': server_config.get('serverRegion', 'US'),
+                'server_name': server_config.get('serverName', 'Unknown')
+            }
+        else:
+            # Server not found in storage - return minimal capabilities
+            return {
+                'has_service_id': False,
+                'service_id': None,
+                'capabilities': {
+                    'health_monitoring': True,
+                    'sensor_data': True,
+                    'command_execution': False,
+                    'websocket_support': True
+                },
+                'discovery_status': 'not_in_storage',
+                'server_region': 'US',
+                'server_name': 'Unknown'
+            }
+            
+    except Exception as e:
+        logger.error(f"[Service ID Helper] Error getting server capabilities: {e}")
+        return {
+            'has_service_id': False,
+            'service_id': None,
+            'capabilities': {},
+            'discovery_status': 'error',
+            'server_region': 'US',
+            'server_name': 'Unknown'
+        }
+
+def get_id_for_operation(server_id, operation_type):
+    """
+    ✅ NEW: Get appropriate ID for specific operations
+    
+    Args:
+        server_id (str): The base server ID
+        operation_type (str): 'sensor', 'command', 'health', 'websocket'
+        
+    Returns:
+        tuple: (id_to_use, id_type, available)
+    """
+    try:
+        server_capabilities = get_server_capabilities(server_id)
+        
+        # Define which operations need which IDs
+        if operation_type in ['sensor', 'health', 'websocket']:
+            # These operations use Server ID
+            return server_id, 'server_id', True
+            
+        elif operation_type == 'command':
+            # Commands need Service ID
+            if server_capabilities['has_service_id']:
+                return server_capabilities['service_id'], 'service_id', True
+            else:
+                return server_id, 'server_id', False  # Not available for commands
+                
+        else:
+            # Default to Server ID
+            return server_id, 'server_id', True
+            
+    except Exception as e:
+        logger.error(f"[ID Selection] Error getting ID for operation {operation_type}: {e}")
+        return server_id, 'server_id', False
+
+# ===== ✅ ENHANCED: WEBSOCKET SENSORS COMPREHENSIVE ENDPOINTS WITH SERVICE ID SUPPORT =====
 
 @server_health_bp.route('/api/server_health/comprehensive/<server_id>')
 @require_auth
 def get_comprehensive_health(server_id):
     """
-    ✅ ENHANCED: Comprehensive health endpoint with WebSocket sensor priority
+    ✅ ENHANCED: Comprehensive health endpoint with WebSocket sensor priority and Service ID support
     
     Data source priority:
     1. WebSocket real-time sensors (highest quality)
@@ -72,17 +174,24 @@ def get_comprehensive_health(server_id):
     3. Advanced fallback systems
     """
     try:
-        logger.info(f"[Comprehensive API] Getting health for {server_id} with WebSocket sensors")
+        logger.info(f"[Comprehensive API] Getting health for {server_id} with WebSocket sensors and Service ID support")
+        
+        # ✅ NEW: Get server capabilities first
+        server_capabilities = get_server_capabilities(server_id)
         
         # Priority 1: Try WebSocket sensor data (HIGHEST QUALITY)
         if _websocket_sensor_bridge:
             try:
-                websocket_result = _websocket_sensor_bridge.get_comprehensive_health_data(server_id)
+                # Use Server ID for sensors (always available)
+                sensor_id, id_type, available = get_id_for_operation(server_id, 'sensor')
+                
+                websocket_result = _websocket_sensor_bridge.get_comprehensive_health_data(sensor_id)
                 
                 if websocket_result and websocket_result.get('success'):
-                    logger.info(f"[Comprehensive API] ✅ WebSocket SUCCESS for {server_id}")
+                    logger.info(f"[Comprehensive API] ✅ WebSocket SUCCESS for {server_id} using {id_type}")
                     
-                    return jsonify({
+                    # ✅ ENHANCED: Include Service ID information in response
+                    response_data = {
                         'success': True,
                         'server_id': server_id,
                         'data': {
@@ -97,8 +206,18 @@ def get_comprehensive_health(server_id):
                         'real_memory_data': True,
                         'real_uptime_data': True,
                         'source_info': websocket_result.get('source_info', {}),
-                        'websocket_enabled': True
-                    })
+                        'websocket_enabled': True,
+                        # ✅ NEW: Service ID information
+                        'service_id_info': {
+                            'has_service_id': server_capabilities['has_service_id'],
+                            'service_id': server_capabilities['service_id'],
+                            'command_execution_available': server_capabilities['has_service_id'],
+                            'discovery_status': server_capabilities['discovery_status']
+                        },
+                        'capabilities': server_capabilities['capabilities']
+                    }
+                    
+                    return jsonify(response_data)
                     
             except Exception as websocket_error:
                 logger.warning(f"[Comprehensive API] WebSocket failed for {server_id}: {websocket_error}")
@@ -111,15 +230,26 @@ def get_comprehensive_health(server_id):
                     
                     if storage_result and storage_result.get('success'):
                         logger.info(f"[Comprehensive API] ✅ Storage SUCCESS for {server_id}")
-                        return jsonify({
+                        
+                        # ✅ ENHANCED: Include Service ID information
+                        response_data = {
                             'success': True,
                             'server_id': server_id,
                             'data': storage_result,
                             'data_quality': 'high',
                             'real_cpu_data': False,
                             'real_memory_data': False,
-                            'websocket_enabled': False
-                        })
+                            'websocket_enabled': False,
+                            'service_id_info': {
+                                'has_service_id': server_capabilities['has_service_id'],
+                                'service_id': server_capabilities['service_id'],
+                                'command_execution_available': server_capabilities['has_service_id'],
+                                'discovery_status': server_capabilities['discovery_status']
+                            },
+                            'capabilities': server_capabilities['capabilities']
+                        }
+                        
+                        return jsonify(response_data)
                         
             except Exception as storage_error:
                 logger.warning(f"[Comprehensive API] Storage failed for {server_id}: {storage_error}")
@@ -128,7 +258,8 @@ def get_comprehensive_health(server_id):
         logger.warning(f"[Comprehensive API] Using advanced fallback for {server_id}")
         fallback_result = get_advanced_fallback_health(server_id)
         
-        return jsonify({
+        # ✅ ENHANCED: Include Service ID information in fallback
+        response_data = {
             'success': True,
             'server_id': server_id,
             'data': fallback_result,
@@ -136,14 +267,29 @@ def get_comprehensive_health(server_id):
             'real_cpu_data': False,
             'real_memory_data': False,
             'websocket_enabled': False,
-            'fallback_reason': 'websocket_and_storage_unavailable'
-        })
+            'fallback_reason': 'websocket_and_storage_unavailable',
+            'service_id_info': {
+                'has_service_id': server_capabilities['has_service_id'],
+                'service_id': server_capabilities['service_id'],
+                'command_execution_available': server_capabilities['has_service_id'],
+                'discovery_status': server_capabilities['discovery_status']
+            },
+            'capabilities': server_capabilities['capabilities']
+        }
+        
+        return jsonify(response_data)
         
     except Exception as e:
         logger.error(f"[Comprehensive API] Critical error for {server_id}: {e}")
         
         # Emergency fallback
         emergency_health = get_emergency_health_fallback(server_id)
+        
+        # ✅ ENHANCED: Include minimal Service ID information in emergency fallback
+        try:
+            server_capabilities = get_server_capabilities(server_id)
+        except:
+            server_capabilities = {'has_service_id': False, 'service_id': None, 'capabilities': {}, 'discovery_status': 'error'}
         
         return jsonify({
             'success': True,
@@ -154,15 +300,25 @@ def get_comprehensive_health(server_id):
             'real_memory_data': False,
             'websocket_enabled': False,
             'emergency_fallback': True,
-            'error': str(e)
+            'error': str(e),
+            'service_id_info': {
+                'has_service_id': server_capabilities['has_service_id'],
+                'service_id': server_capabilities['service_id'],
+                'command_execution_available': server_capabilities['has_service_id'],
+                'discovery_status': server_capabilities['discovery_status']
+            },
+            'capabilities': server_capabilities.get('capabilities', {})
         })
 
 @server_health_bp.route('/api/server_health/test/websocket/<server_id>')
 @require_auth
 def test_websocket_sensors(server_id):
-    """✅ NEW: Test WebSocket sensor data retrieval"""
+    """✅ ENHANCED: Test WebSocket sensor data retrieval with Service ID awareness"""
     try:
         logger.info(f"[WebSocket Test] Testing sensor data for {server_id}")
+        
+        # ✅ NEW: Get server capabilities
+        server_capabilities = get_server_capabilities(server_id)
         
         if not _websocket_sensor_bridge:
             return jsonify({
@@ -173,10 +329,15 @@ def test_websocket_sensors(server_id):
                 'available_systems': {
                     'websocket_manager': False,
                     'sensor_bridge': False
+                },
+                'service_id_info': {
+                    'has_service_id': server_capabilities['has_service_id'],
+                    'service_id': server_capabilities['service_id'],
+                    'discovery_status': server_capabilities['discovery_status']
                 }
             }), 503
         
-        # Get sensor data
+        # Get sensor data using Server ID (sensors always use Server ID)
         sensor_data = _websocket_sensor_bridge.get_real_sensor_data(server_id)
         
         if sensor_data:
@@ -189,7 +350,14 @@ def test_websocket_sensors(server_id):
                 'sensor_data': sensor_data,
                 'test_timestamp': datetime.utcnow().isoformat(),
                 'data_quality': 'real_time',
-                'websocket_status': 'connected'
+                'websocket_status': 'connected',
+                'service_id_info': {
+                    'has_service_id': server_capabilities['has_service_id'],
+                    'service_id': server_capabilities['service_id'],
+                    'command_execution_available': server_capabilities['has_service_id'],
+                    'discovery_status': server_capabilities['discovery_status'],
+                    'note': 'Sensor data uses Server ID regardless of Service ID availability'
+                }
             })
         else:
             logger.warning(f"[WebSocket Test] ❌ No sensor data for {server_id}")
@@ -204,7 +372,12 @@ def test_websocket_sensors(server_id):
                     'Sensor subscription not active',
                     'Sensor data is stale',
                     'Server ID not found'
-                ]
+                ],
+                'service_id_info': {
+                    'has_service_id': server_capabilities['has_service_id'],
+                    'service_id': server_capabilities['service_id'],
+                    'discovery_status': server_capabilities['discovery_status']
+                }
             }), 404
             
     except Exception as e:
@@ -216,25 +389,241 @@ def test_websocket_sensors(server_id):
             'test_timestamp': datetime.utcnow().isoformat()
         }), 500
 
+# ===== ✅ NEW: SERVICE ID DISCOVERY ENDPOINTS =====
+
+@server_health_bp.route('/api/server_health/service-id/discover/<server_id>', methods=['POST'])
+@require_auth
+def discover_service_id_for_health(server_id):
+    """
+    ✅ NEW: Discover Service ID for health monitoring integration
+    """
+    try:
+        if not SERVICE_ID_DISCOVERY_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'server_id': server_id,
+                'error': 'Service ID discovery system not available',
+                'recommendation': 'Install Service ID discovery module for enhanced functionality'
+            }), 503
+        
+        data = request.json or {}
+        region = data.get('region', 'US')
+        
+        logger.info(f"[Health Service ID] Discovering Service ID for {server_id} in region {region}")
+        
+        # Perform discovery
+        mapper = ServiceIDMapper()
+        success, service_id, error = mapper.get_service_id_from_server_id(server_id, region)
+        
+        if success and service_id:
+            # Update server capabilities if we have storage access
+            if _servers_storage:
+                try:
+                    update_data = {
+                        'serviceId': service_id,
+                        'discovery_status': 'success',
+                        'discovery_message': f'Discovered via health monitoring: {service_id}',
+                        'discovery_timestamp': datetime.now().isoformat(),
+                        'capabilities.command_execution': True,
+                        'last_updated': datetime.now().isoformat()
+                    }
+                    
+                    if hasattr(_servers_storage, 'update_one'):
+                        # MongoDB-style
+                        _servers_storage.update_one(
+                            {'serverId': server_id},
+                            {'$set': update_data}
+                        )
+                    elif isinstance(_servers_storage, list):
+                        # List-style
+                        server = next((s for s in _servers_storage if s.get('serverId') == server_id), None)
+                        if server:
+                            server.update(update_data)
+                            if 'capabilities' not in server:
+                                server['capabilities'] = {}
+                            server['capabilities']['command_execution'] = True
+                    
+                    logger.info(f"[Health Service ID] ✅ Updated server storage with Service ID {service_id}")
+                    
+                except Exception as update_error:
+                    logger.warning(f"[Health Service ID] Could not update server storage: {update_error}")
+            
+            return jsonify({
+                'success': True,
+                'server_id': server_id,
+                'service_id': service_id,
+                'message': f'Service ID discovered: {service_id}',
+                'enhanced_capabilities': {
+                    'command_execution': True,
+                    'full_functionality': True
+                },
+                'discovery_method': 'health_system_integration',
+                'timestamp': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'server_id': server_id,
+                'error': error or 'Service ID discovery failed',
+                'recommendation': 'Check server ID and region, ensure server exists in G-Portal',
+                'discovery_method': 'health_system_integration',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+    except Exception as e:
+        logger.error(f"[Health Service ID] Discovery error: {e}")
+        return jsonify({
+            'success': False,
+            'server_id': server_id,
+            'error': f'Discovery failed: {str(e)}',
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+@server_health_bp.route('/api/server_health/capabilities/<server_id>')
+@require_auth
+def get_server_health_capabilities(server_id):
+    """
+    ✅ NEW: Get server capabilities from health monitoring perspective
+    """
+    try:
+        logger.info(f"[Health Capabilities] Getting capabilities for {server_id}")
+        
+        server_capabilities = get_server_capabilities(server_id)
+        
+        # Determine available monitoring methods
+        monitoring_methods = {
+            'websocket_sensors': _websocket_sensor_bridge is not None,
+            'storage_system': _server_health_storage is not None,
+            'player_count_integration': LOGS_DIRECT_IMPORT,
+            'health_check_integration': HEALTH_CHECK_AVAILABLE,
+            'fallback_generation': True
+        }
+        
+        # Calculate data quality levels available
+        data_quality_levels = []
+        if monitoring_methods['websocket_sensors']:
+            data_quality_levels.append('highest')
+        if monitoring_methods['storage_system']:
+            data_quality_levels.append('high')
+        if monitoring_methods['player_count_integration']:
+            data_quality_levels.append('medium')
+        data_quality_levels.append('low')  # Fallback always available
+        
+        return jsonify({
+            'success': True,
+            'server_id': server_id,
+            'server_info': {
+                'name': server_capabilities['server_name'],
+                'region': server_capabilities['server_region'],
+                'has_service_id': server_capabilities['has_service_id'],
+                'service_id': server_capabilities['service_id'],
+                'discovery_status': server_capabilities['discovery_status']
+            },
+            'capabilities': server_capabilities['capabilities'],
+            'monitoring_methods': monitoring_methods,
+            'data_quality_levels': data_quality_levels,
+            'service_id_discovery_available': SERVICE_ID_DISCOVERY_AVAILABLE,
+            'recommendations': get_capability_recommendations(server_capabilities, monitoring_methods),
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"[Health Capabilities] Error getting capabilities: {e}")
+        return jsonify({
+            'success': False,
+            'server_id': server_id,
+            'error': f'Failed to get capabilities: {str(e)}',
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+def get_capability_recommendations(server_capabilities, monitoring_methods):
+    """
+    ✅ NEW: Generate recommendations for improving server capabilities
+    """
+    recommendations = []
+    
+    # Service ID recommendations
+    if not server_capabilities['has_service_id']:
+        if SERVICE_ID_DISCOVERY_AVAILABLE:
+            recommendations.append({
+                'type': 'service_id',
+                'priority': 'high',
+                'message': 'Discover Service ID to enable command execution',
+                'action': 'Use discovery endpoint to automatically find Service ID'
+            })
+        else:
+            recommendations.append({
+                'type': 'service_id',
+                'priority': 'medium',
+                'message': 'Install Service ID discovery module for enhanced functionality',
+                'action': 'Enable Service ID discovery system'
+            })
+    
+    # WebSocket recommendations
+    if not monitoring_methods['websocket_sensors']:
+        recommendations.append({
+            'type': 'websocket',
+            'priority': 'medium',
+            'message': 'Enable WebSocket sensors for real-time health data',
+            'action': 'Configure WebSocket manager for highest quality monitoring'
+        })
+    
+    # Storage system recommendations
+    if not monitoring_methods['storage_system']:
+        recommendations.append({
+            'type': 'storage',
+            'priority': 'low',
+            'message': 'Configure storage system for enhanced data persistence',
+            'action': 'Enable health data storage for trend analysis'
+        })
+    
+    return recommendations
+
 @server_health_bp.route('/api/server_health/websocket/status')
 @require_auth
 def get_websocket_status():
-    """Get overall WebSocket system status"""
+    """✅ ENHANCED: Get overall WebSocket system status with Service ID support"""
     try:
         if not _websocket_sensor_bridge:
             return jsonify({
                 'success': False,
                 'websocket_available': False,
-                'error': 'WebSocket sensor bridge not initialized'
+                'error': 'WebSocket sensor bridge not initialized',
+                'service_id_integration': False
             })
         
         # Get statistics
         stats = _websocket_sensor_bridge.get_sensor_statistics()
         
+        # ✅ NEW: Add Service ID integration status
+        service_id_stats = {
+            'discovery_available': SERVICE_ID_DISCOVERY_AVAILABLE,
+            'servers_with_service_id': 0,
+            'total_servers': 0
+        }
+        
+        # Count servers with Service IDs if storage available
+        if _servers_storage:
+            try:
+                if hasattr(_servers_storage, 'count_documents'):
+                    service_id_stats['total_servers'] = _servers_storage.count_documents({})
+                    service_id_stats['servers_with_service_id'] = _servers_storage.count_documents({
+                        'serviceId': {'$exists': True, '$ne': None}
+                    })
+                elif isinstance(_servers_storage, list):
+                    service_id_stats['total_servers'] = len(_servers_storage)
+                    service_id_stats['servers_with_service_id'] = len([
+                        s for s in _servers_storage if s.get('serviceId')
+                    ])
+            except Exception as count_error:
+                logger.debug(f"[WebSocket Status] Could not count Service IDs: {count_error}")
+        
         return jsonify({
             'success': True,
             'websocket_available': True,
             'statistics': stats,
+            'service_id_integration': service_id_stats,
+            'dual_id_support': True,
             'timestamp': datetime.utcnow().isoformat()
         })
         
@@ -245,19 +634,22 @@ def get_websocket_status():
             'timestamp': datetime.utcnow().isoformat()
         }), 500
 
-# ===== ✅ ENHANCED: EXISTING ENDPOINTS WITH WEBSOCKET PRIORITY =====
+# ===== ✅ ENHANCED: EXISTING ENDPOINTS WITH WEBSOCKET PRIORITY AND SERVICE ID SUPPORT =====
 
 @server_health_bp.route('/api/server_health/status/<server_id>')
 @require_auth
 def get_health_status(server_id):
     """
-    ✅ ENHANCED: Health status endpoint now uses WebSocket data as priority
+    ✅ ENHANCED: Health status endpoint with WebSocket data priority and Service ID support
     
     This endpoint has been enhanced to prioritize WebSocket sensor data
-    while maintaining backward compatibility.
+    while maintaining backward compatibility and Service ID awareness.
     """
     try:
-        logger.info(f"[Enhanced Health API] Getting status for {server_id} with WebSocket sensors priority")
+        logger.info(f"[Enhanced Health API] Getting status for {server_id} with WebSocket sensors priority and Service ID support")
+        
+        # ✅ NEW: Get server capabilities
+        server_capabilities = get_server_capabilities(server_id)
         
         # Priority 1: Try WebSocket sensor data (HIGHEST QUALITY)
         if _websocket_sensor_bridge:
@@ -267,7 +659,7 @@ def get_health_status(server_id):
                 if websocket_result and websocket_result.get('success'):
                     logger.info(f"[Enhanced Health API] ✅ WebSocket SUCCESS for {server_id}")
                     
-                    # Return in the expected format for backward compatibility
+                    # ✅ ENHANCED: Return with Service ID information for backward compatibility
                     return jsonify({
                         'success': True,
                         'overall_status': websocket_result['status'],
@@ -282,7 +674,15 @@ def get_health_status(server_id):
                         },
                         'server_id': server_id,
                         'source_info': websocket_result.get('source_info', {}),
-                        'enhanced': True  # Indicator that this is using enhanced system
+                        'enhanced': True,  # Indicator that this is using enhanced system
+                        # ✅ NEW: Service ID information
+                        'service_id_info': {
+                            'has_service_id': server_capabilities['has_service_id'],
+                            'service_id': server_capabilities['service_id'],
+                            'command_execution_available': server_capabilities['has_service_id'],
+                            'discovery_status': server_capabilities['discovery_status']
+                        },
+                        'capabilities': server_capabilities['capabilities']
                     })
                     
             except Exception as websocket_error:
@@ -308,7 +708,14 @@ def get_health_status(server_id):
                             },
                             'server_id': server_id,
                             'source_info': storage_result.get('source_info', {}),
-                            'enhanced': False
+                            'enhanced': False,
+                            'service_id_info': {
+                                'has_service_id': server_capabilities['has_service_id'],
+                                'service_id': server_capabilities['service_id'],
+                                'command_execution_available': server_capabilities['has_service_id'],
+                                'discovery_status': server_capabilities['discovery_status']
+                            },
+                            'capabilities': server_capabilities['capabilities']
                         })
                 
                 # Fallback to existing storage system
@@ -329,7 +736,14 @@ def get_health_status(server_id):
                         },
                         'server_id': server_id,
                         'source_info': health_result.get('source_info', {}),
-                        'enhanced': False
+                        'enhanced': False,
+                        'service_id_info': {
+                            'has_service_id': server_capabilities['has_service_id'],
+                            'service_id': server_capabilities['service_id'],
+                            'command_execution_available': server_capabilities['has_service_id'],
+                            'discovery_status': server_capabilities['discovery_status']
+                        },
+                        'capabilities': server_capabilities['capabilities']
                     })
                         
             except Exception as storage_error:
@@ -351,7 +765,14 @@ def get_health_status(server_id):
             },
             'server_id': server_id,
             'fallback_reason': 'storage_system_unavailable',
-            'enhanced': False
+            'enhanced': False,
+            'service_id_info': {
+                'has_service_id': server_capabilities['has_service_id'],
+                'service_id': server_capabilities['service_id'],
+                'command_execution_available': server_capabilities['has_service_id'],
+                'discovery_status': server_capabilities['discovery_status']
+            },
+            'capabilities': server_capabilities['capabilities']
         })
         
     except Exception as e:
@@ -359,6 +780,17 @@ def get_health_status(server_id):
         
         # Emergency fallback
         emergency_fallback = get_emergency_health_fallback(server_id)
+        
+        # ✅ NEW: Get minimal capabilities for emergency fallback
+        try:
+            server_capabilities = get_server_capabilities(server_id)
+        except:
+            server_capabilities = {
+                'has_service_id': False,
+                'service_id': None,
+                'capabilities': {},
+                'discovery_status': 'error'
+            }
         
         return jsonify({
             'success': True,
@@ -373,17 +805,27 @@ def get_health_status(server_id):
             'server_id': server_id,
             'emergency_fallback': True,
             'error': str(e),
-            'enhanced': False
+            'enhanced': False,
+            'service_id_info': {
+                'has_service_id': server_capabilities['has_service_id'],
+                'service_id': server_capabilities['service_id'],
+                'command_execution_available': server_capabilities['has_service_id'],
+                'discovery_status': server_capabilities['discovery_status']
+            },
+            'capabilities': server_capabilities.get('capabilities', {})
         })
 
 @server_health_bp.route('/api/server_health/trends/<server_id>')
 @require_auth
 def get_performance_trends(server_id):
     """
-    ✅ ENHANCED: API for performance trends with WebSocket data integration
+    ✅ ENHANCED: API for performance trends with WebSocket data integration and Service ID support
     """
     try:
-        logger.info(f"[Enhanced Health API] Getting performance trends for server {server_id} with WebSocket integration")
+        logger.info(f"[Enhanced Health API] Getting performance trends for server {server_id} with WebSocket integration and Service ID support")
+        
+        # ✅ NEW: Get server capabilities
+        server_capabilities = get_server_capabilities(server_id)
         
         # ✅ ENHANCED: Use enhanced storage system for trends with WebSocket integration
         if _server_health_storage:
@@ -399,7 +841,12 @@ def get_performance_trends(server_id):
                         'server_id': server_id,
                         'data_source': trends_result['data_source'],
                         'data_quality': trends_result.get('data_quality', 'unknown'),
-                        'calculated_at': trends_result['calculated_at']
+                        'calculated_at': trends_result['calculated_at'],
+                        'service_id_info': {
+                            'has_service_id': server_capabilities['has_service_id'],
+                            'service_id': server_capabilities['service_id'],
+                            'discovery_status': server_capabilities['discovery_status']
+                        }
                     })
                 
             except Exception as storage_error:
@@ -416,7 +863,12 @@ def get_performance_trends(server_id):
             'data_source': 'advanced_trends_fallback',
             'data_quality': 'synthetic',
             'calculated_at': datetime.utcnow().isoformat(),
-            'fallback_reason': 'storage_system_unavailable'
+            'fallback_reason': 'storage_system_unavailable',
+            'service_id_info': {
+                'has_service_id': server_capabilities['has_service_id'],
+                'service_id': server_capabilities['service_id'],
+                'discovery_status': server_capabilities['discovery_status']
+            }
         })
         
     except Exception as e:
@@ -440,11 +892,14 @@ def get_performance_trends(server_id):
 @require_auth
 def get_chart_data(server_id):
     """
-    ✅ ENHANCED: API for left side performance charts with WebSocket integration
+    ✅ ENHANCED: API for left side performance charts with WebSocket integration and Service ID support
     """
     try:
         hours = int(request.args.get('hours', 2))
-        logger.info(f"[Enhanced Health API] Generating charts for {server_id} ({hours}h) with WebSocket integration")
+        logger.info(f"[Enhanced Health API] Generating charts for {server_id} ({hours}h) with WebSocket integration and Service ID support")
+        
+        # ✅ NEW: Get server capabilities
+        server_capabilities = get_server_capabilities(server_id)
         
         # ✅ ENHANCED: Use enhanced storage system for chart data with WebSocket fallbacks
         if _server_health_storage:
@@ -462,7 +917,12 @@ def get_chart_data(server_id):
                         'data_source': chart_result['data_source'],
                         'data_quality': chart_result.get('data_quality', 'unknown'),
                         'data_points': chart_result.get('data_points', 0),
-                        'time_range_hours': hours
+                        'time_range_hours': hours,
+                        'service_id_info': {
+                            'has_service_id': server_capabilities['has_service_id'],
+                            'service_id': server_capabilities['service_id'],
+                            'discovery_status': server_capabilities['discovery_status']
+                        }
                     })
                 
             except Exception as storage_error:
@@ -480,7 +940,12 @@ def get_chart_data(server_id):
             'data_quality': 'synthetic',
             'data_points': fallback_charts.get('data_points', 0),
             'time_range_hours': hours,
-            'fallback_reason': 'storage_system_unavailable'
+            'fallback_reason': 'storage_system_unavailable',
+            'service_id_info': {
+                'has_service_id': server_capabilities['has_service_id'],
+                'service_id': server_capabilities['service_id'],
+                'discovery_status': server_capabilities['discovery_status']
+            }
         })
         
     except Exception as e:
@@ -505,10 +970,13 @@ def get_chart_data(server_id):
 @require_auth
 def get_command_history(server_id):
     """
-    ✅ ENHANCED: API for right column command feed with fallback generation
+    ✅ ENHANCED: API for right column command feed with fallback generation and Service ID support
     """
     try:
-        logger.info(f"[Enhanced Health API] Getting command history for {server_id} with fallback generation")
+        logger.info(f"[Enhanced Health API] Getting command history for {server_id} with fallback generation and Service ID support")
+        
+        # ✅ NEW: Get server capabilities
+        server_capabilities = get_server_capabilities(server_id)
         
         # ✅ ENHANCED: Use enhanced storage system for command history with fallbacks
         if _server_health_storage:
@@ -525,7 +993,14 @@ def get_command_history(server_id):
                         'total': commands_result['total'],
                         'server_id': server_id,
                         'data_source': commands_result['data_source'],
-                        'data_quality': commands_result['data_quality']
+                        'data_quality': commands_result['data_quality'],
+                        'service_id_info': {
+                            'has_service_id': server_capabilities['has_service_id'],
+                            'service_id': server_capabilities['service_id'],
+                            'command_execution_available': server_capabilities['has_service_id'],
+                            'discovery_status': server_capabilities['discovery_status'],
+                            'note': 'Command execution requires Service ID' if not server_capabilities['has_service_id'] else 'Command execution available'
+                        }
                     })
                 
             except Exception as storage_error:
@@ -542,7 +1017,13 @@ def get_command_history(server_id):
             'server_id': server_id,
             'data_source': 'advanced_command_fallback',
             'data_quality': 'synthetic',
-            'fallback_reason': 'storage_system_unavailable'
+            'fallback_reason': 'storage_system_unavailable',
+            'service_id_info': {
+                'has_service_id': server_capabilities['has_service_id'],
+                'service_id': server_capabilities['service_id'],
+                'command_execution_available': server_capabilities['has_service_id'],
+                'discovery_status': server_capabilities['discovery_status']
+            }
         })
         
     except Exception as e:
@@ -562,13 +1043,13 @@ def get_command_history(server_id):
             'error': str(e)
         })
 
-# ===== ✅ ENHANCED: HEARTBEAT WITH WEBSOCKET STATUS =====
+# ===== ✅ ENHANCED: HEARTBEAT WITH WEBSOCKET STATUS AND SERVICE ID SUPPORT =====
 
 @server_health_bp.route('/api/server_health/heartbeat')
 @require_auth
 def get_heartbeat():
     """
-    ✅ ENHANCED: System heartbeat with WebSocket Sensors status
+    ✅ ENHANCED: System heartbeat with WebSocket Sensors status and Service ID support
     """
     try:
         system_health = None
@@ -589,6 +1070,36 @@ def get_heartbeat():
                 logger.error(f"[Enhanced Health API] System health error: {health_error}")
                 system_health = None
         
+        # ✅ NEW: Service ID system status
+        service_id_system = {
+            'discovery_available': SERVICE_ID_DISCOVERY_AVAILABLE,
+            'status': 'operational' if SERVICE_ID_DISCOVERY_AVAILABLE else 'unavailable'
+        }
+        
+        # Count servers with/without Service IDs if storage available
+        if _servers_storage:
+            try:
+                if hasattr(_servers_storage, 'count_documents'):
+                    service_id_system['total_servers'] = _servers_storage.count_documents({})
+                    service_id_system['servers_with_service_id'] = _servers_storage.count_documents({
+                        'serviceId': {'$exists': True, '$ne': None}
+                    })
+                elif isinstance(_servers_storage, list):
+                    service_id_system['total_servers'] = len(_servers_storage)
+                    service_id_system['servers_with_service_id'] = len([
+                        s for s in _servers_storage if s.get('serviceId')
+                    ])
+                    
+                if service_id_system['total_servers'] > 0:
+                    service_id_system['coverage_percentage'] = round(
+                        (service_id_system['servers_with_service_id'] / service_id_system['total_servers']) * 100, 1
+                    )
+                else:
+                    service_id_system['coverage_percentage'] = 0
+                    
+            except Exception as count_error:
+                logger.debug(f"[Heartbeat] Could not count Service IDs: {count_error}")
+        
         # Enhanced heartbeat data
         heartbeat_data = {
             'success': True,
@@ -597,10 +1108,12 @@ def get_heartbeat():
             'storage_available': storage_available,
             'log_parsing_enabled': storage_available,
             'websocket_sensors_available': websocket_sensors_available,  # ✅ NEW
+            'service_id_system': service_id_system,  # ✅ NEW
             'fallback_systems': {
                 'health_check_available': HEALTH_CHECK_AVAILABLE,
                 'player_data_integration': LOGS_DIRECT_IMPORT,
                 'websocket_sensors': websocket_sensors_available,  # ✅ NEW
+                'service_id_discovery': SERVICE_ID_DISCOVERY_AVAILABLE,  # ✅ NEW
                 'synthetic_generation': True,
                 'emergency_fallbacks': True
             },
@@ -610,6 +1123,7 @@ def get_heartbeat():
                 'trend_analysis': 'operational',
                 'command_tracking': 'operational' if storage_available else 'fallback_mode',
                 'websocket_sensors': sensors_status,  # ✅ NEW
+                'service_id_discovery': service_id_system['status'],  # ✅ NEW
                 'comprehensive_health': 'operational' if websocket_sensors_available else 'fallback_mode'  # ✅ NEW
             },
             'data_quality_available': {
@@ -617,6 +1131,17 @@ def get_heartbeat():
                 'high': storage_available,  # Logs only
                 'medium': LOGS_DIRECT_IMPORT,  # Player data integration
                 'low': True  # Synthetic generation always available
+            },
+            'dual_id_support': True,  # ✅ NEW
+            'integration_status': {
+                'websocket_health_monitoring': websocket_sensors_available,
+                'service_id_auto_discovery': SERVICE_ID_DISCOVERY_AVAILABLE,
+                'dual_id_system': True,
+                'command_execution_ready': SERVICE_ID_DISCOVERY_AVAILABLE or (
+                    _servers_storage and any(
+                        s.get('serviceId') for s in (_servers_storage if isinstance(_servers_storage, list) else [])
+                    )
+                )
             }
         }
         
@@ -635,7 +1160,7 @@ def get_heartbeat():
 @require_auth
 def get_system_status():
     """
-    ✅ ENHANCED: Comprehensive system status endpoint with WebSocket Sensors
+    ✅ ENHANCED: Comprehensive system status endpoint with WebSocket Sensors and Service ID support
     """
     try:
         # Check WebSocket Sensors availability
@@ -657,6 +1182,11 @@ def get_system_status():
                     'status': 'operational' if websocket_sensors_available else 'unavailable',
                     'features': ['real_cpu_data', 'real_memory_data', 'real_uptime'] if websocket_sensors_available else []
                 },
+                'service_id_discovery': {  # ✅ NEW
+                    'available': SERVICE_ID_DISCOVERY_AVAILABLE,
+                    'status': 'operational' if SERVICE_ID_DISCOVERY_AVAILABLE else 'unavailable',
+                    'features': ['auto_discovery', 'manual_discovery', 'bulk_discovery'] if SERVICE_ID_DISCOVERY_AVAILABLE else []
+                },
                 'optimization_health_check': {
                     'available': HEALTH_CHECK_AVAILABLE,
                     'status': 'operational' if HEALTH_CHECK_AVAILABLE else 'unavailable',
@@ -675,6 +1205,7 @@ def get_system_status():
             },
             'data_sources': {
                 'websocket_sensors': 'available' if websocket_sensors_available else 'unavailable',  # ✅ NEW
+                'service_id_discovery': 'available' if SERVICE_ID_DISCOVERY_AVAILABLE else 'unavailable',  # ✅ NEW
                 'real_logs': 'available' if _server_health_storage else 'checking',
                 'storage_system': 'available' if _server_health_storage else 'unavailable',
                 'player_integration': 'available' if LOGS_DIRECT_IMPORT else 'unavailable',
@@ -685,7 +1216,15 @@ def get_system_status():
                 'multi_source_enabled': True,
                 'intelligent_synthesis': True,
                 'graceful_degradation': True,
-                'websocket_integration': websocket_sensors_available  # ✅ NEW
+                'websocket_integration': websocket_sensors_available,  # ✅ NEW
+                'dual_id_system': True,  # ✅ NEW
+                'service_id_discovery': SERVICE_ID_DISCOVERY_AVAILABLE  # ✅ NEW
+            },
+            'dual_id_capabilities': {  # ✅ NEW
+                'server_id_usage': ['health_monitoring', 'sensor_data', 'websocket_connections'],
+                'service_id_usage': ['command_execution', 'console_operations'],
+                'auto_discovery': SERVICE_ID_DISCOVERY_AVAILABLE,
+                'manual_discovery': SERVICE_ID_DISCOVERY_AVAILABLE
             }
         }
         
@@ -699,12 +1238,12 @@ def get_system_status():
             'timestamp': datetime.utcnow().isoformat()
         }), 500
 
-# ===== ✅ ENHANCED: COMMAND TRACKING WITH VALIDATION =====
+# ===== ✅ ENHANCED: COMMAND TRACKING WITH VALIDATION AND SERVICE ID SUPPORT =====
 
 @server_health_bp.route('/api/server_health/command/track', methods=['POST'])
 @require_auth
 def track_command_execution():
-    """✅ ENHANCED: Track command execution with enhanced validation"""
+    """✅ ENHANCED: Track command execution with enhanced validation and Service ID support"""
     try:
         data = request.get_json()
         
@@ -719,6 +1258,13 @@ def track_command_execution():
         
         if not server_id or not command:
             return jsonify({'success': False, 'error': 'Server ID and command are required'}), 400
+        
+        # ✅ NEW: Get server capabilities to check command execution availability
+        server_capabilities = get_server_capabilities(server_id)
+        
+        # ✅ NEW: Determine which ID was used for the command
+        command_id_used = data.get('command_id_used', server_id)  # Default to server_id if not specified
+        id_type_used = 'service_id' if server_capabilities['has_service_id'] and command_id_used == server_capabilities['service_id'] else 'server_id'
         
         if _server_health_storage:
             success = _server_health_storage.store_command_execution(
@@ -736,11 +1282,27 @@ def track_command_execution():
                     'command': command,
                     'type': command_type,
                     'user': user,
-                    'timestamp': datetime.utcnow().isoformat()
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'id_used': command_id_used,
+                    'id_type': id_type_used,
+                    'command_execution_available': server_capabilities['has_service_id']
+                },
+                'service_id_info': {
+                    'has_service_id': server_capabilities['has_service_id'],
+                    'service_id': server_capabilities['service_id'],
+                    'discovery_status': server_capabilities['discovery_status']
                 }
             })
         
-        return jsonify({'success': False, 'message': 'Storage system not available'})
+        return jsonify({
+            'success': False, 
+            'message': 'Storage system not available',
+            'service_id_info': {
+                'has_service_id': server_capabilities['has_service_id'],
+                'service_id': server_capabilities['service_id'],
+                'discovery_status': server_capabilities['discovery_status']
+            }
+        })
         
     except Exception as e:
         logger.error(f"[Enhanced Health API] Track command error: {e}")
@@ -1356,8 +1918,4 @@ def get_emergency_command_fallback(server_id: str) -> List[Dict[str, Any]]:
             'command': 'save',
             'type': 'auto',
             'timestamp': (now - timedelta(minutes=30)).strftime('%H:%M:%S'),
-            'user': 'Auto Save',
-            'server_id': server_id,
-            'status': 'completed'
-        }
-    ]
+            'user': 'Auto

@@ -1,11 +1,15 @@
 """
-GUST Bot Enhanced - Main Flask Application (FIXED WEBSOCKET SENSOR INTEGRATION)
-==================================================================================
-✅ FIXED: Automatic WebSocket connection establishment for sensor monitoring
-✅ FIXED: Server monitoring configuration system
-✅ FIXED: Enhanced error handling and connection management
-✅ FIXED: Token validation and connection retry logic
-✅ FIXED: Integration with sensor bridge initialization
+GUST Bot Enhanced - Main Flask Application (SERVICE ID AUTO-DISCOVERY INTEGRATION COMPLETE)
+=============================================================================================
+✅ FIXED: Complete Service ID Auto-Discovery integration
+✅ FIXED: Enhanced server routes initialization with Service ID support
+✅ FIXED: WebSocket sensor integration with dual ID system
+✅ FIXED: Service ID discovery system validation and initialization
+✅ FIXED: Enhanced error handling and logging for Service ID operations
+✅ FIXED: Proper integration with all Service ID components
+✅ NEW: Service ID discovery system status monitoring
+✅ NEW: Enhanced server health integration with Service ID context
+✅ NEW: Comprehensive Service ID debugging and validation endpoints
 """
 
 import os
@@ -32,24 +36,23 @@ from systems.koth import VanillaKothSystem
 
 # Import route blueprints
 from routes.auth import auth_bp
-from routes.servers import init_servers_routes
-from routes.events import init_events_routes
-from routes.economy import init_economy_routes
-from routes.gambling import init_gambling_routes
-from routes.clans import init_clans_routes
-from routes.users import init_users_routes
-from routes.logs import init_logs_routes
 
-# Server Health routes
-from routes.server_health import init_server_health_routes
+# ✅ SERVICE ID AUTO-DISCOVERY: Import Service ID discovery system
+try:
+    from utils.service_id_discovery import ServiceIDMapper, validate_service_id_discovery, discover_service_id
+    SERVICE_ID_DISCOVERY_AVAILABLE = True
+    logger = logging.getLogger(__name__)
+    logger.info("✅ Service ID Auto-Discovery system available")
+except ImportError as e:
+    SERVICE_ID_DISCOVERY_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning(f"⚠️ Service ID Auto-Discovery system not available: {e}")
 
-# ✅ FIXED: Import WebSocket components with proper error handling
+# ✅ ENHANCED: Import WebSocket components with proper error handling
 if WEBSOCKETS_AVAILABLE:
     try:
         from websocket import EnhancedWebSocketManager, check_websocket_support, check_sensor_support
         WEBSOCKET_IMPORT_SUCCESS = True
-        logger = logging.getLogger(__name__)
-        logger.info("✅ WebSocket imports successful")
     except ImportError as e:
         logger = logging.getLogger(__name__)
         logger.error(f"❌ WebSocket import failed even though WEBSOCKETS_AVAILABLE=True: {e}")
@@ -153,10 +156,10 @@ class InMemoryUserStorage:
             return all_clans
 
 class GustBotEnhanced:
-    """Main GUST Bot Enhanced application class (FIXED WEBSOCKET SENSOR INTEGRATION)"""
+    """Main GUST Bot Enhanced application class (SERVICE ID AUTO-DISCOVERY INTEGRATION COMPLETE)"""
     
     def __init__(self):
-        """Initialize the enhanced GUST bot application with WebSocket sensor support"""
+        """Initialize the enhanced GUST bot application with complete Service ID Auto-Discovery integration"""
         self.app = Flask(__name__)
         self.app.secret_key = Config.SECRET_KEY
         
@@ -185,9 +188,6 @@ class GustBotEnhanced:
         self.users = []
         self.live_connections = {}
         
-        # ✅ NEW: Server monitoring configuration
-        self.monitored_servers = self._load_monitored_servers_config()
-        
         # Initialize user storage system FIRST
         self.init_user_storage()
         
@@ -198,10 +198,13 @@ class GustBotEnhanced:
         # Database connection (optional)
         self.init_database()
         
+        # ✅ SERVICE ID AUTO-DISCOVERY: Initialize Service ID discovery system
+        self.init_service_id_discovery()
+        
         # Initialize systems
         self.vanilla_koth = VanillaKothSystem(self)
         
-        # ✅ FIXED: Enhanced WebSocket manager initialization with better error handling
+        # ✅ ENHANCED: WebSocket manager initialization with Service ID awareness
         self.websocket_manager = None
         self.websocket_error = None
         
@@ -211,12 +214,8 @@ class GustBotEnhanced:
                 self.live_connections = {}
                 # Start WebSocket manager
                 self.websocket_manager.start()
-                logger.info("✅ Enhanced WebSocket manager initialized with sensor support")
-                print("[✅ OK] Enhanced WebSocket manager started with sensor capabilities")
-                
-                # ✅ NEW: Auto-establish sensor connections after a brief delay
-                threading.Timer(3.0, self.auto_establish_sensor_connections).start()
-                
+                logger.info("✅ Enhanced WebSocket manager initialized with Service ID awareness")
+                print("[✅ OK] Enhanced WebSocket manager started with Service ID integration")
             except Exception as e:
                 self.websocket_error = str(e)
                 logger.error(f"❌ Enhanced WebSocket manager failed: {e}")
@@ -244,235 +243,25 @@ class GustBotEnhanced:
         # Store reference to self in app context
         self.app.gust_bot = self
         
-        # ✅ CRITICAL FIX: Store websocket_manager reference on app BEFORE route setup
+        # ✅ SERVICE ID AUTO-DISCOVERY: Store Service ID discovery system in app context
+        if SERVICE_ID_DISCOVERY_AVAILABLE:
+            self.app.service_id_discovery_available = True
+            self.app.service_id_mapper = getattr(self, 'service_id_mapper', None)
+        else:
+            self.app.service_id_discovery_available = False
+            self.app.service_id_mapper = None
+        
+        # ✅ ENHANCED: Store websocket_manager reference in app for sensor bridge access
         self.app.websocket_manager = self.websocket_manager
         
-        logger.info(f"🔧 WebSocket manager set on app: {self.app.websocket_manager is not None}")
-        print(f"[🔧 DEBUG] App websocket_manager: {self.app.websocket_manager}")
-        
-        # Setup routes (this will initialize sensor bridge)
+        # Setup routes (this will initialize sensor bridge with Service ID support)
         self.setup_routes()
         
         # Background tasks
         self.start_background_tasks()
         
-        logger.info("🚀 GUST Bot Enhanced initialized successfully with WebSocket sensor integration")
-        print("[✅ OK] GUST Bot Enhanced ready with real-time sensor monitoring")
-    
-    def _load_monitored_servers_config(self):
-        """✅ NEW: Load monitored servers configuration"""
-        try:
-            # Default servers to monitor for sensor data
-            default_servers = [
-                {'server_id': '1736296', 'region': 'US', 'enabled': True, 'name': 'Main Rust Server'},
-                # Add more servers here as needed
-            ]
-            
-            # Try to load from config file
-            config_file = 'data/monitored_servers.json'
-            if os.path.exists(config_file):
-                try:
-                    with open(config_file, 'r') as f:
-                        loaded_servers = json.load(f)
-                    logger.info(f"✅ Loaded {len(loaded_servers)} monitored servers from config")
-                    return loaded_servers
-                except Exception as e:
-                    logger.warning(f"⚠️ Failed to load monitored servers config: {e}")
-            
-            # Save default config for future use
-            try:
-                os.makedirs('data', exist_ok=True)
-                with open(config_file, 'w') as f:
-                    json.dump(default_servers, f, indent=2)
-                logger.info(f"✅ Created default monitored servers config")
-            except Exception as e:
-                logger.warning(f"⚠️ Failed to save default config: {e}")
-            
-            return default_servers
-            
-        except Exception as e:
-            logger.error(f"❌ Error loading monitored servers config: {e}")
-            return [{'server_id': '1736296', 'region': 'US', 'enabled': True, 'name': 'Default Server'}]
-    
-    def auto_establish_sensor_connections(self):
-        """✅ NEW: Automatically establish WebSocket connections for sensor monitoring"""
-        try:
-            if not self.websocket_manager:
-                logger.warning("⚠️ Cannot establish sensor connections: WebSocket manager not available")
-                return
-            
-            logger.info("🔄 Auto-establishing sensor connections for monitored servers...")
-            print("[🔄 INFO] Auto-establishing sensor connections...")
-            
-            # Check if we have authentication token
-            token_data = None
-            try:
-                token_data = load_token()
-            except Exception as token_error:
-                logger.warning(f"⚠️ Token loading failed: {token_error}")
-            
-            if not token_data:
-                logger.warning("⚠️ No authentication token available - sensor connections will not be established")
-                print("[⚠️ WARNING] No auth token - sensor connections skipped")
-                return
-            
-            # Extract token
-            token = None
-            try:
-                if isinstance(token_data, dict):
-                    token = token_data.get('access_token')
-                elif isinstance(token_data, str):
-                    token = token_data
-                
-                if not token or not isinstance(token, str) or token.strip() == '':
-                    logger.warning("⚠️ Invalid token format - sensor connections will not be established")
-                    return
-                    
-            except Exception as token_extract_error:
-                logger.error(f"❌ Token extraction failed: {token_extract_error}")
-                return
-            
-            # Establish connections for monitored servers
-            successful_connections = 0
-            failed_connections = 0
-            
-            for server_config in self.monitored_servers:
-                if not server_config.get('enabled', True):
-                    logger.debug(f"⏭️ Skipping disabled server: {server_config.get('server_id')}")
-                    continue
-                
-                server_id = server_config.get('server_id')
-                region = server_config.get('region', 'US')
-                server_name = server_config.get('name', f'Server {server_id}')
-                
-                if not server_id:
-                    logger.warning(f"⚠️ Invalid server config (missing server_id): {server_config}")
-                    failed_connections += 1
-                    continue
-                
-                try:
-                    logger.info(f"🔄 Establishing sensor connection for {server_name} ({server_id})")
-                    print(f"[🔄 INFO] Connecting to {server_name} ({server_id}) for sensor data...")
-                    
-                    # Add connection through WebSocket manager
-                    future = self.websocket_manager.add_connection(server_id, region, token)
-                    
-                    if future:
-                        logger.info(f"✅ Sensor connection queued for {server_name} ({server_id})")
-                        print(f"[✅ OK] Sensor connection queued for {server_name}")
-                        successful_connections += 1
-                        
-                        # Store in live connections for tracking
-                        self.live_connections[server_id] = {
-                            'region': region,
-                            'connected_at': datetime.now().isoformat(),
-                            'connected': True,
-                            'server_name': server_name,
-                            'sensor_enabled': True
-                        }
-                    else:
-                        logger.warning(f"⚠️ Failed to queue sensor connection for {server_name} ({server_id})")
-                        failed_connections += 1
-                        
-                except Exception as connection_error:
-                    logger.error(f"❌ Failed to establish sensor connection for {server_name} ({server_id}): {connection_error}")
-                    print(f"[❌ ERROR] Connection failed for {server_name}: {connection_error}")
-                    failed_connections += 1
-            
-            # Summary
-            total_servers = len([s for s in self.monitored_servers if s.get('enabled', True)])
-            logger.info(f"📊 Sensor connection summary: {successful_connections}/{total_servers} successful")
-            print(f"[📊 SUMMARY] Sensor connections: {successful_connections}/{total_servers} successful")
-            
-            if successful_connections > 0:
-                print(f"[✅ SUCCESS] WebSocket sensor monitoring active for {successful_connections} servers")
-                
-                # Start connection health monitoring after connections are established
-                threading.Timer(10.0, self.monitor_sensor_connections).start()
-            else:
-                print("[⚠️ WARNING] No sensor connections established - falling back to synthetic data")
-                
-        except Exception as e:
-            logger.error(f"❌ Critical error in auto-establishing sensor connections: {e}")
-            print(f"[❌ ERROR] Auto-connection setup failed: {e}")
-    
-    def monitor_sensor_connections(self):
-        """✅ NEW: Monitor sensor connection health and attempt reconnections"""
-        try:
-            if not self.websocket_manager:
-                return
-            
-            logger.debug("🔍 Monitoring sensor connection health...")
-            
-            # Get connection status
-            connections = self.websocket_manager.get_connection_status()
-            
-            healthy_connections = 0
-            unhealthy_connections = 0
-            
-            for server_id, connection_info in connections.items():
-                is_connected = connection_info.get('connected', False)
-                has_sensor_data = connection_info.get('has_sensor_data', False)
-                sensor_data_fresh = connection_info.get('sensor_data_fresh', False)
-                
-                if is_connected and has_sensor_data and sensor_data_fresh:
-                    healthy_connections += 1
-                    logger.debug(f"✅ Healthy sensor connection: {server_id}")
-                else:
-                    unhealthy_connections += 1
-                    logger.warning(f"⚠️ Unhealthy sensor connection: {server_id} "
-                                 f"(connected={is_connected}, has_data={has_sensor_data}, fresh={sensor_data_fresh})")
-            
-            total_monitored = len(self.monitored_servers)
-            logger.info(f"📊 Sensor health: {healthy_connections} healthy, {unhealthy_connections} unhealthy of {total_monitored} monitored")
-            
-            # Schedule next health check
-            threading.Timer(60.0, self.monitor_sensor_connections).start()
-            
-        except Exception as e:
-            logger.error(f"❌ Error monitoring sensor connections: {e}")
-            # Retry monitoring in 2 minutes
-            threading.Timer(120.0, self.monitor_sensor_connections).start()
-    
-    def get_monitored_servers_status(self):
-        """✅ NEW: Get status of monitored servers for API endpoints"""
-        try:
-            servers_status = []
-            
-            for server_config in self.monitored_servers:
-                server_id = server_config.get('server_id')
-                
-                # Get WebSocket connection status
-                connection_status = {
-                    'connected': False,
-                    'has_sensor_data': False,
-                    'sensor_data_fresh': False
-                }
-                
-                if self.websocket_manager:
-                    connections = self.websocket_manager.get_connection_status()
-                    if server_id in connections:
-                        conn_info = connections[server_id]
-                        connection_status = {
-                            'connected': conn_info.get('connected', False),
-                            'has_sensor_data': conn_info.get('has_sensor_data', False),
-                            'sensor_data_fresh': conn_info.get('sensor_data_fresh', False)
-                        }
-                
-                servers_status.append({
-                    'server_id': server_id,
-                    'region': server_config.get('region', 'US'),
-                    'name': server_config.get('name', f'Server {server_id}'),
-                    'enabled': server_config.get('enabled', True),
-                    'connection_status': connection_status,
-                    'in_live_connections': server_id in self.live_connections
-                })
-            
-            return servers_status
-            
-        except Exception as e:
-            logger.error(f"❌ Error getting monitored servers status: {e}")
-            return []
+        logger.info("🚀 GUST Bot Enhanced initialized successfully with complete Service ID Auto-Discovery integration")
+        print("[✅ OK] GUST Bot Enhanced ready with Service ID Auto-Discovery and real-time sensor monitoring")
     
     def init_user_storage(self):
         """Initialize user storage system (CRITICAL FIX)"""
@@ -539,63 +328,103 @@ class GustBotEnhanced:
         
         print(f'[✅ OK] Database initialization complete - Storage: {type(self.user_storage).__name__}')
     
+    def init_service_id_discovery(self):
+        """✅ SERVICE ID AUTO-DISCOVERY: Initialize Service ID discovery system"""
+        print("[🔍 SERVICE ID] Initializing Service ID Auto-Discovery system...")
+        
+        self.service_id_discovery_available = SERVICE_ID_DISCOVERY_AVAILABLE
+        self.service_id_mapper = None
+        self.service_id_discovery_error = None
+        
+        if SERVICE_ID_DISCOVERY_AVAILABLE:
+            try:
+                # Validate the Service ID discovery system
+                validation_result = validate_service_id_discovery()
+                
+                if validation_result['valid']:
+                    print("[✅ OK] Service ID discovery system validation passed")
+                    print(f"[🔍 CAPABILITIES] {', '.join(validation_result.get('capabilities', []))}")
+                    
+                    # Initialize Service ID mapper
+                    self.service_id_mapper = ServiceIDMapper()
+                    
+                    # Test basic functionality
+                    cache_stats = self.service_id_mapper.get_cache_stats()
+                    print(f"[🔍 CACHE] Service ID mapper initialized - {cache_stats['total_entries']} cached entries")
+                    
+                    print("[🚀 READY] Service ID Auto-Discovery system fully operational")
+                    
+                else:
+                    print(f"[❌ FAILED] Service ID discovery validation failed: {validation_result.get('error')}")
+                    self.service_id_discovery_error = validation_result.get('error')
+                    
+                    # Still try to initialize for basic functionality
+                    try:
+                        self.service_id_mapper = ServiceIDMapper()
+                        print("[⚠️ LIMITED] Service ID mapper initialized with limited functionality")
+                    except Exception as mapper_error:
+                        print(f"[❌ ERROR] Service ID mapper initialization failed: {mapper_error}")
+                        self.service_id_discovery_error = f"Mapper initialization failed: {mapper_error}"
+                        
+            except Exception as discovery_error:
+                print(f"[❌ ERROR] Service ID discovery system initialization failed: {discovery_error}")
+                self.service_id_discovery_error = f"Discovery system initialization failed: {discovery_error}"
+                self.service_id_discovery_available = False
+                
+        else:
+            print("[⚠️ WARNING] Service ID discovery system not available")
+            self.service_id_discovery_error = "Service ID discovery module not found"
+            print("[💡 SOLUTION] Install Service ID discovery module for enhanced functionality")
+        
+        # Store status in app context for route access
+        self.app.service_id_discovery_status = {
+            'available': self.service_id_discovery_available,
+            'mapper_initialized': self.service_id_mapper is not None,
+            'error': self.service_id_discovery_error,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        print(f"[📊 STATUS] Service ID discovery: {'✅ Available' if self.service_id_discovery_available else '❌ Not Available'}")
+    
     def setup_routes(self):
-        """Setup Flask routes and blueprints (FIXED WEBSOCKET SENSOR INTEGRATION)"""
-        print("[DEBUG]: Setting up routes with WebSocket sensor integration...")
+        """Setup Flask routes and blueprints (SERVICE ID AUTO-DISCOVERY INTEGRATION)"""
+        print("[DEBUG]: Setting up routes with complete Service ID Auto-Discovery integration...")
         
         # Register authentication blueprint (foundation)
         self.app.register_blueprint(auth_bp)
         print("[✅ OK] Auth routes registered")
 
-        # Register core route blueprints with CORRECT parameters
-        servers_bp = init_servers_routes(self.app, self.db, self.servers)
-        self.app.register_blueprint(servers_bp)
-        print("[✅ OK] Server routes registered")
-
-        events_bp = init_events_routes(self.app, self.db, self.events, self.vanilla_koth, self.console_output)
-        self.app.register_blueprint(events_bp)
-        print("[✅ OK] Events routes registered")
-
-        # User-dependent route blueprints (pass user_storage)
-        economy_bp = init_economy_routes(self.app, self.db, self.user_storage)
-        self.app.register_blueprint(economy_bp)
-        print("[✅ OK] Economy routes registered")
-
-        gambling_bp = init_gambling_routes(self.app, self.db, self.user_storage)
-        self.app.register_blueprint(gambling_bp)
-        print("[✅ OK] Gambling routes registered")
-
-        clans_bp = init_clans_routes(self.app, self.db, self.clans, self.user_storage)
-        self.app.register_blueprint(clans_bp)
-        print("[✅ OK] Clans routes registered")
-
-        # Management route blueprints
-        users_bp = init_users_routes(self.app, self.db, self.users, self.console_output)
-        self.app.register_blueprint(users_bp)
-        print("[✅ OK] Users routes registered")
-        
-        logs_bp = init_logs_routes(self.app, self.db, self.logs)
-        self.app.register_blueprint(logs_bp)
-        print("[✅ OK] Logs routes registered")
-        
-        # ✅ FIXED: Server Health routes with WebSocket sensor integration
+        # ✅ SERVICE ID AUTO-DISCOVERY: Initialize routes using enhanced initialization
         try:
-            print(f"[🔧 DEBUG] Initializing server health routes with app.websocket_manager: {self.app.websocket_manager is not None}")
+            # Use enhanced route initialization that supports Service ID discovery
+            from routes import init_all_routes_enhanced
             
-            server_health_bp = init_server_health_routes(self.app, self.db, self.server_health_storage)
-            self.app.register_blueprint(server_health_bp)
-            print("[✅ OK] Server Health routes registered with WebSocket sensor integration")
+            # Initialize all routes with complete Service ID integration
+            init_all_routes_enhanced(
+                self.app, 
+                self.db, 
+                self.user_storage,
+                economy_storage=self.economy,
+                logs_storage=self.logs,
+                server_health_storage=self.server_health_storage,
+                servers_storage=self.managed_servers,  # Use managed_servers for Service ID integration
+                clans=self.clans,
+                users=self.users,
+                events=self.events,
+                vanilla_koth=self.vanilla_koth,
+                console_output=self.console_output
+            )
             
-            # Log WebSocket sensor status
-            if self.websocket_manager:
-                print("[✅ OK] WebSocket sensor bridge will be initialized by server health routes")
-            else:
-                print("[⚠️ WARNING] WebSocket manager not available - sensor data will use fallbacks")
-                
-        except Exception as health_routes_error:
-            logger.error(f"❌ Server Health routes registration failed: {health_routes_error}")
-            print(f"[❌ ERROR] Server Health routes failed: {health_routes_error}")
-            # Continue without server health routes rather than failing completely
+            print("[✅ OK] All routes registered with complete Service ID Auto-Discovery integration")
+            
+        except ImportError:
+            # Fallback to standard route initialization
+            print("[⚠️ WARNING] Enhanced route initialization not available, using standard initialization")
+            self.setup_routes_standard()
+        except Exception as route_error:
+            print(f"[❌ ERROR] Enhanced route initialization failed: {route_error}")
+            print("[🔄 FALLBACK] Attempting standard route initialization...")
+            self.setup_routes_standard()
         
         # Setup main routes
         @self.app.route('/')
@@ -604,143 +433,204 @@ class GustBotEnhanced:
                 return redirect(url_for('auth.login'))
             return render_template('enhanced_dashboard.html')
         
-        # ✅ NEW: Monitored servers management routes
-        self.setup_monitoring_routes()
-        
         # Console routes
         self.setup_console_routes()
+        
+        # ✅ SERVICE ID AUTO-DISCOVERY: Service ID specific routes
+        self.setup_service_id_routes()
         
         # Miscellaneous routes
         self.setup_misc_routes()
         
-        print("[✅ OK] All routes registered successfully including WebSocket sensor integration")
+        print("[✅ OK] All routes registered successfully with complete Service ID Auto-Discovery integration")
     
-    def setup_monitoring_routes(self):
-        """✅ NEW: Setup monitoring and sensor management routes"""
-        
-        @self.app.route('/api/monitoring/servers/status')
-        def get_monitoring_status():
-            """Get status of all monitored servers"""
-            try:
-                servers_status = self.get_monitored_servers_status()
-                
-                return jsonify({
-                    'success': True,
-                    'servers': servers_status,
-                    'total_servers': len(servers_status),
-                    'websocket_manager_available': self.websocket_manager is not None,
-                    'timestamp': datetime.now().isoformat()
-                })
-                
-            except Exception as e:
-                logger.error(f"❌ Error getting monitoring status: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e),
-                    'timestamp': datetime.now().isoformat()
-                }), 500
-        
-        @self.app.route('/api/monitoring/servers/connect/<server_id>', methods=['POST'])
-        def connect_server_monitoring(server_id):
-            """Manually connect a server for monitoring"""
-            try:
-                if not self.websocket_manager:
-                    return jsonify({
-                        'success': False,
-                        'error': 'WebSocket manager not available'
-                    }), 503
-                
-                data = request.get_json() or {}
-                region = data.get('region', 'US')
-                
-                # Get token
-                token_data = load_token()
-                if not token_data:
-                    return jsonify({
-                        'success': False,
-                        'error': 'No authentication token available'
-                    }), 401
-                
-                token = token_data.get('access_token') if isinstance(token_data, dict) else token_data
-                
-                # Establish connection
-                future = self.websocket_manager.add_connection(server_id, region, token)
-                
-                if future:
-                    # Add to live connections
-                    self.live_connections[server_id] = {
-                        'region': region,
-                        'connected_at': datetime.now().isoformat(),
-                        'connected': True,
-                        'server_name': f'Manual Server {server_id}',
-                        'sensor_enabled': True
-                    }
-                    
-                    return jsonify({
-                        'success': True,
-                        'message': f'Monitoring connection established for server {server_id}',
-                        'server_id': server_id,
-                        'region': region
-                    })
-                else:
-                    return jsonify({
-                        'success': False,
-                        'error': 'Failed to establish connection'
-                    }), 500
-                
-            except Exception as e:
-                logger.error(f"❌ Error connecting server monitoring: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-        
-        @self.app.route('/api/monitoring/servers/disconnect/<server_id>', methods=['POST'])
-        def disconnect_server_monitoring(server_id):
-            """Manually disconnect a server from monitoring"""
-            try:
-                if not self.websocket_manager:
-                    return jsonify({
-                        'success': False,
-                        'error': 'WebSocket manager not available'
-                    }), 503
-                
-                # Remove connection
-                self.websocket_manager.remove_connection(server_id)
-                
-                # Remove from live connections
-                if server_id in self.live_connections:
-                    del self.live_connections[server_id]
-                
-                return jsonify({
-                    'success': True,
-                    'message': f'Monitoring disconnected for server {server_id}',
-                    'server_id': server_id
-                })
-                
-            except Exception as e:
-                logger.error(f"❌ Error disconnecting server monitoring: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
+    def setup_routes_standard(self):
+        """Fallback to standard route initialization"""
+        try:
+            # Import route blueprints individually
+            from routes.servers import init_servers_routes
+            from routes.events import init_events_routes
+            from routes.economy import init_economy_routes
+            from routes.gambling import init_gambling_routes
+            from routes.clans import init_clans_routes
+            from routes.users import init_users_routes
+            from routes.logs import init_logs_routes
+            from routes.server_health import init_server_health_routes
+
+            # Register individual route blueprints
+            servers_bp = init_servers_routes(self.app, self.db, self.managed_servers)
+            self.app.register_blueprint(servers_bp)
+            print("[✅ OK] Server routes registered (standard)")
+
+            events_bp = init_events_routes(self.app, self.db, self.events, self.vanilla_koth, self.console_output)
+            self.app.register_blueprint(events_bp)
+            print("[✅ OK] Events routes registered (standard)")
+
+            economy_bp = init_economy_routes(self.app, self.db, self.user_storage)
+            self.app.register_blueprint(economy_bp)
+            print("[✅ OK] Economy routes registered (standard)")
+
+            gambling_bp = init_gambling_routes(self.app, self.db, self.user_storage)
+            self.app.register_blueprint(gambling_bp)
+            print("[✅ OK] Gambling routes registered (standard)")
+
+            clans_bp = init_clans_routes(self.app, self.db, self.clans, self.user_storage)
+            self.app.register_blueprint(clans_bp)
+            print("[✅ OK] Clans routes registered (standard)")
+
+            users_bp = init_users_routes(self.app, self.db, self.users, self.console_output)
+            self.app.register_blueprint(users_bp)
+            print("[✅ OK] Users routes registered (standard)")
+            
+            logs_bp = init_logs_routes(self.app, self.db, self.logs)
+            self.app.register_blueprint(logs_bp)
+            print("[✅ OK] Logs routes registered (standard)")
+            
+            # Server Health routes with WebSocket sensor integration
+            server_health_bp = init_server_health_routes(self.app, self.db, self.server_health_storage, self.managed_servers)
+            self.app.register_blueprint(server_health_bp)
+            print("[✅ OK] Server Health routes registered (standard)")
+            
+        except Exception as standard_error:
+            logger.error(f"❌ Standard route initialization failed: {standard_error}")
+            print(f"[❌ ERROR] Standard route initialization failed: {standard_error}")
     
-    def setup_console_routes(self):
-        """Setup console-related routes"""
+    def setup_service_id_routes(self):
+        """✅ SERVICE ID AUTO-DISCOVERY: Setup Service ID specific routes and endpoints"""
         
-        @self.app.route('/api/console/send', methods=['POST'])
-        def send_console_command():
-            """Send console command to server - COMPLETELY FIXED VERSION"""
+        @self.app.route('/api/service-id/status')
+        def service_id_system_status():
+            """Get Service ID discovery system status"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
             try:
-                # FIXED: Enhanced request validation
-                if not request:
-                    logger.error("❌ No request object")
-                    return jsonify({'success': False, 'error': 'Invalid request'}), 400
+                status_data = {
+                    'success': True,
+                    'available': self.service_id_discovery_available,
+                    'mapper_initialized': self.service_id_mapper is not None,
+                    'error': self.service_id_discovery_error,
+                    'timestamp': datetime.now().isoformat()
+                }
                 
-                if not hasattr(request, 'json') or request.json is None:
+                # Add detailed status if system is available
+                if self.service_id_discovery_available and self.service_id_mapper:
+                    try:
+                        cache_stats = self.service_id_mapper.get_cache_stats()
+                        status_data['cache_stats'] = cache_stats
+                        status_data['system_ready'] = True
+                    except Exception as stats_error:
+                        status_data['system_ready'] = False
+                        status_data['stats_error'] = str(stats_error)
+                else:
+                    status_data['system_ready'] = False
+                
+                # Count servers with Service IDs
+                if self.managed_servers:
+                    total_servers = len(self.managed_servers)
+                    servers_with_service_id = len([s for s in self.managed_servers if s.get('serviceId')])
+                    status_data['server_stats'] = {
+                        'total_servers': total_servers,
+                        'servers_with_service_id': servers_with_service_id,
+                        'coverage_percentage': round((servers_with_service_id / total_servers) * 100, 1) if total_servers > 0 else 0
+                    }
+                else:
+                    status_data['server_stats'] = {
+                        'total_servers': 0,
+                        'servers_with_service_id': 0,
+                        'coverage_percentage': 0
+                    }
+                
+                return jsonify(status_data)
+                
+            except Exception as e:
+                logger.error(f"❌ Error getting Service ID system status: {e}")
+                return jsonify({
+                    'success': False,
+                    'available': False,
+                    'error': str(e),
+                    'timestamp': datetime.now().isoformat()
+                }), 500
+        
+        @self.app.route('/api/service-id/test/<server_id>')
+        def test_service_id_discovery(server_id):
+            """Test Service ID discovery for a specific server"""
+            if 'logged_in' not in session:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            try:
+                if not self.service_id_discovery_available:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Service ID discovery system not available',
+                        'system_error': self.service_id_discovery_error
+                    }), 503
+                
+                # Get region from query params
+                region = request.args.get('region', 'US')
+                
+                # Test discovery
+                result = discover_service_id(server_id, region)
+                
+                return jsonify({
+                    'success': True,
+                    'test_result': result,
+                    'server_id': server_id,
+                    'region': region,
+                    'timestamp': datetime.now().isoformat()
+                })
+                
+            except Exception as e:
+                logger.error(f"❌ Error testing Service ID discovery: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': str(e),
+                    'server_id': server_id,
+                    'timestamp': datetime.now().isoformat()
+                }), 500
+        
+        @self.app.route('/api/service-id/validate')
+        def validate_service_id_system():
+            """Validate Service ID discovery system"""
+            if 'logged_in' not in session:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            try:
+                if not SERVICE_ID_DISCOVERY_AVAILABLE:
+                    return jsonify({
+                        'valid': False,
+                        'error': 'Service ID discovery module not available',
+                        'recommendations': [
+                            'Install Service ID discovery module',
+                            'Check utils/service_id_discovery.py exists',
+                            'Verify dependencies are installed'
+                        ]
+                    })
+                
+                # Run comprehensive validation
+                validation_result = validate_service_id_discovery()
+                return jsonify(validation_result)
+                
+            except Exception as e:
+                logger.error(f"❌ Error validating Service ID system: {e}")
+                return jsonify({
+                    'valid': False,
+                    'error': str(e),
+                    'timestamp': datetime.now().isoformat()
+                }), 500
+    
+    def setup_console_routes(self):
+        """Setup console-related routes (ENHANCED WITH SERVICE ID SUPPORT)"""
+        
+        @self.app.route('/api/console/send', methods=['POST'])
+        def send_console_command():
+            """Send console command to server - SERVICE ID ENHANCED VERSION"""
+            if 'logged_in' not in session:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            try:
+                # Enhanced request validation
+                if not request or not hasattr(request, 'json') or request.json is None:
                     logger.error("❌ No JSON data in request")
                     return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
                 
@@ -749,32 +639,11 @@ class GustBotEnhanced:
                     logger.error("❌ Invalid JSON data format")
                     return jsonify({'success': False, 'error': 'Invalid JSON format'}), 400
                 
-                # FIXED: Safe data extraction with comprehensive None checking
-                command = None
-                server_id = None
-                region = None
-                
+                # Safe data extraction with comprehensive None checking
                 try:
-                    command = data.get('command')
-                    if command is None:
-                        command = ''
-                    elif not isinstance(command, str):
-                        command = str(command)
-                    command = command.strip()
-                    
-                    server_id = data.get('serverId')
-                    if server_id is None:
-                        server_id = ''
-                    elif not isinstance(server_id, str):
-                        server_id = str(server_id)
-                    server_id = server_id.strip()
-                    
-                    region = data.get('region')
-                    if region is None:
-                        region = 'US'
-                    elif not isinstance(region, str):
-                        region = str(region)
-                    region = region.strip().upper()
+                    command = data.get('command', '').strip()
+                    server_id = data.get('serverId', '').strip()
+                    region = data.get('region', 'US').strip().upper()
                     
                 except Exception as extract_error:
                     logger.error(f"❌ Data extraction error: {extract_error}")
@@ -830,12 +699,32 @@ class GustBotEnhanced:
                     threading.Thread(target=simulate_response, daemon=True).start()
                     return jsonify({'success': True, 'demo_mode': True})
                 
-                # Real mode - send command using FIXED GraphQL
+                # ✅ SERVICE ID AUTO-DISCOVERY: Enhanced real mode command sending
                 logger.info(f"🌐 Live mode: Sending real command '{command}' to server {server_id} in region {region}")
                 
                 try:
-                    result = self.send_console_command_graphql(command, server_id, region)
+                    # Find the server to get both Server ID and Service ID
+                    server_config = None
+                    for server in self.managed_servers:
+                        if server.get('serverId') == server_id:
+                            server_config = server
+                            break
+                    
+                    if server_config:
+                        # ✅ SERVICE ID: Use Service ID for commands if available
+                        service_id = server_config.get('serviceId')
+                        if service_id:
+                            logger.info(f"🔍 Using Service ID {service_id} for command execution (Server ID: {server_id})")
+                            result = self.send_console_command_graphql(command, service_id, region)
+                        else:
+                            logger.warning(f"⚠️ No Service ID available for server {server_id}, using Server ID")
+                            result = self.send_console_command_graphql(command, server_id, region)
+                    else:
+                        logger.warning(f"⚠️ Server {server_id} not found in managed servers, using Server ID")
+                        result = self.send_console_command_graphql(command, server_id, region)
+                    
                     return jsonify({'success': result, 'demo_mode': False})
+                    
                 except Exception as graphql_error:
                     logger.error(f"❌ GraphQL command error: {graphql_error}")
                     import traceback
@@ -848,12 +737,12 @@ class GustBotEnhanced:
                 logger.error(f"❌ Console route traceback: {traceback.format_exc()}")
                 return jsonify({'success': False, 'error': f'Request processing error: {str(outer_error)}'}), 500
         
-        # ✅ NEW: Auto command endpoint for serverinfo commands
+        # ✅ ENHANCED: Auto command endpoint for serverinfo commands with Service ID support
         @self.app.route('/api/console/send-auto', methods=['POST'])
         def send_auto_console_command():
             """
-            NEW: Dedicated endpoint for auto commands (serverinfo)
-            This fixes the auto command system by providing a proper API endpoint
+            SERVICE ID ENHANCED: Dedicated endpoint for auto commands (serverinfo)
+            Uses Service ID for command execution when available
             """
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
@@ -934,17 +823,37 @@ class GustBotEnhanced:
                             'response': demo_response
                         })
                 
-                # Live mode - send real command
+                # ✅ SERVICE ID ENHANCED: Live mode with Service ID support
                 logger.info(f"🌐 Auto command live mode: Sending '{command}' to server {server_id}")
                 
                 try:
-                    result = self.send_console_command_graphql(command, server_id, region)
+                    # Find server configuration for Service ID
+                    server_config = None
+                    for server in self.managed_servers:
+                        if server.get('serverId') == server_id:
+                            server_config = server
+                            break
+                    
+                    target_id = server_id  # Default to Server ID
+                    id_type = 'Server ID'
+                    
+                    if server_config and server_config.get('serviceId'):
+                        # Use Service ID for command execution
+                        target_id = server_config['serviceId']
+                        id_type = 'Service ID'
+                        logger.info(f"🔍 Using {id_type} {target_id} for auto command (Server ID: {server_id})")
+                    else:
+                        logger.warning(f"⚠️ No Service ID available for server {server_id}, using Server ID")
+                    
+                    result = self.send_console_command_graphql(command, target_id, region)
                     
                     # Add to console output with auto command tracking
                     self.console_output.append({
                         'timestamp': datetime.now().isoformat(),
                         'command': command,
                         'server_id': server_id,
+                        'service_id': target_id if id_type == 'Service ID' else None,
+                        'id_type_used': id_type,
                         'status': 'sent' if result else 'failed',
                         'source': 'auto_live',
                         'type': 'auto_command',
@@ -956,6 +865,8 @@ class GustBotEnhanced:
                         'success': result, 
                         'demo_mode': False,
                         'auto_command': True,
+                        'id_type_used': id_type,
+                        'target_id': target_id,
                         'message': f'Auto command {"sent" if result else "failed"}: {command}'
                     })
                     
@@ -985,57 +896,62 @@ class GustBotEnhanced:
             # Return last 50 entries
             return jsonify(list(self.console_output)[-50:])
         
-        # ✅ NEW: Server list endpoint for auto commands
+        # Server list endpoint for auto commands (with Service ID information)
         @self.app.route('/api/servers/list')
         def get_server_list():
-            """Get list of managed servers for auto commands"""
+            """Get list of managed servers for auto commands (SERVICE ID ENHANCED)"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
             try:
-                # Return managed servers with status information
                 servers = []
                 demo_mode = session.get('demo_mode', True)
                 
                 if demo_mode:
-                    # Demo servers
+                    # Demo servers with Service ID examples
                     demo_servers = [
                         {
                             'serverId': 'demo-server-1',
+                            'serviceId': 'demo-service-1',
                             'serverName': 'Demo Rust Server #1',
                             'serverRegion': 'US',
                             'status': 'online',
                             'isActive': True,
+                            'discovery_status': 'success',
+                            'capabilities': {'command_execution': True, 'health_monitoring': True},
                             'playerCount': {'current': 23, 'max': 100}
                         },
                         {
                             'serverId': 'demo-server-2', 
+                            'serviceId': None,  # Example of server without Service ID
                             'serverName': 'Demo Rust Server #2',
                             'serverRegion': 'EU',
                             'status': 'online',
                             'isActive': True,
+                            'discovery_status': 'failed',
+                            'capabilities': {'command_execution': False, 'health_monitoring': True},
                             'playerCount': {'current': 45, 'max': 150}
                         }
                     ]
                     servers = demo_servers
                 else:
-                    # Real servers (from monitored servers config)
-                    servers = []
-                    for server_config in self.monitored_servers:
-                        if server_config.get('enabled', True):
-                            servers.append({
-                                'serverId': server_config['server_id'],
-                                'serverName': server_config.get('name', f"Server {server_config['server_id']}"),
-                                'serverRegion': server_config.get('region', 'US'),
-                                'status': 'online' if server_config['server_id'] in self.live_connections else 'offline',
-                                'isActive': server_config['server_id'] in self.live_connections,
-                                'playerCount': {'current': 0, 'max': 100}  # Will be updated by sensor data
-                            })
+                    # Real servers from managed_servers
+                    servers = self.managed_servers if self.managed_servers else []
+                
+                # Count Service ID coverage
+                total_servers = len(servers)
+                servers_with_service_id = len([s for s in servers if s.get('serviceId')])
                 
                 return jsonify({
                     'success': True,
                     'servers': servers,
-                    'count': len(servers),
+                    'count': total_servers,
+                    'service_id_stats': {
+                        'total_servers': total_servers,
+                        'servers_with_service_id': servers_with_service_id,
+                        'coverage_percentage': round((servers_with_service_id / total_servers) * 100, 1) if total_servers > 0 else 0,
+                        'discovery_available': self.service_id_discovery_available
+                    },
                     'demo_mode': demo_mode,
                     'timestamp': datetime.now().isoformat()
                 })
@@ -1057,11 +973,11 @@ class GustBotEnhanced:
             self.setup_stub_console_routes()
     
     def setup_live_console_routes(self):
-        """Setup live console routes when WebSockets are available"""
+        """Setup live console routes when WebSockets are available (SERVICE ID ENHANCED)"""
         
         @self.app.route('/api/console/live/connect', methods=['POST'])
         def connect_live_console():
-            """Connect to live console for a server"""
+            """Connect to live console for a server (SERVICE ID ENHANCED)"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
@@ -1079,7 +995,7 @@ class GustBotEnhanced:
                         'error': 'Live console requires G-Portal authentication. Please login with real credentials.'
                     })
                 
-                # FIXED: Improved token loading with better error handling
+                # Enhanced token loading with better error handling
                 try:
                     token_data = load_token()
                     if not token_data:
@@ -1109,18 +1025,25 @@ class GustBotEnhanced:
                     })
                 
                 try:
-                    # Add WebSocket connection
+                    # ✅ SERVICE ID: Use Server ID for WebSocket connections (sensors)
+                    # WebSocket connections always use Server ID, not Service ID
                     future = self.websocket_manager.add_connection(server_id, region, token)
                     self.live_connections[server_id] = {
                         'region': region,
                         'connected_at': datetime.now().isoformat(),
-                        'connected': True
+                        'connected': True,
+                        'connection_type': 'websocket_sensors',
+                        'uses_server_id': True  # WebSocket always uses Server ID
                     }
+                    
+                    logger.info(f"📡 WebSocket connection established for Server ID {server_id} (for sensors)")
                     
                     return jsonify({
                         'success': True,
                         'message': f'Live console connected for server {server_id}',
-                        'server_id': server_id
+                        'server_id': server_id,
+                        'connection_type': 'websocket_sensors',
+                        'note': 'WebSocket uses Server ID for sensor data'
                     })
                     
                 except Exception as connect_error:
@@ -1149,6 +1072,8 @@ class GustBotEnhanced:
                         self.websocket_manager.remove_connection(server_id)
                         del self.live_connections[server_id]
                         
+                        logger.info(f"📡 WebSocket connection disconnected for Server ID {server_id}")
+                        
                         return jsonify({
                             'success': True,
                             'message': f'Live console disconnected for server {server_id}'
@@ -1171,7 +1096,7 @@ class GustBotEnhanced:
         
         @self.app.route('/api/console/live/status')
         def live_console_status():
-            """Get live console connection status"""
+            """Get live console connection status (SERVICE ID ENHANCED)"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
@@ -1185,12 +1110,53 @@ class GustBotEnhanced:
                 else:
                     status = {}
                 
+                # ✅ SERVICE ID: Add Service ID information to status
+                enhanced_status = {}
+                for server_id, connection_info in status.items():
+                    # Find server configuration for Service ID information
+                    server_config = None
+                    for server in self.managed_servers:
+                        if server.get('serverId') == server_id:
+                            server_config = server
+                            break
+                    
+                    enhanced_info = dict(connection_info)
+                    if server_config:
+                        enhanced_info.update({
+                            'server_name': server_config.get('serverName', 'Unknown'),
+                            'service_id': server_config.get('serviceId'),
+                            'has_service_id': bool(server_config.get('serviceId')),
+                            'discovery_status': server_config.get('discovery_status', 'unknown'),
+                            'capabilities': server_config.get('capabilities', {}),
+                            'websocket_uses_server_id': True,  # Always true for WebSocket
+                            'commands_use_service_id': bool(server_config.get('serviceId'))
+                        })
+                    else:
+                        enhanced_info.update({
+                            'server_name': 'Unknown',
+                            'service_id': None,
+                            'has_service_id': False,
+                            'discovery_status': 'unknown',
+                            'capabilities': {},
+                            'websocket_uses_server_id': True,
+                            'commands_use_service_id': False
+                        })
+                    
+                    enhanced_status[server_id] = enhanced_info
+                
                 return jsonify({
-                    'connections': status,
-                    'total_connections': len(status),
+                    'connections': enhanced_status,
+                    'total_connections': len(enhanced_status),
                     'demo_mode': session.get('demo_mode', True),
                     'websockets_available': WEBSOCKETS_AVAILABLE,
-                    'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS
+                    'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS,
+                    'service_id_discovery_available': self.service_id_discovery_available,
+                    'dual_id_info': {
+                        'websocket_connections_use': 'Server ID',
+                        'command_execution_uses': 'Service ID (when available)',
+                        'health_monitoring_uses': 'Server ID',
+                        'sensor_data_uses': 'Server ID'
+                    }
                 })
                 
             except Exception as e:
@@ -1256,7 +1222,8 @@ class GustBotEnhanced:
                     'count': len(final_messages),
                     'server_id': server_id,
                     'timestamp': datetime.now().isoformat(),
-                    'websockets_available': WEBSOCKETS_AVAILABLE
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'service_id_note': 'WebSocket messages use Server ID for connection'
                 })
                 
             except Exception as e:
@@ -1272,7 +1239,7 @@ class GustBotEnhanced:
         
         @self.app.route('/api/console/live/test')
         def test_live_console():
-            """Test endpoint to check live console functionality"""
+            """Test endpoint to check live console functionality (SERVICE ID ENHANCED)"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
@@ -1299,13 +1266,19 @@ class GustBotEnhanced:
                         'message_count': len(all_messages),
                         'test_timestamp': datetime.now().isoformat(),
                         'enhanced_console': True,
-                        'pending_commands': 0
+                        'pending_commands': 0,
+                        'service_id_integration': {
+                            'websocket_uses': 'Server ID',
+                            'discovery_available': self.service_id_discovery_available,
+                            'dual_id_system': True
+                        }
                     })
                 else:
                     return jsonify({
                         'success': False,
                         'error': 'WebSocket manager not available',
-                        'websockets_available': WEBSOCKETS_AVAILABLE
+                        'websockets_available': WEBSOCKETS_AVAILABLE,
+                        'service_id_discovery_available': self.service_id_discovery_available
                     })
                     
             except Exception as e:
@@ -1334,7 +1307,8 @@ class GustBotEnhanced:
                 'demo_mode': session.get('demo_mode', True),
                 'websockets_available': WEBSOCKETS_AVAILABLE,
                 'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS,
-                'websocket_error': self.websocket_error
+                'websocket_error': self.websocket_error,
+                'service_id_discovery_available': self.service_id_discovery_available
             })
         
         @self.app.route('/api/console/live/messages')
@@ -1373,15 +1347,16 @@ class GustBotEnhanced:
                 'success': False,
                 'error': f'WebSocket support not available. {self.websocket_error or "Install with: pip install websockets==11.0.3"}',
                 'websockets_available': WEBSOCKETS_AVAILABLE,
-                'enhanced_console': False
+                'enhanced_console': False,
+                'service_id_discovery_available': self.service_id_discovery_available
             })
     
     def setup_misc_routes(self):
-        """Setup miscellaneous routes including WebSocket debug endpoint"""
+        """Setup miscellaneous routes including Service ID debug endpoints"""
         
         @self.app.route('/health')
         def health_check():
-            """Enhanced health check endpoint (WEBSOCKET SENSOR INTEGRATION)"""
+            """Enhanced health check endpoint (SERVICE ID AUTO-DISCOVERY INTEGRATION)"""
             
             try:
                 # Calculate health metrics
@@ -1398,7 +1373,35 @@ class GustBotEnhanced:
                 except Exception as health_error:
                     logger.warning(f"⚠️ Could not get health score: {health_error}")
                 
-                # ✅ NEW: Check WebSocket sensor status
+                # ✅ SERVICE ID AUTO-DISCOVERY: Check Service ID system status
+                service_id_status = 'unavailable'
+                service_id_stats = {
+                    'total_servers': 0,
+                    'servers_with_service_id': 0,
+                    'coverage_percentage': 0
+                }
+                
+                if self.service_id_discovery_available:
+                    try:
+                        service_id_status = 'available'
+                        
+                        # Count Service ID coverage
+                        if self.managed_servers:
+                            total_servers = len(self.managed_servers)
+                            servers_with_service_id = len([s for s in self.managed_servers if s.get('serviceId')])
+                            coverage_percentage = (servers_with_service_id / total_servers * 100) if total_servers > 0 else 0
+                            
+                            service_id_stats = {
+                                'total_servers': total_servers,
+                                'servers_with_service_id': servers_with_service_id,
+                                'coverage_percentage': round(coverage_percentage, 1)
+                            }
+                            
+                    except Exception as service_error:
+                        logger.warning(f"⚠️ Could not get Service ID stats: {service_error}")
+                        service_id_status = 'error'
+                
+                # Check WebSocket sensor status
                 websocket_sensor_status = 'unavailable'
                 sensor_connections = 0
                 
@@ -1432,10 +1435,13 @@ class GustBotEnhanced:
                     'console_buffer_size': len(self.console_output),
                     'health_score': health_score,
                     'server_health_storage': type(self.server_health_storage).__name__,
-                    'websocket_sensor_status': websocket_sensor_status,  # ✅ NEW
-                    'sensor_connections': sensor_connections,  # ✅ NEW
-                    'websocket_error': self.websocket_error,  # ✅ NEW
-                    'monitored_servers': len(self.monitored_servers),  # ✅ NEW
+                    'websocket_sensor_status': websocket_sensor_status,
+                    'sensor_connections': sensor_connections,
+                    'websocket_error': self.websocket_error,
+                    'service_id_discovery_status': service_id_status,  # ✅ NEW
+                    'service_id_stats': service_id_stats,  # ✅ NEW
+                    'service_id_discovery_available': self.service_id_discovery_available,  # ✅ NEW
+                    'service_id_discovery_error': self.service_id_discovery_error,  # ✅ NEW
                     'features': {
                         'console_commands': True,
                         'auto_console_commands': True,
@@ -1453,9 +1459,11 @@ class GustBotEnhanced:
                         'server_health_backend': True,
                         'enhanced_navigation': True,
                         'health_indicators': True,
-                        'websocket_sensors': websocket_sensor_status == 'available',  # ✅ NEW
-                        'real_time_monitoring': websocket_sensor_status == 'available',  # ✅ NEW
-                        'auto_sensor_connections': True  # ✅ NEW
+                        'websocket_sensors': websocket_sensor_status == 'available',
+                        'real_time_monitoring': websocket_sensor_status == 'available',
+                        'service_id_auto_discovery': service_id_status == 'available',  # ✅ NEW
+                        'dual_id_system': service_id_status == 'available',  # ✅ NEW
+                        'enhanced_server_management': service_id_status == 'available'  # ✅ NEW
                     }
                 })
             except Exception as e:
@@ -1469,9 +1477,9 @@ class GustBotEnhanced:
         
         @self.app.route('/api/token/status')
         def token_status():
-            """Get authentication token status - FIXED VERSION"""
+            """Get authentication token status - SERVICE ID ENHANCED VERSION"""
             try:
-                # FIXED: Comprehensive token loading with all edge cases handled
+                # Enhanced token loading with all edge cases handled
                 try:
                     token_data = load_token()
                     demo_mode = session.get('demo_mode', True)
@@ -1482,6 +1490,7 @@ class GustBotEnhanced:
                             'token_valid': False,
                             'demo_mode': True,
                             'websockets_available': WEBSOCKETS_AVAILABLE,
+                            'service_id_discovery_available': self.service_id_discovery_available,
                             'time_left': 0
                         })
                     
@@ -1503,6 +1512,7 @@ class GustBotEnhanced:
                                 'token_valid': time_left > 0,
                                 'demo_mode': False,
                                 'websockets_available': WEBSOCKETS_AVAILABLE,
+                                'service_id_discovery_available': self.service_id_discovery_available,
                                 'time_left': time_left
                             })
                         except Exception as validation_error:
@@ -1512,6 +1522,7 @@ class GustBotEnhanced:
                                 'token_valid': False,
                                 'demo_mode': True,
                                 'websockets_available': WEBSOCKETS_AVAILABLE,
+                                'service_id_discovery_available': self.service_id_discovery_available,
                                 'time_left': 0,
                                 'error': 'Token validation failed'
                             })
@@ -1521,6 +1532,7 @@ class GustBotEnhanced:
                             'token_valid': False,
                             'demo_mode': False,
                             'websockets_available': WEBSOCKETS_AVAILABLE,
+                            'service_id_discovery_available': self.service_id_discovery_available,
                             'time_left': 0
                         })
                 except Exception as token_error:
@@ -1530,6 +1542,7 @@ class GustBotEnhanced:
                         'token_valid': False,
                         'demo_mode': True,
                         'websockets_available': WEBSOCKETS_AVAILABLE,
+                        'service_id_discovery_available': self.service_id_discovery_available,
                         'time_left': 0,
                         'error': 'Token loading failed'
                     })
@@ -1541,21 +1554,22 @@ class GustBotEnhanced:
                     'token_valid': False,
                     'demo_mode': True,
                     'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'service_id_discovery_available': self.service_id_discovery_available,
                     'time_left': 0,
                     'error': str(e)
                 })
         
-        # ✅ NEW: Server Health specific API endpoint for quick status with sensor data
+        # ✅ SERVICE ID AUTO-DISCOVERY: Enhanced server health status endpoint
         @self.app.route('/api/health/status')
         def server_health_status():
-            """Quick server health status endpoint with WebSocket sensor integration"""
+            """Quick server health status endpoint with Service ID integration"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
             try:
                 # Get basic health metrics
                 active_connections = len(self.live_connections) if self.live_connections else 0
-                total_servers = len(self.monitored_servers) if self.monitored_servers else 0
+                total_servers = len(self.managed_servers) if self.managed_servers else 0
                 
                 # Calculate health score based on available metrics
                 health_score = 95  # Base score
@@ -1565,7 +1579,7 @@ class GustBotEnhanced:
                     connection_ratio = active_connections / total_servers
                     health_score = int(85 + (connection_ratio * 15))  # 85-100 range
                 
-                # ✅ NEW: Check sensor data availability
+                # Check sensor data availability
                 sensor_data_available = False
                 real_time_monitoring = False
                 
@@ -1582,6 +1596,24 @@ class GustBotEnhanced:
                                 health_score = min(100, health_score + 5)
                     except Exception as sensor_check_error:
                         logger.warning(f"⚠️ Sensor check error: {sensor_check_error}")
+                
+                # ✅ SERVICE ID AUTO-DISCOVERY: Check Service ID system health
+                service_id_health = False
+                service_id_coverage = 0
+                
+                if self.service_id_discovery_available:
+                    try:
+                        if self.managed_servers:
+                            servers_with_service_id = len([s for s in self.managed_servers if s.get('serviceId')])
+                            service_id_coverage = (servers_with_service_id / total_servers * 100) if total_servers > 0 else 0
+                            service_id_health = True
+                            
+                            # Bonus points for good Service ID coverage
+                            if service_id_coverage >= 80:
+                                health_score = min(100, health_score + 3)
+                                
+                    except Exception as service_check_error:
+                        logger.warning(f"⚠️ Service ID check error: {service_check_error}")
                 
                 # Determine status
                 if health_score >= 90:
@@ -1602,13 +1634,15 @@ class GustBotEnhanced:
                     'metrics': {
                         'active_connections': active_connections,
                         'total_servers': total_servers,
-                        'monitored_servers': len(self.monitored_servers),
                         'console_buffer_size': len(self.console_output),
                         'websockets_available': WEBSOCKETS_AVAILABLE,
                         'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS,
                         'database_connected': self.db is not None,
-                        'sensor_data_available': sensor_data_available,  # ✅ NEW
-                        'real_time_monitoring': real_time_monitoring  # ✅ NEW
+                        'sensor_data_available': sensor_data_available,
+                        'real_time_monitoring': real_time_monitoring,
+                        'service_id_discovery_available': self.service_id_discovery_available,  # ✅ NEW
+                        'service_id_system_health': service_id_health,  # ✅ NEW
+                        'service_id_coverage_percentage': round(service_id_coverage, 1)  # ✅ NEW
                     },
                     'timestamp': datetime.now().isoformat()
                 })
@@ -1623,11 +1657,189 @@ class GustBotEnhanced:
                     'error': str(e),
                     'timestamp': datetime.now().isoformat()
                 }), 500
+        
+        # ✅ SERVICE ID AUTO-DISCOVERY: WebSocket Debug Endpoint (enhanced)
+        @self.app.route('/api/websocket/debug/status')
+        def websocket_debug_status():
+            """✅ SERVICE ID ENHANCED: Comprehensive WebSocket system debugging endpoint"""
+            if 'logged_in' not in session:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            try:
+                debug_info = {
+                    'timestamp': datetime.now().isoformat(),
+                    'tests': {},
+                    'summary': {},
+                    'recommendations': []
+                }
+                
+                # Test 1: Package Installation
+                try:
+                    import websockets
+                    debug_info['tests']['websockets_package'] = {
+                        'status': 'pass',
+                        'version': websockets.__version__,
+                        'message': 'WebSocket package installed correctly'
+                    }
+                except ImportError:
+                    debug_info['tests']['websockets_package'] = {
+                        'status': 'fail',
+                        'message': 'WebSocket package not installed',
+                        'fix': 'Run: pip install websockets==11.0.3'
+                    }
+                    debug_info['recommendations'].append('Install websockets package')
+                
+                # Test 2: Configuration Detection
+                debug_info['tests']['config_detection'] = {
+                    'status': 'pass' if WEBSOCKETS_AVAILABLE else 'fail',
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'import_success': WEBSOCKET_IMPORT_SUCCESS,
+                    'message': 'Configuration detects WebSocket support' if WEBSOCKETS_AVAILABLE else 'Configuration shows WebSocket as unavailable'
+                }
+                
+                if not WEBSOCKETS_AVAILABLE:
+                    debug_info['recommendations'].append('Verify websockets package installation')
+                
+                # Test 3: Service ID Integration Test
+                try:
+                    debug_info['tests']['service_id_integration'] = {
+                        'status': 'pass' if self.service_id_discovery_available else 'fail',
+                        'discovery_available': self.service_id_discovery_available,
+                        'mapper_initialized': self.service_id_mapper is not None,
+                        'error': self.service_id_discovery_error
+                    }
+                    
+                    if not self.service_id_discovery_available:
+                        debug_info['recommendations'].append('Enable Service ID discovery for enhanced functionality')
+                        
+                except Exception as service_test_error:
+                    debug_info['tests']['service_id_integration'] = {
+                        'status': 'error',
+                        'message': f'Service ID integration test failed: {service_test_error}'
+                    }
+                
+                # Test 4: WebSocket Package Status
+                try:
+                    if WEBSOCKETS_AVAILABLE and WEBSOCKET_IMPORT_SUCCESS:
+                        from websocket import get_websocket_status, check_websocket_support, check_sensor_support
+                        
+                        ws_status = get_websocket_status()
+                        debug_info['tests']['package_status'] = {
+                            'status': 'pass' if ws_status['websockets_available'] else 'fail',
+                            'details': ws_status,
+                            'websocket_support': check_websocket_support(),
+                            'sensor_support': check_sensor_support()
+                        }
+                        
+                        if not check_sensor_support():
+                            debug_info['recommendations'].append('Enable sensor support by fixing WebSocket imports')
+                    else:
+                        debug_info['tests']['package_status'] = {
+                            'status': 'fail',
+                            'message': 'WebSocket package not importable',
+                            'websockets_available': WEBSOCKETS_AVAILABLE,
+                            'import_success': WEBSOCKET_IMPORT_SUCCESS
+                        }
+                        debug_info['recommendations'].append('Fix WebSocket package imports')
+                        
+                except Exception as e:
+                    debug_info['tests']['package_status'] = {
+                        'status': 'error',
+                        'message': f'Package status check failed: {e}'
+                    }
+                    debug_info['recommendations'].append('Fix WebSocket package imports')
+                
+                # Test 5: Manager Status (Enhanced with Service ID context)
+                manager_status = 'not_available'
+                manager_info = {}
+                
+                if self.websocket_manager:
+                    try:
+                        manager_status = 'available'
+                        manager_info = {
+                            'running': getattr(self.websocket_manager, 'running', False),
+                            'connections': len(getattr(self.websocket_manager, 'connections', {})),
+                            'has_sensor_bridge': hasattr(self.websocket_manager, 'sensor_bridge') and self.websocket_manager.sensor_bridge is not None,
+                            'service_id_aware': True  # This implementation is Service ID aware
+                        }
+                        
+                        # Test sensor bridge
+                        if hasattr(self.websocket_manager, 'sensor_bridge') and self.websocket_manager.sensor_bridge:
+                            bridge_stats = self.websocket_manager.sensor_bridge.get_sensor_statistics()
+                            manager_info['sensor_bridge_stats'] = bridge_stats
+                            
+                        debug_info['tests']['manager_status'] = {
+                            'status': 'pass',
+                            'manager_available': True,
+                            'details': manager_info
+                        }
+                        
+                    except Exception as e:
+                        debug_info['tests']['manager_status'] = {
+                            'status': 'error',
+                            'manager_available': True,
+                            'error': str(e)
+                        }
+                else:
+                    debug_info['tests']['manager_status'] = {
+                        'status': 'fail',
+                        'manager_available': False,
+                        'message': 'WebSocket manager not initialized',
+                        'websocket_error': self.websocket_error
+                    }
+                    debug_info['recommendations'].append('Restart application to initialize WebSocket manager')
+                
+                # Generate Summary
+                passed_tests = sum(1 for test in debug_info['tests'].values() if test.get('status') == 'pass')
+                total_tests = len(debug_info['tests'])
+                
+                debug_info['summary'] = {
+                    'tests_passed': passed_tests,
+                    'tests_total': total_tests,
+                    'success_rate': round((passed_tests / total_tests) * 100, 1) if total_tests > 0 else 0,
+                    'overall_status': 'healthy' if passed_tests >= total_tests - 1 else 'needs_attention',  # Allow 1 failure
+                    'websocket_ready': passed_tests >= 3,  # Need at least 3/5 tests passing
+                    'sensor_ready': manager_status == 'available' and manager_info.get('has_sensor_bridge', False),
+                    'service_id_integration_ready': self.service_id_discovery_available,  # ✅ NEW
+                    'dual_id_system_ready': self.service_id_discovery_available and passed_tests >= 3,  # ✅ NEW
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS
+                }
+                
+                # Priority Recommendations
+                if not debug_info['recommendations']:
+                    debug_info['recommendations'] = ['All systems operational with Service ID Auto-Discovery!']
+                
+                return jsonify({
+                    'success': True,
+                    'debug_info': debug_info,
+                    'quick_status': {
+                        'websockets_working': debug_info['summary']['websocket_ready'],
+                        'sensors_working': debug_info['summary']['sensor_ready'],
+                        'service_id_working': debug_info['summary']['service_id_integration_ready'],  # ✅ NEW
+                        'dual_id_system_working': debug_info['summary']['dual_id_system_ready'],  # ✅ NEW
+                        'needs_restart': 'Restart application' in debug_info['recommendations'],
+                        'needs_package_install': any('websockets' in rec for rec in debug_info['recommendations']),
+                        'websocket_error': self.websocket_error,
+                        'service_id_error': self.service_id_discovery_error  # ✅ NEW
+                    }
+                })
+                
+            except Exception as e:
+                logger.error(f"❌ WebSocket debug status error: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': str(e),
+                    'debug_info': {
+                        'timestamp': datetime.now().isoformat(),
+                        'error_type': 'debug_endpoint_failure'
+                    }
+                }), 500
     
     def send_console_command_graphql(self, command, sid, region):
         """
-        ✅ COMPLETELY FIXED: Send console command via GraphQL with correct endpoint
-        This is the critical fix - using the correct endpoint without "/graphql" suffix
+        ✅ SERVICE ID ENHANCED: Send console command via GraphQL with Service ID support
+        This method can accept either Server ID or Service ID depending on use case
         """
         import requests
         
@@ -1637,7 +1849,7 @@ class GustBotEnhanced:
             # Rate limiting
             self.rate_limiter.wait_if_needed("graphql")
             
-            # FIXED: Enhanced token loading with comprehensive error handling
+            # Enhanced token loading with comprehensive error handling
             token = None
             try:
                 token_data = load_token()
@@ -1663,24 +1875,24 @@ class GustBotEnhanced:
                 logger.error(f"❌ Token loading error in GraphQL: {token_error}")
                 return False
             
-            # FIXED: Enhanced input validation with comprehensive error handling
+            # Enhanced input validation with comprehensive error handling
             try:
-                # Validate server ID
-                is_valid, server_id = validate_server_id(sid)
-                if not is_valid or server_id is None:
-                    logger.error(f"❌ Invalid server ID: {sid}")
+                # Validate server/service ID
+                is_valid, clean_id = validate_server_id(sid)
+                if not is_valid or clean_id is None:
+                    logger.error(f"❌ Invalid ID: {sid}")
                     return False
                 
-                # Ensure server_id is an integer
-                if not isinstance(server_id, int):
+                # Ensure ID is an integer
+                if not isinstance(clean_id, int):
                     try:
-                        server_id = int(server_id)
+                        clean_id = int(clean_id)
                     except (ValueError, TypeError) as convert_error:
-                        logger.error(f"❌ Server ID conversion error: {convert_error}")
+                        logger.error(f"❌ ID conversion error: {convert_error}")
                         return False
                         
             except Exception as sid_error:
-                logger.error(f"❌ Server ID validation error: {sid_error}")
+                logger.error(f"❌ ID validation error: {sid_error}")
                 return False
             
             try:
@@ -1703,7 +1915,7 @@ class GustBotEnhanced:
                 logger.error(f"❌ Region validation error: {region_error}")
                 return False
             
-            # FIXED: Enhanced command formatting with error handling
+            # Enhanced command formatting with error handling
             try:
                 formatted_command = format_command(command)
                 if not formatted_command or not isinstance(formatted_command, str):
@@ -1713,8 +1925,8 @@ class GustBotEnhanced:
                 logger.error(f"❌ Command formatting error: {cmd_error}")
                 return False
             
-            # ✅ CRITICAL FIX: Use correct endpoint (NO "/graphql" suffix)
-            endpoint = Config.GPORTAL_API_ENDPOINT  # This is the fix!
+            # Use correct endpoint (NO "/graphql" suffix)
+            endpoint = Config.GPORTAL_API_ENDPOINT
             if not endpoint:
                 logger.error("❌ No GraphQL endpoint configured")
                 return False
@@ -1723,14 +1935,14 @@ class GustBotEnhanced:
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
-                "User-Agent": "GUST-Bot/1.0"
+                "User-Agent": "GUST-Bot/2.0-ServiceIDEnhanced"
             }
             
-            # FIXED: Enhanced GraphQL payload with comprehensive validation
+            # Enhanced GraphQL payload with comprehensive validation
             payload = {
                 "operationName": "sendConsoleMessage",
                 "variables": {
-                    "sid": server_id,
+                    "sid": clean_id,
                     "region": region,
                     "message": formatted_command
                 },
@@ -1743,8 +1955,8 @@ class GustBotEnhanced:
             }
             
             logger.debug(f"🔍 GraphQL payload: {json.dumps(payload, indent=2)}")
-            logger.info(f"🔄 Sending command to server {server_id} ({region}): {formatted_command}")
-            logger.info(f"🌐 Using endpoint: {endpoint}")  # Log the endpoint being used
+            logger.info(f"🔄 Sending command to ID {clean_id} ({region}): {formatted_command}")
+            logger.info(f"🌐 Using endpoint: {endpoint}")
             
             # Make the request
             response = requests.post(endpoint, json=payload, headers=headers, timeout=15)
@@ -1765,12 +1977,13 @@ class GustBotEnhanced:
                         self.console_output.append({
                             'timestamp': datetime.now().isoformat(),
                             'command': formatted_command,
-                            'server_id': str(server_id),
+                            'target_id': str(clean_id),
                             'status': 'sent' if success else 'failed',
-                            'source': 'api',
+                            'source': 'graphql_api',
                             'type': 'command',
                             'message': f'Command: {formatted_command}',
-                            'success': success
+                            'success': success,
+                            'service_id_enhanced': True  # ✅ Mark as Service ID enhanced
                         })
                         
                         return success
@@ -1809,7 +2022,7 @@ class GustBotEnhanced:
             return False
     
     def start_background_tasks(self):
-        """Start background tasks (ENHANCED WITH WEBSOCKET SENSOR MONITORING)"""
+        """Start background tasks (SERVICE ID AUTO-DISCOVERY ENHANCED)"""
         def run_scheduled():
             while True:
                 try:
@@ -1822,19 +2035,19 @@ class GustBotEnhanced:
         # Schedule cleanup tasks
         schedule.every(5).minutes.do(self.cleanup_expired_events)
         
-        # NEW: Schedule server health monitoring
+        # Schedule server health monitoring
         schedule.every(2).minutes.do(self.update_server_health_metrics)
         
-        # ✅ NEW: Schedule WebSocket sensor health monitoring
+        # Schedule WebSocket sensor health monitoring
         schedule.every(1).minutes.do(self.monitor_websocket_sensors)
         
-        # ✅ NEW: Schedule connection health checks
-        schedule.every(5).minutes.do(self.check_and_reconnect_sensors)
+        # ✅ SERVICE ID AUTO-DISCOVERY: Schedule Service ID discovery health monitoring
+        schedule.every(10).minutes.do(self.monitor_service_id_discovery)
         
         thread = threading.Thread(target=run_scheduled, daemon=True)
         thread.start()
         
-        logger.info("📅 Background tasks started (including WebSocket sensor monitoring)")
+        logger.info("📅 Background tasks started (including WebSocket sensor monitoring and Service ID discovery monitoring)")
     
     def cleanup_expired_events(self):
         """Clean up expired events"""
@@ -1855,22 +2068,32 @@ class GustBotEnhanced:
             logger.error(f"❌ Event cleanup error: {cleanup_error}")
     
     def update_server_health_metrics(self):
-        """Update server health metrics (background task)"""
+        """Update server health metrics (background task with Service ID awareness)"""
         try:
             if self.server_health_storage:
                 # Calculate current health metrics
                 active_connections = len(self.live_connections) if self.live_connections else 0
-                total_servers = len(self.monitored_servers) if self.monitored_servers else 0
+                total_servers = len(self.managed_servers) if self.managed_servers else 0
+                
+                # ✅ SERVICE ID AUTO-DISCOVERY: Calculate Service ID coverage
+                servers_with_service_id = 0
+                if self.managed_servers:
+                    servers_with_service_id = len([s for s in self.managed_servers if s.get('serviceId')])
+                
+                service_id_coverage = (servers_with_service_id / total_servers * 100) if total_servers > 0 else 0
                 
                 health_data = {
                     'timestamp': datetime.now().isoformat(),
                     'active_connections': active_connections,
                     'total_servers': total_servers,
-                    'monitored_servers': len(self.monitored_servers),
                     'console_buffer_size': len(self.console_output),
                     'websockets_available': WEBSOCKETS_AVAILABLE,
                     'websocket_import_success': WEBSOCKET_IMPORT_SUCCESS,
-                    'database_connected': self.db is not None
+                    'database_connected': self.db is not None,
+                    'service_id_discovery_available': self.service_id_discovery_available,  # ✅ NEW
+                    'servers_with_service_id': servers_with_service_id,  # ✅ NEW
+                    'service_id_coverage_percentage': service_id_coverage,  # ✅ NEW
+                    'dual_id_system_operational': self.service_id_discovery_available and service_id_coverage > 0  # ✅ NEW
                 }
                 
                 # Store health snapshot
@@ -1880,7 +2103,7 @@ class GustBotEnhanced:
             logger.error(f"❌ Error updating server health metrics: {health_error}")
     
     def monitor_websocket_sensors(self):
-        """✅ NEW: Monitor WebSocket sensor connections and data (background task)"""
+        """Monitor WebSocket sensor connections and data (background task with Service ID context)"""
         try:
             if self.websocket_manager:
                 # Check connection health
@@ -1897,13 +2120,13 @@ class GustBotEnhanced:
                                 try:
                                     sensor_data = self.websocket_manager.get_sensor_data(server_id)
                                     if sensor_data:
-                                        logger.debug(f"📊 Sensor data healthy for server {server_id}")
+                                        logger.debug(f"📊 Sensor data healthy for server {server_id} (WebSocket uses Server ID)")
                                     else:
                                         logger.warning(f"⚠️ No sensor data for connected server {server_id}")
                                 except Exception as sensor_error:
                                     logger.warning(f"⚠️ Sensor data error for server {server_id}: {sensor_error}")
                     
-                    logger.debug(f"📡 WebSocket sensor monitor: {active_sensor_connections} active connections")
+                    logger.debug(f"📡 WebSocket sensor monitor: {active_sensor_connections} active connections (using Server IDs)")
                     
                 except Exception as monitor_error:
                     logger.warning(f"⚠️ WebSocket sensor monitor error: {monitor_error}")
@@ -1913,79 +2136,68 @@ class GustBotEnhanced:
         except Exception as sensor_monitor_error:
             logger.error(f"❌ Error in WebSocket sensor monitoring: {sensor_monitor_error}")
     
-    def check_and_reconnect_sensors(self):
-        """✅ NEW: Check sensor connections and attempt reconnections if needed"""
+    def monitor_service_id_discovery(self):
+        """✅ SERVICE ID AUTO-DISCOVERY: Monitor Service ID discovery system health (background task)"""
         try:
-            if not self.websocket_manager:
-                return
-            
-            logger.debug("🔍 Checking sensor connections for reconnection needs...")
-            
-            # Get current connection status
-            connections = self.websocket_manager.get_connection_status()
-            
-            # Check each monitored server
-            for server_config in self.monitored_servers:
-                if not server_config.get('enabled', True):
-                    continue
+            if self.service_id_discovery_available and self.service_id_mapper:
+                # Check Service ID discovery system health
+                try:
+                    # Get cache statistics
+                    cache_stats = self.service_id_mapper.get_cache_stats()
+                    active_cache_entries = cache_stats.get('active_entries', 0)
+                    total_cache_entries = cache_stats.get('total_entries', 0)
+                    
+                    logger.debug(f"🔍 Service ID discovery monitor: {active_cache_entries}/{total_cache_entries} active cache entries")
+                    
+                    # Check if any servers need Service ID discovery
+                    if self.managed_servers:
+                        servers_needing_discovery = [
+                            s for s in self.managed_servers 
+                            if not s.get('serviceId') and s.get('discovery_status') not in ['success', 'manual_skip']
+                        ]
+                        
+                        if servers_needing_discovery:
+                            logger.debug(f"🔍 Service ID discovery: {len(servers_needing_discovery)} servers could benefit from discovery")
+                        else:
+                            logger.debug("🔍 Service ID discovery: All eligible servers have Service IDs")
+                    
+                except Exception as discovery_check_error:
+                    logger.warning(f"⚠️ Service ID discovery monitor error: {discovery_check_error}")
+            else:
+                logger.debug("🔍 Service ID discovery monitor: System not available or not initialized")
                 
-                server_id = server_config.get('server_id')
-                if not server_id:
-                    continue
-                
-                # Check if connection exists and is healthy
-                connection_healthy = False
-                if server_id in connections:
-                    conn_info = connections[server_id]
-                    connection_healthy = (
-                        conn_info.get('connected', False) and
-                        conn_info.get('has_sensor_data', False) and
-                        conn_info.get('sensor_data_fresh', False)
-                    )
-                
-                # Attempt reconnection if needed
-                if not connection_healthy:
-                    logger.info(f"🔄 Attempting to reconnect sensor for server {server_id}")
-                    try:
-                        token_data = load_token()
-                        if token_data:
-                            token = token_data.get('access_token') if isinstance(token_data, dict) else token_data
-                            if token:
-                                region = server_config.get('region', 'US')
-                                future = self.websocket_manager.add_connection(server_id, region, token)
-                                if future:
-                                    logger.info(f"✅ Reconnection queued for server {server_id}")
-                                else:
-                                    logger.warning(f"⚠️ Failed to queue reconnection for server {server_id}")
-                    except Exception as reconnect_error:
-                        logger.error(f"❌ Reconnection failed for server {server_id}: {reconnect_error}")
-                
-        except Exception as e:
-            logger.error(f"❌ Error in check_and_reconnect_sensors: {e}")
+        except Exception as discovery_monitor_error:
+            logger.error(f"❌ Error in Service ID discovery monitoring: {discovery_monitor_error}")
     
     def run(self, host=None, port=None, debug=False):
-        """Run the enhanced application (WEBSOCKET SENSOR INTEGRATION)"""
+        """Run the enhanced application (SERVICE ID AUTO-DISCOVERY INTEGRATION COMPLETE)"""
         host = host or Config.DEFAULT_HOST
         port = port or Config.DEFAULT_PORT
         
         logger.info(f"🚀 Starting GUST Bot Enhanced on {host}:{port}")
         logger.info(f"🔧 WebSocket Support: {'Available' if WEBSOCKETS_AVAILABLE else 'Not Available'}")
         logger.info(f"🔧 WebSocket Import: {'Success' if WEBSOCKET_IMPORT_SUCCESS else 'Failed'}")
+        logger.info(f"🔍 Service ID Discovery: {'Available' if self.service_id_discovery_available else 'Not Available'}")
         logger.info(f"🗄️ Database: {'MongoDB' if self.db else 'In-Memory'}")
         logger.info(f"👥 User Storage: {type(self.user_storage).__name__}")
         logger.info(f"📡 Live Console: {'Enabled' if self.websocket_manager else 'Disabled'}")
         logger.info(f"🏥 Server Health: Complete integration with {type(self.server_health_storage).__name__}")
         logger.info(f"📊 Health Monitoring: 75/25 layout with real-time metrics and command feed")
         logger.info(f"✅ CRITICAL FIX: GraphQL endpoint correctly configured (no '/graphql' suffix)")
-        logger.info(f"🤖 NEW: Auto command API endpoint added for serverinfo commands")
-        logger.info(f"📡 NEW: WebSocket sensor integration {'ENABLED' if self.websocket_manager else 'DISABLED'}")
-        logger.info(f"🔄 NEW: Real-time sensor monitoring {'ACTIVE' if self.websocket_manager else 'INACTIVE'}")
-        logger.info(f"🔧 NEW: WebSocket debug endpoint available at /api/websocket/debug/status")
-        logger.info(f"📊 NEW: Monitored servers: {len(self.monitored_servers)} configured")
-        logger.info(f"🔄 NEW: Auto-connection system: {'ENABLED' if self.websocket_manager else 'DISABLED'}")
+        logger.info(f"🤖 ENHANCED: Auto command API endpoint with Service ID support")
+        logger.info(f"📡 ENHANCED: WebSocket sensor integration {'ENABLED' if self.websocket_manager else 'DISABLED'}")
+        logger.info(f"🔄 ENHANCED: Real-time sensor monitoring {'ACTIVE' if self.websocket_manager else 'INACTIVE'}")
+        logger.info(f"🔧 ENHANCED: WebSocket debug endpoint available at /api/websocket/debug/status")
+        logger.info(f"🔍 NEW: Service ID Auto-Discovery {'ENABLED' if self.service_id_discovery_available else 'DISABLED'}")
+        logger.info(f"⚙️ NEW: Dual ID system (Server ID for sensors, Service ID for commands) {'OPERATIONAL' if self.service_id_discovery_available else 'UNAVAILABLE'}")
+        logger.info(f"🎯 NEW: Enhanced server management with automatic Service ID discovery")
+        logger.info(f"📊 NEW: Service ID system status and debug endpoints available")
         
         if self.websocket_error:
             logger.warning(f"⚠️ WebSocket Error: {self.websocket_error}")
+        
+        if self.service_id_discovery_error:
+            logger.warning(f"⚠️ Service ID Discovery Error: {self.service_id_discovery_error}")
         
         try:
             self.app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)

@@ -1,12 +1,14 @@
 """
-GUST Bot Enhanced - Helper Functions (COMPLETE FIXED VERSION + ALL MISSING FUNCTIONS)
-===============================================================================
+GUST Bot Enhanced - Helper Functions (COMPLETE FIXED VERSION + SERVICE ID SUPPORT)
+==================================================================================
 ✅ FIXED: Windows file locking permission errors resolved
 ✅ FIXED: All missing utility functions restored
 ✅ FIXED: Complete function definitions for all imports
 ✅ FIXED: create_server_data() function parameter mismatch resolved
 ✅ PRESERVED: All existing functionality
 ✅ ADDED: All missing functions that were causing import errors
+✅ NEW: Service ID support and discovery metadata integration
+✅ NEW: Enhanced server capabilities tracking
 """
 
 import os
@@ -1225,36 +1227,140 @@ def format_command(command):
     return command
 
 # ================================================================
-# ✅ FIXED: SERVER DATA CREATION FUNCTION
+# ✅ ENHANCED: SERVER DATA CREATION FUNCTION WITH SERVICE ID SUPPORT
 # ================================================================
 
 def create_server_data(server_info):
     """
-    ✅ FIXED: Create standardized server data structure
+    ✅ ENHANCED: Create standardized server data structure with Service ID support
     
     Args:
-        server_info (dict): Raw server information
+        server_info (dict): Raw server information including potential Service ID
         
     Returns:
-        dict: Standardized server data
+        dict: Standardized server data with Service ID and capabilities
     """
-    return {
-        'serverId': server_info['serverId'],
-        'serverName': server_info['serverName'],
-        'serverRegion': server_info['serverRegion'],
-        'serverType': server_info.get('serverType', 'Standard'),
-        'description': server_info.get('description', ''),
-        'guildId': server_info.get('guildId', ''),
-        'channelId': server_info.get('channelId', ''),
-        'status': 'unknown',
-        'lastPing': None,
-        'playerCount': 0,
-        'maxPlayers': 0,
-        'isActive': True,
-        'isFavorite': False,
-        'added_date': datetime.now().isoformat(),
-        'last_updated': datetime.now().isoformat()
-    }
+    try:
+        # Extract Service ID information
+        service_id = server_info.get('serviceId')
+        discovery_status = server_info.get('discovery_status', 'unknown')
+        discovery_message = server_info.get('discovery_message', '')
+        
+        # Determine capabilities based on Service ID availability
+        capabilities = {
+            'health_monitoring': True,  # Always available with Server ID
+            'sensor_data': True,        # Available with Server ID
+            'command_execution': service_id is not None,  # Requires Service ID
+            'websocket_support': True,  # Usually available
+            'log_monitoring': True,     # Available with Server ID
+            'player_tracking': True     # Available with Server ID
+        }
+        
+        # Create comprehensive server data structure
+        server_data = {
+            # ✅ CORE IDENTIFICATION (Dual ID System)
+            'serverId': str(server_info['serverId']),           # From URL - for sensors
+            'serviceId': service_id,                            # Auto-discovered - for commands
+            'serverName': server_info['serverName'],
+            'serverRegion': server_info.get('serverRegion', 'US'),
+            'serverType': server_info.get('serverType', 'Rust'),
+            'description': server_info.get('description', ''),
+            
+            # ✅ SERVICE ID DISCOVERY METADATA
+            'discovery_status': discovery_status,
+            'discovery_message': discovery_message,
+            'discovery_timestamp': datetime.now().isoformat(),
+            'discovery_method': server_info.get('discovery_method', 'automatic'),
+            
+            # ✅ SERVER MANAGEMENT
+            'guildId': server_info.get('guildId', ''),
+            'channelId': server_info.get('channelId', ''),
+            'status': 'unknown',
+            'lastPing': None,
+            'responseTime': None,
+            'playerCount': 0,
+            'maxPlayers': 100,
+            'isActive': True,
+            'isFavorite': False,
+            
+            # ✅ CAPABILITIES TRACKING
+            'capabilities': capabilities,
+            'capability_summary': {
+                'total_capabilities': len(capabilities),
+                'enabled_capabilities': len([k for k, v in capabilities.items() if v]),
+                'command_ready': service_id is not None,
+                'monitoring_ready': True,
+                'full_functionality': service_id is not None
+            },
+            
+            # ✅ OPERATIONAL STATUS
+            'operational_status': {
+                'health_monitoring': 'ready',
+                'command_execution': 'ready' if service_id else 'requires_service_id',
+                'sensor_data': 'ready',
+                'log_access': 'ready'
+            },
+            
+            # ✅ TIMESTAMPS
+            'createdAt': datetime.now().isoformat(),
+            'added_date': datetime.now().isoformat(),
+            'last_updated': datetime.now().isoformat(),
+            'last_capability_check': datetime.now().isoformat(),
+            
+            # ✅ INTEGRATION STATUS
+            'integration_status': {
+                'health_system': True,
+                'command_system': service_id is not None,
+                'websocket_system': True,
+                'log_system': True,
+                'complete_integration': service_id is not None
+            },
+            
+            # ✅ USAGE TRACKING
+            'usage_stats': {
+                'commands_sent': 0,
+                'health_checks': 0,
+                'log_downloads': 0,
+                'last_command': None,
+                'last_health_check': None
+            }
+        }
+        
+        logger.info(f"✅ Server data created for {server_info['serverName']} "
+                   f"(Server ID: {server_info['serverId']}, "
+                   f"Service ID: {service_id or 'None'}, "
+                   f"Discovery: {discovery_status})")
+        
+        return server_data
+        
+    except Exception as e:
+        logger.error(f"❌ Error creating server data: {e}")
+        
+        # Return minimal fallback structure
+        return {
+            'serverId': str(server_info.get('serverId', 'unknown')),
+            'serviceId': None,
+            'serverName': server_info.get('serverName', 'Unknown Server'),
+            'serverRegion': server_info.get('serverRegion', 'US'),
+            'serverType': server_info.get('serverType', 'Standard'),
+            'description': server_info.get('description', ''),
+            'discovery_status': 'error',
+            'discovery_message': f'Error creating server data: {str(e)}',
+            'status': 'unknown',
+            'lastPing': None,
+            'playerCount': 0,
+            'maxPlayers': 100,
+            'isActive': True,
+            'isFavorite': False,
+            'capabilities': {
+                'health_monitoring': True,
+                'sensor_data': True,
+                'command_execution': False,
+                'websocket_support': True
+            },
+            'added_date': datetime.now().isoformat(),
+            'last_updated': datetime.now().isoformat()
+        }
 
 # ================================================================
 # ✅ ALL MISSING UTILITY FUNCTIONS RESTORED
@@ -1521,7 +1627,7 @@ __all__ = [
     'parse_console_response', 'classify_message', 'get_type_icon', 
     'format_console_message', 'format_command',
     
-    # Server management (FIXED)
+    # Server management (ENHANCED WITH SERVICE ID SUPPORT)
     'create_server_data',
     
     # Validation functions
@@ -1552,4 +1658,4 @@ __all__ = [
     'is_valid_jwt_token'
 ]
 
-logger.info("✅ Enhanced helpers module loaded with FIXED create_server_data() function and ALL MISSING FUNCTIONS restored")
+logger.info("✅ Enhanced helpers module loaded with Service ID support and ALL MISSING FUNCTIONS restored")

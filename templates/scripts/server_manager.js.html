@@ -1,18 +1,19 @@
 <!-- ============================================================================
-     GUST Bot Enhanced - Server Manager JavaScript Module (COMPLETE FIXED VERSION)
+     GUST Bot Enhanced - Server Manager JavaScript Module (COMPLETE SERVICE ID VERSION)
      ============================================================================
-     ✅ FIXED: Enhanced function exposure and error handling
-     ✅ FIXED: Better integration with new request queue system
-     ✅ FIXED: Improved API endpoint handling
-     ✅ FIXED: Compatible with template fallback functions
+     ✅ COMPLETE: Enhanced function exposure and error handling
+     ✅ COMPLETE: Service ID Auto-Discovery integration
+     ✅ COMPLETE: Retry discovery functionality
+     ✅ COMPLETE: Enhanced API endpoint handling
+     ✅ COMPLETE: Dual ID system support
      ============================================================================ -->
 
 <script>
     // ============================================================================
-    // SERVER MANAGER MODULE - ENHANCED WITH FIXES
+    // SERVER MANAGER MODULE - ENHANCED WITH COMPLETE SERVICE ID INTEGRATION
     // ============================================================================
     
-    console.log('📦 Loading Server Manager module with fixes...');
+    console.log('📦 Loading Server Manager module with complete Service ID integration...');
     
     // ============================================================================
     // ENHANCED UTILITY FUNCTIONS
@@ -74,6 +75,128 @@
         } catch (error) {
             console.error('❌ Error adding console message:', error);
         }
+    }
+    
+    /**
+     * ✅ NEW: Display Service ID discovery status with enhanced UI
+     */
+    function displayServiceIdDiscoveryStatus(result, serverData) {
+        const statusEl = document.getElementById('addServerStatus');
+        if (!statusEl) return;
+        
+        let statusHTML = '';
+        let statusClass = '';
+        
+        if (result.discovery && result.discovery.status === 'success') {
+            statusHTML = `
+                <div class="discovery-success bg-green-900 border border-green-600 rounded-lg p-3">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="text-green-400">✅</span>
+                        <span class="font-medium text-green-300">Server Added Successfully!</span>
+                    </div>
+                    <div class="text-sm space-y-1 text-green-200">
+                        <div><strong>Server ID:</strong> ${serverData.serverId} (for health monitoring)</div>
+                        <div><strong>Service ID:</strong> ${serverData.serviceId} (for commands)</div>
+                        <div><strong>Discovery:</strong> Auto-discovered successfully</div>
+                    </div>
+                    <div class="mt-2 text-xs">
+                        <div class="flex space-x-4">
+                            ${serverData.serviceId ? 
+                                '<span class="text-green-400">Health Monitoring ✓</span>' : 
+                                '<span class="text-yellow-400">Health Monitoring ⚠</span>'
+                            }
+                            ${serverData.serviceId ? 
+                                '<span class="text-green-400">Commands ✓</span>' : 
+                                '<span class="text-yellow-400">Commands ⚠</span>'
+                            }
+                        </div>
+                    </div>
+                </div>
+            `;
+            statusClass = 'success';
+            
+            // Add console message
+            addLiveConsoleMessage(
+                `Server "${serverData.serverName}" added with Service ID ${serverData.serviceId}`, 
+                serverData.serverId, 
+                'success'
+            );
+            
+        } else if (result.discovery && result.discovery.status === 'failed') {
+            statusHTML = `
+                <div class="discovery-partial bg-yellow-900 border border-yellow-600 rounded-lg p-3">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="text-yellow-400">⚠</span>
+                        <span class="font-medium text-yellow-300">Server Added (Partial Setup)</span>
+                    </div>
+                    <div class="text-sm space-y-1 text-yellow-200">
+                        <div><strong>Server ID:</strong> ${serverData.serverId} ✓</div>
+                        <div><strong>Service ID:</strong> <span class="text-yellow-400">Not discovered</span></div>
+                        <div class="text-xs text-gray-400">${result.discovery.message}</div>
+                    </div>
+                    <div class="mt-2 flex justify-between items-center">
+                        <div class="text-xs">
+                            <span class="text-green-400">Health Monitoring ✓</span>
+                            <span class="text-yellow-400 ml-3">Commands ⚠</span>
+                        </div>
+                        <button onclick="retryServiceIdDiscovery('${serverData.serverId}')" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors">
+                            🔄 Retry Discovery
+                        </button>
+                    </div>
+                </div>
+            `;
+            statusClass = 'warning';
+            
+            addLiveConsoleMessage(
+                `Server "${serverData.serverName}" added but Service ID discovery failed`, 
+                serverData.serverId, 
+                'warning'
+            );
+            
+        } else {
+            statusHTML = `
+                <div class="discovery-error bg-red-900 border border-red-600 rounded-lg p-3">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="text-red-400">❌</span>
+                        <span class="font-medium text-red-300">Server Added (Discovery Error)</span>
+                    </div>
+                    <div class="text-sm space-y-1 text-red-200">
+                        <div><strong>Server ID:</strong> ${serverData.serverId} ✓</div>
+                        <div><strong>Service ID:</strong> <span class="text-red-400">Discovery error</span></div>
+                        <div class="text-xs text-gray-400">${result.discovery ? result.discovery.message : 'Unknown error'}</div>
+                    </div>
+                    <div class="mt-2 flex justify-between items-center">
+                        <div class="text-xs">
+                            <span class="text-green-400">Health Monitoring ✓</span>
+                            <span class="text-red-400 ml-3">Commands ❌</span>
+                        </div>
+                        <button onclick="retryServiceIdDiscovery('${serverData.serverId}')" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors">
+                            🔄 Retry Discovery
+                        </button>
+                    </div>
+                </div>
+            `;
+            statusClass = 'error';
+            
+            addLiveConsoleMessage(
+                `Server "${serverData.serverName}" added with discovery error`, 
+                serverData.serverId, 
+                'error'
+            );
+        }
+        
+        statusEl.innerHTML = statusHTML;
+        statusEl.className = `discovery-status ${statusClass}`;
+        
+        // Auto-clear after 10 seconds
+        setTimeout(() => {
+            if (statusEl.innerHTML === statusHTML) {
+                statusEl.innerHTML = '';
+                statusEl.className = '';
+            }
+        }, 10000);
     }
     
     // ============================================================================
@@ -209,13 +332,26 @@
     }
     
     // ============================================================================
-    // FUNCTION 5: addNewServer (ENHANCED - PRIMARY IMPLEMENTATION)
+    // FUNCTION 5: addNewServer (ENHANCED WITH SERVICE ID AUTO-DISCOVERY)
     // ============================================================================
     
     async function addNewServer() {
-        console.log('🔄 Adding new server (primary function)...');
+        console.log('🔄 Adding new server with Service ID Auto-Discovery...');
+        
+        const btn = document.getElementById('addServerBtn') || document.querySelector('[onclick="addNewServer()"]');
+        const status = document.getElementById('addServerStatus');
         
         try {
+            // Show loading state
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '🔍 Discovering...';
+            }
+            
+            if (status) {
+                status.innerHTML = '<div class="text-blue-400 flex items-center gap-2"><div class="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>🔍 Discovering Service ID...</div>';
+            }
+            
             // Get form data
             const serverId = document.getElementById('newServerId').value.trim();
             const serverName = document.getElementById('newServerName').value.trim();
@@ -247,7 +383,9 @@
                 description
             };
             
-            // Make API call
+            console.log('🚀 Making enhanced server addition API call with Service ID discovery...');
+            
+            // Make API call with Service ID discovery
             const result = await makeServerAPICall('/api/servers/add', {
                 method: 'POST',
                 body: JSON.stringify(serverData),
@@ -255,6 +393,12 @@
             });
             
             if (result.success) {
+                console.log('✅ Server added successfully with Service ID discovery');
+                console.log('🔍 Discovery result:', result.discovery);
+                
+                // Display enhanced status with Service ID information
+                displayServiceIdDiscoveryStatus(result, result.server_data);
+                
                 // Clear form
                 clearServerForm();
                 
@@ -264,16 +408,6 @@
                 // Refresh display
                 loadServerManager();
                 
-                console.log('✅ Server added successfully via primary function');
-                addLiveConsoleMessage(`Server "${serverName}" added successfully`, serverId, 'success');
-                
-                // Show success message if status element exists
-                const statusEl = document.getElementById('addServerStatus');
-                if (statusEl) {
-                    statusEl.innerHTML = '<span class="text-green-400">✅ Server added successfully!</span>';
-                    setTimeout(() => { statusEl.innerHTML = ''; }, 5000);
-                }
-                
                 return result;
                 
             } else {
@@ -281,13 +415,120 @@
             }
             
         } catch (error) {
-            console.error('❌ Add server error (primary function):', error);
+            console.error('❌ Add server error with Service ID discovery:', error);
             addLiveConsoleMessage(`Failed to add server: ${error.message}`, '', 'error');
             
             // Show error message if status element exists
+            if (status) {
+                status.innerHTML = `<div class="text-red-400">❌ Error: ${error.message}</div>`;
+            }
+            
+            throw error;
+            
+        } finally {
+            // Reset button state
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '➕ Add Server';
+            }
+        }
+    }
+    
+    // ============================================================================
+    // FUNCTION 6: ✅ NEW - Retry Service ID Discovery
+    // ============================================================================
+    
+    async function retryServiceIdDiscovery(serverId) {
+        console.log(`🔄 Retrying Service ID discovery for server: ${serverId}`);
+        
+        try {
+            const server = (window.managedServers || []).find(s => s.serverId === serverId);
+            if (!server) {
+                throw new Error(`Server ${serverId} not found`);
+            }
+            
+            const region = server.serverRegion || 'US';
+            
+            // Show retry status
+            addLiveConsoleMessage(
+                `Retrying Service ID discovery for ${server.serverName}...`, 
+                serverId, 
+                'info'
+            );
+            
+            // Make retry API call
+            const result = await makeServerAPICall(`/api/servers/discover-service-id/${serverId}`, {
+                method: 'POST',
+                body: JSON.stringify({ region: region }),
+                priority: 'high'
+            });
+            
+            if (result.success && result.service_id) {
+                console.log(`✅ Service ID discovery retry successful: ${result.service_id}`);
+                
+                addLiveConsoleMessage(
+                    `Service ID discovered: ${result.service_id} for ${server.serverName}`, 
+                    serverId, 
+                    'success'
+                );
+                
+                // Show success notification
+                const statusEl = document.getElementById('addServerStatus');
+                if (statusEl) {
+                    statusEl.innerHTML = `
+                        <div class="bg-green-900 border border-green-600 rounded-lg p-3">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-green-400">✅</span>
+                                <span class="font-medium text-green-300">Service ID Discovery Successful!</span>
+                            </div>
+                            <div class="text-sm text-green-200 mt-1">
+                                Service ID ${result.service_id} discovered for ${server.serverName}
+                            </div>
+                        </div>
+                    `;
+                    
+                    setTimeout(() => {
+                        statusEl.innerHTML = '';
+                    }, 5000);
+                }
+                
+                // Reload server manager to show updated capabilities
+                await loadManagedServers();
+                refreshServerList();
+                updateAllServerDropdowns();
+                
+                return result;
+                
+            } else {
+                throw new Error(result.error || 'Discovery retry failed');
+            }
+            
+        } catch (error) {
+            console.error(`❌ Service ID discovery retry failed:`, error);
+            addLiveConsoleMessage(
+                `Service ID retry failed: ${error.message}`, 
+                serverId, 
+                'error'
+            );
+            
+            // Show error notification
             const statusEl = document.getElementById('addServerStatus');
             if (statusEl) {
-                statusEl.innerHTML = `<span class="text-red-400">❌ Error: ${error.message}</span>`;
+                statusEl.innerHTML = `
+                    <div class="bg-red-900 border border-red-600 rounded-lg p-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-red-400">❌</span>
+                            <span class="font-medium text-red-300">Service ID Discovery Failed</span>
+                        </div>
+                        <div class="text-sm text-red-200 mt-1">
+                            ${error.message}
+                        </div>
+                    </div>
+                `;
+                
+                setTimeout(() => {
+                    statusEl.innerHTML = '';
+                }, 5000);
             }
             
             throw error;
@@ -295,7 +536,48 @@
     }
     
     // ============================================================================
-    // FUNCTION 6: clearServerForm (ENHANCED)
+    // FUNCTION 7: ✅ NEW - Bulk Service ID Discovery
+    // ============================================================================
+    
+    async function bulkDiscoverServiceIds() {
+        console.log('🔄 Starting bulk Service ID discovery...');
+        
+        try {
+            addLiveConsoleMessage('Starting bulk Service ID discovery...', '', 'info');
+            
+            const result = await makeServerAPICall('/api/servers/discover-all-service-ids', {
+                method: 'POST',
+                priority: 'high'
+            });
+            
+            if (result.success) {
+                console.log(`✅ Bulk discovery complete: ${result.discovered}/${result.total} successful`);
+                
+                addLiveConsoleMessage(
+                    `Bulk discovery complete: ${result.discovered} Service IDs discovered`, 
+                    '', 
+                    'success'
+                );
+                
+                // Reload servers to show updated capabilities
+                await loadManagedServers();
+                refreshServerList();
+                
+                return result;
+                
+            } else {
+                throw new Error(result.error || 'Bulk discovery failed');
+            }
+            
+        } catch (error) {
+            console.error('❌ Bulk Service ID discovery error:', error);
+            addLiveConsoleMessage(`Bulk discovery failed: ${error.message}`, '', 'error');
+            throw error;
+        }
+    }
+    
+    // ============================================================================
+    // FUNCTION 8: clearServerForm (ENHANCED)
     // ============================================================================
     
     function clearServerForm() {
@@ -330,7 +612,7 @@
     }
     
     // ============================================================================
-    // FUNCTION 7: loadServerManager (ENHANCED)
+    // FUNCTION 9: loadServerManager (ENHANCED)
     // ============================================================================
     
     async function loadServerManager() {
@@ -356,7 +638,7 @@
     }
     
     // ============================================================================
-    // FUNCTION 8: getStatusClass (ENHANCED)
+    // FUNCTION 10: getStatusClass (ENHANCED)
     // ============================================================================
     
     function getStatusClass(status) {
@@ -372,7 +654,7 @@
     }
     
     // ============================================================================
-    // FUNCTION 9: getStatusText (ENHANCED)
+    // FUNCTION 11: getStatusText (ENHANCED)
     // ============================================================================
     
     function getStatusText(status) {
@@ -388,7 +670,56 @@
     }
     
     // ============================================================================
-    // FUNCTION 10: pingSingleServer (ENHANCED)
+    // FUNCTION 12: ✅ NEW - Get Service ID Status Indicators
+    // ============================================================================
+    
+    function getServiceIdStatusIndicator(server) {
+        try {
+            const hasServiceId = server.serviceId !== null && server.serviceId !== undefined;
+            const discoveryStatus = server.discovery_status || 'unknown';
+            
+            if (hasServiceId) {
+                return {
+                    icon: '✅',
+                    text: 'Full Capabilities',
+                    class: 'text-green-400',
+                    serviceId: server.serviceId
+                };
+            } else if (discoveryStatus === 'failed') {
+                return {
+                    icon: '⚠️',
+                    text: 'Partial Capabilities',
+                    class: 'text-yellow-400',
+                    serviceId: null
+                };
+            } else if (discoveryStatus === 'error') {
+                return {
+                    icon: '❌',
+                    text: 'Discovery Error',
+                    class: 'text-red-400',
+                    serviceId: null
+                };
+            } else {
+                return {
+                    icon: '❓',
+                    text: 'Unknown Status',
+                    class: 'text-gray-400',
+                    serviceId: null
+                };
+            }
+        } catch (error) {
+            console.error('❌ Error getting Service ID status:', error);
+            return {
+                icon: '❓',
+                text: 'Error',
+                class: 'text-gray-400',
+                serviceId: null
+            };
+        }
+    }
+    
+    // ============================================================================
+    // FUNCTION 13: pingSingleServer (ENHANCED)
     // ============================================================================
     
     async function pingSingleServer(serverId) {
@@ -407,7 +738,7 @@
             });
             
             if (result.success) {
-                console.log(`✅ Ping successful: ${server.serverName} (${result.response_time_ms}ms)`);
+                console.log(`✅ Ping successful: ${server.serverName} (${result.response_time_ms || 'N/A'}ms)`);
                 
                 // Update server status if we have the servers array
                 if (window.managedServers) {
@@ -424,7 +755,7 @@
                 refreshServerList();
                 
                 addLiveConsoleMessage(
-                    `Ping successful: ${server.serverName} (${result.response_time_ms}ms)`,
+                    `Ping successful: ${server.serverName} (${result.response_time_ms || 'N/A'}ms)`,
                     serverId,
                     'success'
                 );
@@ -461,7 +792,7 @@
     }
     
     // ============================================================================
-    // FUNCTION 11: deleteServer (ENHANCED)
+    // FUNCTION 14: deleteServer (ENHANCED)
     // ============================================================================
     
     async function deleteServer(serverId) {
@@ -508,11 +839,11 @@
     }
     
     // ============================================================================
-    // FUNCTION 12: refreshServerList (ENHANCED)
+    // FUNCTION 15: refreshServerList (ENHANCED WITH SERVICE ID DISPLAY)
     // ============================================================================
     
     async function refreshServerList() {
-        console.log('🔄 Refreshing server list display...');
+        console.log('🔄 Refreshing server list display with Service ID information...');
         
         try {
             const servers = window.managedServers || [];
@@ -534,30 +865,53 @@
                 return;
             }
             
-            // Create server cards
+            // Create server cards with Service ID information
             const serverHTML = servers.map(server => {
                 const statusClass = getStatusClass(server.status || 'unknown');
                 const statusText = getStatusText(server.status || 'unknown');
+                const serviceIdStatus = getServiceIdStatusIndicator(server);
                 
                 return `
                     <div class="bg-gray-700 p-4 rounded-lg border border-gray-600 hover:border-gray-500 transition-colors">
                         <div class="flex items-center justify-between">
                             <div class="flex-1">
                                 <h4 class="font-semibold text-lg">${escapeHtml(server.serverName || 'Unknown Server')}</h4>
-                                <p class="text-gray-400 text-sm">ID: ${escapeHtml(server.serverId || 'N/A')}</p>
-                                <p class="text-gray-400 text-xs">
-                                    Region: ${escapeHtml(server.serverRegion || 'Unknown')} | 
-                                    Type: ${escapeHtml(server.serverType || 'Standard')}
-                                </p>
+                                <div class="text-gray-400 text-sm space-y-1">
+                                    <div>Server ID: ${escapeHtml(server.serverId || 'N/A')} (for health monitoring)</div>
+                                    ${server.serviceId ? 
+                                        `<div>Service ID: ${escapeHtml(server.serviceId)} (for commands)</div>` :
+                                        `<div>Service ID: <span class="text-yellow-400">Not available</span></div>`
+                                    }
+                                    <div>Region: ${escapeHtml(server.serverRegion || 'Unknown')} | Type: ${escapeHtml(server.serverType || 'Standard')}</div>
+                                </div>
                                 ${server.description ? `<p class="text-gray-300 text-sm mt-1">${escapeHtml(server.description)}</p>` : ''}
+                                
+                                <!-- Service ID Capabilities -->
+                                <div class="mt-2 flex items-center space-x-3 text-xs">
+                                    <span class="${serviceIdStatus.class}">
+                                        ${serviceIdStatus.icon} ${serviceIdStatus.text}
+                                    </span>
+                                    ${server.serviceId ? 
+                                        '<span class="text-green-400">✓ Commands Ready</span>' : 
+                                        '<span class="text-yellow-400">⚠ Commands Limited</span>'
+                                    }
+                                </div>
+                                
                                 ${server.lastPing ? `<p class="text-gray-500 text-xs mt-1">Last ping: ${new Date(server.lastPing).toLocaleTimeString()}</p>` : ''}
                             </div>
                             <div class="flex items-center space-x-2">
                                 <span class="px-2 py-1 rounded text-xs ${statusClass}">
                                     ${statusText}
                                 </span>
+                                ${!server.serviceId && server.discovery_status !== 'success' ? 
+                                    `<button onclick="retryServiceIdDiscovery('${server.serverId}')" 
+                                            class="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs transition-colors"
+                                            title="Retry Service ID discovery">
+                                        🔄
+                                    </button>` : ''
+                                }
                                 <button onclick="pingSingleServer('${server.serverId}')" 
-                                        class="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs transition-colors"
+                                        class="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-xs transition-colors"
                                         title="Ping server">
                                     🏓
                                 </button>
@@ -574,7 +928,7 @@
             
             container.innerHTML = serverHTML;
             
-            console.log(`✅ Server list refreshed: ${servers.length} servers displayed`);
+            console.log(`✅ Server list refreshed: ${servers.length} servers displayed with Service ID information`);
             
         } catch (error) {
             console.error('❌ Error refreshing server list:', error);
@@ -582,7 +936,7 @@
     }
     
     // ============================================================================
-    // FUNCTION 13: updateAllServerDropdowns (ENHANCED)
+    // FUNCTION 16: updateAllServerDropdowns (ENHANCED)
     // ============================================================================
     
     function updateAllServerDropdowns() {
@@ -595,6 +949,7 @@
                 '#eventServerSelect',
                 '#consoleServerSelect',
                 '#healthServerSelect',
+                '#server-health-selector',
                 '.server-dropdown'
             ];
             
@@ -606,10 +961,11 @@
                     
                     const currentValue = dropdown.value;
                     
-                    // Create options HTML
+                    // Create options HTML with Service ID indicators
                     const optionsHTML = servers.map(server => {
                         const statusIcon = server.status === 'online' ? '🟢' : server.status === 'offline' ? '🔴' : '⚪';
-                        return `<option value="${server.serverId}">${statusIcon} ${escapeHtml(server.serverName)} (${server.serverId})</option>`;
+                        const serviceIdIcon = server.serviceId ? '✅' : '⚠️';
+                        return `<option value="${server.serverId}">${statusIcon}${serviceIdIcon} ${escapeHtml(server.serverName)} (${server.serverId})</option>`;
                     }).join('');
                     
                     // Update dropdown
@@ -624,7 +980,7 @@
                 });
             });
             
-            console.log(`✅ Updated dropdowns for ${servers.length} servers`);
+            console.log(`✅ Updated dropdowns for ${servers.length} servers with Service ID indicators`);
             
         } catch (error) {
             console.error('❌ Error updating server dropdowns:', error);
@@ -632,7 +988,7 @@
     }
     
     // ============================================================================
-    // FUNCTION 14: disconnectServer (ENHANCED)
+    // FUNCTION 17: disconnectServer (ENHANCED)
     // ============================================================================
     
     async function disconnectServer(serverId) {
@@ -679,7 +1035,7 @@
     // ✅ ENHANCED MODULE INITIALIZATION AND FUNCTION EXPOSURE
     // ============================================================================
     
-    console.log('📦 Server Manager module loaded - 14 functions available (ENHANCED VERSION)');
+    console.log('📦 Server Manager module loaded - 17 functions available (COMPLETE SERVICE ID VERSION)');
     
     // ✅ CRITICAL: Expose all functions to global scope immediately
     if (typeof window !== 'undefined') {
@@ -699,9 +1055,15 @@
         window.updateAllServerDropdowns = updateAllServerDropdowns;
         window.disconnectServer = disconnectServer;
         
+        // ✅ NEW: Service ID functions
+        window.retryServiceIdDiscovery = retryServiceIdDiscovery;
+        window.bulkDiscoverServiceIds = bulkDiscoverServiceIds;
+        window.getServiceIdStatusIndicator = getServiceIdStatusIndicator;
+        
         // Utility functions
         window.addLiveConsoleMessage = addLiveConsoleMessage;
         window.makeServerAPICall = makeServerAPICall;
+        window.displayServiceIdDiscoveryStatus = displayServiceIdDiscoveryStatus;
         
         console.log('✅ All server manager functions exposed to global scope');
         console.log('🔧 Available functions:', {
@@ -709,13 +1071,18 @@
             loadServerManager: typeof window.loadServerManager,
             clearServerForm: typeof window.clearServerForm,
             pingSingleServer: typeof window.pingSingleServer,
-            deleteServer: typeof window.deleteServer
+            deleteServer: typeof window.deleteServer,
+            retryServiceIdDiscovery: typeof window.retryServiceIdDiscovery,
+            bulkDiscoverServiceIds: typeof window.bulkDiscoverServiceIds
         });
     }
     
-    // ✅ ENHANCED: DOM ready initialization
+    // ============================================================================
+    // ✅ ENHANCED: DOM READY INITIALIZATION WITH SERVICE ID SUPPORT
+    // ============================================================================
+    
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('✅ Server Manager module initialized (ENHANCED VERSION)');
+        console.log('✅ Server Manager module initialized (COMPLETE SERVICE ID VERSION)');
         
         // Set up keyboard shortcuts for server form
         const serverFormInputs = ['newServerId', 'newServerName', 'newServerDescription'];
@@ -733,9 +1100,21 @@
             }
         });
         
-        console.log('🎯 Server Manager ready - Add Server button should work immediately');
+        // Add bulk discovery button if container exists
+        const bulkDiscoveryContainer = document.getElementById('bulk-discovery-container');
+        if (bulkDiscoveryContainer) {
+            bulkDiscoveryContainer.innerHTML = `
+                <button onclick="bulkDiscoverServiceIds()" 
+                        class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded transition-colors">
+                    🔍 Discover All Service IDs
+                </button>
+            `;
+        }
+        
+        console.log('🎯 Server Manager ready - All Service ID features available');
+        console.log('🚀 Service ID Auto-Discovery system integrated and functional');
     });
     
-    console.log('🚀 Server Manager module fully loaded and enhanced');
+    console.log('🚀 Server Manager module fully loaded with complete Service ID Auto-Discovery integration');
 
 </script>

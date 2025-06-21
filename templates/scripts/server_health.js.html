@@ -1,7 +1,7 @@
-<!-- Enhanced Server Health JavaScript with REAL CPU DATA INTEGRATION (Steps 4 & 5) -->
+<!-- Enhanced Server Health JavaScript with SERVICE ID INTEGRATION (Fixed Version) -->
 <script>
     // ============================================================================
-    // SERVER HEALTH MONITORING MODULE - ENHANCED VERSION WITH REAL CPU DATA
+    // SERVER HEALTH MONITORING MODULE - SERVICE ID INTEGRATED VERSION
     // ============================================================================
     
     let serverHealthData = {
@@ -12,40 +12,48 @@
         charts: {},
         commandFilter: 'all',
         healthStatus: null,
-        debugMode: true, // Enable debugging
+        debugMode: true,
         serverLoadAttempts: 0,
         maxLoadAttempts: 50,
         loadCheckInterval: 1000,
-        // ✅ NEW: Data source tracking for real vs estimated data
+        // ✅ SERVICE ID INTEGRATION: Enhanced data source tracking
         dataSources: {
             cpu: 'loading',
             memory: 'loading',
             response_time: 'loading',
             player_count: 'loading'
         },
-        // ✅ NEW: Real data availability flags
+        // ✅ SERVICE ID INTEGRATION: Real data availability flags
         realDataAvailable: {
             cpu: false,
             memory: false,
             sensors: false
+        },
+        // ✅ SERVICE ID INTEGRATION: Server capabilities tracking
+        serverCapabilities: {
+            hasServiceId: false,
+            serviceId: null,
+            discoveryStatus: 'unknown',
+            commandExecutionAvailable: false,
+            healthMonitoringAvailable: true
         }
     };
     
-    // ✅ NEW: Global player count cache for cross-component sharing
+    // ✅ SERVICE ID INTEGRATION: Global player count cache for cross-component sharing
     if (!window.playerCountCache) window.playerCountCache = {};
     
     // ============================================================================
-    // MAIN SERVER HEALTH FUNCTIONS
+    // MAIN SERVER HEALTH FUNCTIONS WITH SERVICE ID INTEGRATION
     // ============================================================================
     
     function loadServerHealth() {
-        console.log('🏥 Loading Enhanced Server Health tab with Real CPU Data...');
+        console.log('🏥 Loading Enhanced Server Health tab with Service ID Integration...');
         
         try {
             serverHealthData.isActive = true;
             serverHealthData.serverLoadAttempts = 0;
             initializeServerHealth();
-            console.log('✅ Enhanced Server Health loaded successfully');
+            console.log('✅ Enhanced Server Health with Service ID integration loaded successfully');
         } catch (error) {
             console.error('❌ Error loading Enhanced Server Health:', error);
             showHealthError('Failed to initialize Enhanced Server Health system');
@@ -53,12 +61,7 @@
     }
     
     function initializeServerHealth() {
-        console.log('🔧 Initializing Enhanced Server Health system...');
-        
-        console.log('🔍 Debug - Current state:');
-        console.log('  - managedServers type:', typeof window.managedServers);
-        console.log('  - managedServers array:', window.managedServers);
-        console.log('  - managedServers length:', window.managedServers ? window.managedServers.length : 'undefined');
+        console.log('🔧 Initializing Enhanced Server Health system with Service ID support...');
         
         setupServerSelectorEnhanced();
         initializeHealthCharts();
@@ -69,17 +72,26 @@
             startAutoRefresh();
         }
         
-        console.log('✅ Enhanced Server Health initialization complete');
+        console.log('✅ Enhanced Server Health initialization complete with Service ID integration');
     }
     
     function setupGlobalServerLoadingListener() {
-        console.log('🎧 Setting up global server loading listener...');
+        console.log('🎧 Setting up global server loading listener with Service ID awareness...');
         
         window.addEventListener('serversLoaded', function(event) {
             console.log('📡 Enhanced Server Health: Received serversLoaded event!', event.detail);
             setTimeout(() => {
                 setupServerSelectorEnhanced();
             }, 500);
+        });
+        
+        // ✅ SERVICE ID INTEGRATION: Listen for Service ID discovery events
+        window.addEventListener('serviceIdDiscovered', function(event) {
+            console.log('🔍 Service ID discovered event received:', event.detail);
+            if (serverHealthData.currentServer === event.detail.serverId) {
+                updateServerCapabilities(event.detail);
+                loadEnhancedHealthData(); // Refresh with new capabilities
+            }
         });
         
         const globalWatcher = setInterval(() => {
@@ -96,7 +108,7 @@
     }
     
     function setupServerSelectorEnhanced() {
-        console.log('🔍 Enhanced server selector setup...');
+        console.log('🔍 Enhanced server selector setup with Service ID information...');
         console.log(`🔍 Attempt ${serverHealthData.serverLoadAttempts + 1}/${serverHealthData.maxLoadAttempts}`);
         
         const selector = document.getElementById('server-health-selector');
@@ -106,7 +118,7 @@
         }
         
         if (window.managedServers && Array.isArray(window.managedServers) && window.managedServers.length > 0) {
-            console.log('✅ Found servers immediately, populating...');
+            console.log('✅ Found servers immediately, populating with Service ID info...');
             const success = populateServersNow();
             if (success) {
                 return;
@@ -160,12 +172,6 @@
         
         setTimeout(() => {
             console.log(`🔍 Persistent check ${serverHealthData.serverLoadAttempts}/${serverHealthData.maxLoadAttempts}`);
-            console.log('🔍 Current managedServers state:', {
-                exists: typeof window.managedServers !== 'undefined',
-                isArray: Array.isArray(window.managedServers),
-                length: window.managedServers ? window.managedServers.length : 'N/A',
-                sample: window.managedServers ? window.managedServers[0] : 'N/A'
-            });
             
             if (window.managedServers && Array.isArray(window.managedServers) && window.managedServers.length > 0) {
                 console.log('✅ Servers found by persistent watcher!');
@@ -181,7 +187,7 @@
     }
     
     function populateServersNow() {
-        console.log('✅ Populating servers now...');
+        console.log('✅ Populating servers now with Service ID information...');
         console.log(`📊 Processing ${window.managedServers.length} managed servers`);
         
         const selector = document.getElementById('server-health-selector');
@@ -200,13 +206,32 @@
                 if (server.isActive !== false) {
                     const option = document.createElement('option');
                     option.value = server.serverId;
-                    option.textContent = `${server.serverName} (${server.serverId}) - ${server.serverRegion}`;
                     
-                    if (server.status === 'online') {
-                        option.textContent += ' ✅';
-                    } else if (server.status === 'offline') {
-                        option.textContent += ' ❌';
+                    // ✅ SERVICE ID INTEGRATION: Enhanced server display with Service ID info
+                    let serverText = `${server.serverName} (${server.serverId}) - ${server.serverRegion}`;
+                    
+                    // Add capability indicators
+                    if (server.serviceId) {
+                        serverText += ' 🟢'; // Full capabilities
+                    } else if (server.discovery_status === 'failed') {
+                        serverText += ' 🟡'; // Partial capabilities
+                    } else {
+                        serverText += ' ⚪'; // Unknown capabilities
                     }
+                    
+                    // Add status indicators
+                    if (server.status === 'online') {
+                        serverText += ' ✅';
+                    } else if (server.status === 'offline') {
+                        serverText += ' ❌';
+                    }
+                    
+                    option.textContent = serverText;
+                    
+                    // ✅ SERVICE ID INTEGRATION: Store Service ID info in option
+                    option.dataset.serviceId = server.serviceId || '';
+                    option.dataset.discoveryStatus = server.discovery_status || 'unknown';
+                    option.dataset.hasServiceId = !!server.serviceId;
                     
                     selector.appendChild(option);
                     activeServerCount++;
@@ -215,11 +240,11 @@
                         firstActiveServer = server;
                     }
                     
-                    console.log(`✅ Added server: ${server.serverName} (${server.serverId})`);
+                    console.log(`✅ Added server: ${server.serverName} (${server.serverId}) - Service ID: ${server.serviceId || 'None'}`);
                 }
             });
             
-            console.log(`✅ Added ${activeServerCount} servers to dropdown`);
+            console.log(`✅ Added ${activeServerCount} servers to dropdown with Service ID information`);
             
             if (firstActiveServer) {
                 selector.value = firstActiveServer.serverId;
@@ -230,7 +255,7 @@
                 createPlayerCountElementsForSelectedServer(firstActiveServer.serverId);
                 
                 setTimeout(() => {
-                    loadEnhancedHealthData(); // ✅ NEW: Use enhanced data loading
+                    loadEnhancedHealthData();
                 }, 1000);
                 
                 return true;
@@ -260,9 +285,6 @@
         }
         
         console.log('✅ Created dynamic player count elements for', serverId);
-        
-        // ✅ ENHANCED: No longer call separate refreshPlayerCount - enhanced health data will provide this
-        console.log('🚀 ENHANCED: Player count will be updated via enhanced health data refresh');
     }
     
     function setCurrentServer(newServerId) {
@@ -270,10 +292,146 @@
         serverHealthData.currentServer = newServerId;
         console.log('🎯 Current server set to:', newServerId);
         
+        // ✅ SERVICE ID INTEGRATION: Update server capabilities when server changes
+        updateCurrentServerCapabilities(newServerId);
+        
         if (previousServer !== newServerId) {
             console.log('🔄 Server changed, refreshing enhanced health data...');
-            loadEnhancedHealthData(); // ✅ NEW: Use enhanced data loading
+            loadEnhancedHealthData();
         }
+    }
+    
+    // ✅ SERVICE ID INTEGRATION: New function to update server capabilities
+    function updateCurrentServerCapabilities(serverId) {
+        console.log('🔧 Updating current server capabilities for:', serverId);
+        
+        if (!window.managedServers) {
+            console.warn('⚠️ No managed servers available for capability check');
+            return;
+        }
+        
+        const server = window.managedServers.find(s => s.serverId === serverId);
+        if (server) {
+            serverHealthData.serverCapabilities = {
+                hasServiceId: !!server.serviceId,
+                serviceId: server.serviceId || null,
+                discoveryStatus: server.discovery_status || 'unknown',
+                commandExecutionAvailable: !!server.serviceId,
+                healthMonitoringAvailable: true
+            };
+            
+            console.log('✅ Updated server capabilities:', serverHealthData.serverCapabilities);
+            
+            // Update UI indicators
+            updateCapabilityIndicators();
+        } else {
+            console.warn('⚠️ Server not found in managed servers:', serverId);
+        }
+    }
+    
+    // ✅ SERVICE ID INTEGRATION: New function to update capability indicators
+    function updateCapabilityIndicators() {
+        const caps = serverHealthData.serverCapabilities;
+        
+        // Update Service ID status display
+        const serviceIdStatus = document.getElementById('service-id-status');
+        if (serviceIdStatus) {
+            if (caps.hasServiceId) {
+                serviceIdStatus.innerHTML = `🟢 Service ID: ${caps.serviceId} (Commands Available)`;
+                serviceIdStatus.className = 'text-green-400 text-sm';
+            } else if (caps.discoveryStatus === 'failed') {
+                serviceIdStatus.innerHTML = '🟡 Service ID: Not discovered (Limited functionality)';
+                serviceIdStatus.className = 'text-yellow-400 text-sm';
+            } else {
+                serviceIdStatus.innerHTML = '⚪ Service ID: Unknown';
+                serviceIdStatus.className = 'text-gray-400 text-sm';
+            }
+        }
+        
+        // Update capability badges
+        const commandCapability = document.getElementById('command-capability-badge');
+        if (commandCapability) {
+            if (caps.commandExecutionAvailable) {
+                commandCapability.innerHTML = '🟢 Commands Available';
+                commandCapability.className = 'px-2 py-1 rounded text-xs bg-green-900 text-green-300';
+            } else {
+                commandCapability.innerHTML = '🟡 Commands Limited';
+                commandCapability.className = 'px-2 py-1 rounded text-xs bg-yellow-900 text-yellow-300';
+            }
+        }
+        
+        const healthCapability = document.getElementById('health-capability-badge');
+        if (healthCapability) {
+            healthCapability.innerHTML = '🟢 Health Monitoring';
+            healthCapability.className = 'px-2 py-1 rounded text-xs bg-green-900 text-green-300';
+        }
+        
+        console.log('✅ Updated capability indicators in UI');
+    }
+    
+    // ✅ SERVICE ID INTEGRATION: New function to handle Service ID discovery updates
+    function updateServerCapabilities(discoveryData) {
+        console.log('🔧 Updating server capabilities from discovery:', discoveryData);
+        
+        if (discoveryData.success && discoveryData.serviceId) {
+            serverHealthData.serverCapabilities.hasServiceId = true;
+            serverHealthData.serverCapabilities.serviceId = discoveryData.serviceId;
+            serverHealthData.serverCapabilities.discoveryStatus = 'success';
+            serverHealthData.serverCapabilities.commandExecutionAvailable = true;
+        } else {
+            serverHealthData.serverCapabilities.discoveryStatus = 'failed';
+            serverHealthData.serverCapabilities.commandExecutionAvailable = false;
+        }
+        
+        updateCapabilityIndicators();
+        
+        // Show notification
+        if (discoveryData.success) {
+            showServiceIdNotification(`Service ID discovered: ${discoveryData.serviceId}`, 'success');
+        } else {
+            showServiceIdNotification(`Service ID discovery failed: ${discoveryData.error}`, 'warning');
+        }
+    }
+    
+    // ✅ SERVICE ID INTEGRATION: New function to show Service ID notifications
+    function showServiceIdNotification(message, type = 'info') {
+        console.log(`📢 Service ID notification (${type}):`, message);
+        
+        // Create notification element if it doesn't exist
+        let notification = document.getElementById('service-id-notification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'service-id-notification';
+            notification.className = 'fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm';
+            document.body.appendChild(notification);
+        }
+        
+        // Set notification content and styling
+        const typeClasses = {
+            success: 'bg-green-800 text-green-200 border border-green-600',
+            warning: 'bg-yellow-800 text-yellow-200 border border-yellow-600',
+            error: 'bg-red-800 text-red-200 border border-red-600',
+            info: 'bg-blue-800 text-blue-200 border border-blue-600'
+        };
+        
+        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm ${typeClasses[type] || typeClasses.info}`;
+        notification.innerHTML = `
+            <div class="flex items-start space-x-2">
+                <span class="text-lg">${type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : 'ℹ️'}</span>
+                <div class="flex-1">
+                    <p class="text-sm font-medium">Service ID Update</p>
+                    <p class="text-xs mt-1">${message}</p>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="text-lg hover:opacity-70">×</button>
+            </div>
+        `;
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            if (notification && notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
     }
     
     function setupHealthEventListeners() {
@@ -293,7 +451,16 @@
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
                 console.log('🔄 Manual refresh button clicked - loading enhanced data');
-                loadEnhancedHealthData(); // ✅ NEW: Use enhanced data loading
+                loadEnhancedHealthData();
+            });
+        }
+        
+        // ✅ SERVICE ID INTEGRATION: Add Service ID discovery retry button listener
+        const retryDiscoveryBtn = document.getElementById('retry-discovery-btn');
+        if (retryDiscoveryBtn) {
+            retryDiscoveryBtn.addEventListener('click', () => {
+                console.log('🔄 Service ID discovery retry button clicked');
+                retryServiceIdDiscovery(serverHealthData.currentServer);
             });
         }
         
@@ -307,8 +474,63 @@
         });
     }
     
+    // ✅ SERVICE ID INTEGRATION: New function for retrying Service ID discovery
+    async function retryServiceIdDiscovery(serverId) {
+        if (!serverId) {
+            console.warn('⚠️ No server ID provided for discovery retry');
+            return;
+        }
+        
+        console.log('🔄 Retrying Service ID discovery for server:', serverId);
+        
+        try {
+            showServiceIdNotification('Retrying Service ID discovery...', 'info');
+            
+            const response = await fetch(`/api/servers/discover-service-id/${serverId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    region: 'US' // Default region, could be made configurable
+                })
+            });
+            
+            const result = await response.json();
+            console.log('🔍 Service ID discovery retry result:', result);
+            
+            if (result.success) {
+                // Update server capabilities
+                updateServerCapabilities({
+                    success: true,
+                    serviceId: result.service_id,
+                    serverId: serverId
+                });
+                
+                // Refresh server list to show updated capabilities
+                if (typeof window.loadManagedServers === 'function') {
+                    window.loadManagedServers();
+                }
+                
+                // Refresh health data with new capabilities
+                loadEnhancedHealthData();
+                
+            } else {
+                updateServerCapabilities({
+                    success: false,
+                    error: result.error,
+                    serverId: serverId
+                });
+            }
+            
+        } catch (error) {
+            console.error('❌ Error during Service ID discovery retry:', error);
+            showServiceIdNotification(`Discovery retry failed: ${error.message}`, 'error');
+        }
+    }
+    
     // ============================================================================
-    // ✅ NEW: ENHANCED DATA LOADING FUNCTIONS WITH REAL CPU DATA (STEP 4)
+    // ✅ SERVICE ID INTEGRATION: ENHANCED DATA LOADING FUNCTIONS
     // ============================================================================
     
     async function loadEnhancedHealthData() {
@@ -318,24 +540,24 @@
             return;
         }
         
-        console.log('🚀 Loading ENHANCED health data with real CPU for server:', serverHealthData.currentServer);
+        console.log('🚀 Loading ENHANCED health data with Service ID integration for server:', serverHealthData.currentServer);
         
         // Show loading indicators
         updateDataSourceIndicators('loading');
         
         try {
-            // ✅ NEW: Try comprehensive endpoint first (includes real CPU from GraphQL ServiceSensors)
-            console.log('📡 Attempting comprehensive health data endpoint...');
+            // ✅ SERVICE ID INTEGRATION: Try comprehensive endpoint first
+            console.log('📡 Attempting comprehensive health data endpoint with Service ID support...');
             
             const comprehensiveResponse = await fetch(`/api/server_health/comprehensive/${serverHealthData.currentServer}`);
             
             if (comprehensiveResponse.ok) {
                 const comprehensiveResult = await comprehensiveResponse.json();
-                console.log('✅ Comprehensive health data received:', comprehensiveResult);
+                console.log('✅ Comprehensive health data received with Service ID info:', comprehensiveResult);
                 
                 if (comprehensiveResult.success) {
                     await processEnhancedHealthData(comprehensiveResult);
-                    console.log('🎯 ENHANCED: Successfully loaded real CPU data via comprehensive endpoint');
+                    console.log('🎯 ENHANCED: Successfully loaded health data with Service ID integration');
                     return;
                 }
             }
@@ -352,7 +574,22 @@
     }
     
     async function processEnhancedHealthData(result) {
-        console.log('🔧 Processing enhanced health data with real CPU indicators...');
+        console.log('🔧 Processing enhanced health data with Service ID integration...');
+        
+        // ✅ SERVICE ID INTEGRATION: Extract Service ID information
+        const serviceIdInfo = result.service_id_info || {};
+        const capabilities = result.capabilities || {};
+        
+        console.log('🔍 Service ID info from API:', serviceIdInfo);
+        console.log('⚙️ Server capabilities:', capabilities);
+        
+        // Update local capabilities tracking
+        if (serviceIdInfo.has_service_id !== undefined) {
+            serverHealthData.serverCapabilities.hasServiceId = serviceIdInfo.has_service_id;
+            serverHealthData.serverCapabilities.serviceId = serviceIdInfo.service_id;
+            serverHealthData.serverCapabilities.discoveryStatus = serviceIdInfo.discovery_status;
+            serverHealthData.serverCapabilities.commandExecutionAvailable = serviceIdInfo.command_execution_available;
+        }
         
         // Extract data sources information
         const dataSources = result.data_sources || [];
@@ -369,16 +606,19 @@
         // Update data source indicators
         updateDataSourceIndicators('success', dataSources);
         
+        // Update capability indicators
+        updateCapabilityIndicators();
+        
         // Process the health data
-        if (result.health_data) {
-            console.log('✅ Processing comprehensive health metrics...');
+        if (result.data) {
+            console.log('✅ Processing comprehensive health metrics with Service ID context...');
             
             // Update status cards with enhanced data
-            updateEnhancedStatusCards(serverHealthData.currentServer, result.health_data, dataSources);
+            updateEnhancedStatusCards(serverHealthData.currentServer, result.data, dataSources);
             
             // Extract and broadcast player count
-            if (result.health_data.metrics) {
-                const metrics = result.health_data.metrics;
+            if (result.data.metrics) {
+                const metrics = result.data.metrics;
                 
                 if (metrics.player_count !== undefined) {
                     const playerData = {
@@ -406,7 +646,7 @@
             loadTrendsData()
         ]);
         
-        console.log('🚀 Enhanced health data processing complete!');
+        console.log('🚀 Enhanced health data processing complete with Service ID integration!');
     }
     
     async function loadStandardHealthData() {
@@ -427,29 +667,34 @@
         
         // Update indicators to show estimated data
         updateDataSourceIndicators('estimated', ['logs_fallback']);
+        
+        // Update capability indicators
+        updateCapabilityIndicators();
     }
     
-    // ✅ NEW: Enhanced status card updates with data source indicators
+    // ✅ SERVICE ID INTEGRATION: Enhanced status card updates with Service ID context
     function updateEnhancedStatusCards(serverId, healthData, dataSources = []) {
-        console.log('🎨 Updating enhanced status cards with real data indicators...');
+        console.log('🎨 Updating enhanced status cards with Service ID context...');
         console.log('📊 Health data:', healthData);
         console.log('📡 Data sources:', dataSources);
+        console.log('⚙️ Server capabilities:', serverHealthData.serverCapabilities);
         
         const metrics = healthData.metrics || {};
         const hasRealCpu = dataSources.includes('graphql_sensors');
         const hasRealMemory = dataSources.includes('graphql_sensors');
         
-        // ✅ CPU Card with real data detection
+        // ✅ CPU Card with real data detection and Service ID context
         updateMetricCard('cpu-usage', {
             current: metrics.cpu_usage,
             average: metrics.cpu_avg_24h,
             trend: metrics.cpu_trend,
             isReal: hasRealCpu,
             source: hasRealCpu ? 'GraphQL Sensors' : 'Estimated from Logs',
-            thresholds: { warning: 70, critical: 85 }
+            thresholds: { warning: 70, critical: 85 },
+            serviceIdContext: serverHealthData.serverCapabilities.hasServiceId
         });
         
-        // ✅ Memory Card with real data detection  
+        // ✅ Memory Card with real data detection and Service ID context
         updateMetricCard('memory-usage', {
             current: metrics.memory_usage,
             average: metrics.memory_avg_24h,
@@ -457,7 +702,8 @@
             isReal: hasRealMemory,
             source: hasRealMemory ? 'GraphQL Sensors' : 'Estimated from Logs',
             thresholds: { warning: 80, critical: 90 },
-            suffix: 'MB'
+            suffix: 'MB',
+            serviceIdContext: serverHealthData.serverCapabilities.hasServiceId
         });
         
         // ✅ Response Time Card (always real from logs)
@@ -468,15 +714,16 @@
             isReal: true,
             source: 'Server Logs',
             thresholds: { warning: 100, critical: 200 },
-            suffix: 'ms'
+            suffix: 'ms',
+            serviceIdContext: true // Response time doesn't depend on Service ID
         });
         
-        console.log('✅ Enhanced status cards updated with real data indicators');
+        console.log('✅ Enhanced status cards updated with Service ID context');
     }
     
-    // ✅ NEW: Generic metric card updater with enhanced data source logic
+    // ✅ SERVICE ID INTEGRATION: Enhanced metric card updater
     function updateMetricCard(metricType, config) {
-        console.log(`🔧 Updating ${metricType} card with enhanced configuration:`, config);
+        console.log(`🔧 Updating ${metricType} card with Service ID configuration:`, config);
         
         const elements = {
             current: document.getElementById(`${metricType}-current`),
@@ -493,8 +740,10 @@
             const suffix = config.suffix || '%';
             elements.current.textContent = `${config.current}`;
             
-            // ✅ Enhanced: Add data quality class to metric value
-            elements.current.className = `text-2xl font-bold metric-value ${config.isReal ? 'real-data' : 'estimated-data'}`;
+            // ✅ SERVICE ID INTEGRATION: Enhanced data quality class
+            const qualityClass = config.isReal ? 'real-data' : 'estimated-data';
+            const serviceIdClass = config.serviceIdContext ? 'service-id-available' : 'service-id-limited';
+            elements.current.className = `text-2xl font-bold metric-value ${qualityClass} ${serviceIdClass}`;
             
             // Color coding based on real thresholds
             if (config.isReal && config.thresholds) {
@@ -544,7 +793,7 @@
             elements.progressBar.className = `progress-bar h-2 rounded-full transition-all duration-300 ${colorClass} ${config.isReal ? 'real-data' : ''}`;
         }
         
-        // ✅ Update data source indicator
+        // ✅ SERVICE ID INTEGRATION: Update data source indicator with Service ID context
         if (elements.dataSource) {
             const indicator = config.isReal ? 
                 `🟢 ${config.source}` : 
@@ -552,6 +801,11 @@
             
             elements.dataSource.textContent = indicator;
             elements.dataSource.className = `px-2 py-1 rounded text-xs ${config.isReal ? 'data-source-real' : 'data-source-estimated'}`;
+            
+            // Add tooltip for Service ID context
+            elements.dataSource.title = config.serviceIdContext ? 
+                'Data source available with current server configuration' :
+                'Limited data source - Service ID discovery may improve quality';
         }
         
         // ✅ Update quality indicator
@@ -561,18 +815,19 @@
             elements.quality.className = `quality-indicator text-xs ${config.isReal ? 'quality-high' : 'quality-medium'}`;
         }
         
-        // ✅ Update card styling
+        // ✅ SERVICE ID INTEGRATION: Update card styling with Service ID context
         if (elements.card) {
             elements.card.className = elements.card.className.replace(/(real|estimated|error)-data/g, '');
-            elements.card.className += ` ${config.isReal ? 'real-data' : 'estimated-data'}`;
+            elements.card.className = elements.card.className.replace(/(service-id-available|service-id-limited)/g, '');
+            elements.card.className += ` ${config.isReal ? 'real-data' : 'estimated-data'} ${config.serviceIdContext ? 'service-id-available' : 'service-id-limited'}`;
         }
         
-        console.log(`✅ Enhanced ${metricType} card updated - Real data: ${config.isReal}`);
+        console.log(`✅ Enhanced ${metricType} card updated with Service ID context - Real data: ${config.isReal}, Service ID: ${config.serviceIdContext}`);
     }
     
-    // ✅ NEW: Data source indicator management
+    // ✅ SERVICE ID INTEGRATION: Enhanced data source indicator management
     function updateDataSourceIndicators(status, sources = []) {
-        console.log('🎯 Updating data source indicators:', status, sources);
+        console.log('🎯 Updating data source indicators with Service ID context:', status, sources);
         
         const indicators = {
             health: document.getElementById('health-data-source-indicator'),
@@ -613,29 +868,45 @@
                 indicatorClass = 'data-source-estimated';
         }
         
+        // ✅ SERVICE ID INTEGRATION: Add Service ID context to indicators
+        const hasServiceId = serverHealthData.serverCapabilities.hasServiceId;
+        if (hasServiceId && status === 'success') {
+            indicatorText += ' (Enhanced)';
+        } else if (!hasServiceId && status === 'success') {
+            indicatorText += ' (Limited)';
+        }
+        
         Object.values(indicators).forEach(indicator => {
             if (indicator) {
                 indicator.textContent = indicatorText;
                 indicator.className = `px-2 py-1 rounded text-xs ${indicatorClass}`;
+                
+                // Add Service ID context to title
+                indicator.title = hasServiceId ? 
+                    'Data quality enhanced by Service ID discovery' :
+                    'Service ID discovery could improve data quality';
             }
         });
         
-        // Special handling for mixed sources
+        // Special handling for mixed sources with Service ID context
         if (status === 'success' && indicators.trends) {
             const hasReal = sources.includes('graphql_sensors');
             const hasLogs = sources.includes('logs_fallback') || sources.length > 0;
             
             if (hasReal && hasLogs) {
                 indicators.trends.textContent = '🔵 Mixed Sources';
+                if (hasServiceId) {
+                    indicators.trends.textContent += ' (Enhanced)';
+                }
                 indicators.trends.className = 'px-2 py-1 rounded text-xs data-source-mixed';
             }
         }
         
-        console.log('✅ Data source indicators updated');
+        console.log('✅ Data source indicators updated with Service ID context');
     }
     
     // ============================================================================
-    // EXISTING FUNCTIONS WITH ENHANCEMENTS
+    // EXISTING FUNCTIONS WITH SERVICE ID ENHANCEMENTS
     // ============================================================================
     
     async function loadHealthStatus() {
@@ -646,7 +917,7 @@
         }
         
         try {
-            console.log(`📊 Loading standard health status for server ${serverHealthData.currentServer}...`);
+            console.log(`📊 Loading health status for server ${serverHealthData.currentServer} with Service ID context...`);
             
             updateHealthStatusDisplay({
                 overall_status: 'loading',
@@ -664,11 +935,20 @@
             console.log('📊 Health status response status:', response.status);
             
             const result = await response.json();
-            console.log('📊 Health status result:', result);
+            console.log('📊 Health status result with Service ID info:', result);
             
             if (result.success) {
                 console.log('✅ Health status loaded successfully');
                 serverHealthData.healthStatus = result;
+                
+                // ✅ SERVICE ID INTEGRATION: Extract Service ID information
+                if (result.service_id_info) {
+                    updateServerCapabilities({
+                        success: result.service_id_info.has_service_id,
+                        serviceId: result.service_id_info.service_id,
+                        serverId: serverHealthData.currentServer
+                    });
+                }
                 
                 // Extract and broadcast player count data from health metrics
                 if (result.health_data && result.health_data.metrics) {
@@ -718,7 +998,7 @@
                 source: playerData.source || 'enhanced_health_api'
             };
             
-            console.log(`📡 ENHANCED: Broadcasting player count from Enhanced Server Health: ${normalizedData.current}/${normalizedData.max} (${normalizedData.percentage}%)`);
+            console.log(`📡 ENHANCED: Broadcasting player count from Enhanced Server Health with Service ID context: ${normalizedData.current}/${normalizedData.max} (${normalizedData.percentage}%)`);
             
             window.playerCountCache[serverId] = normalizedData;
             
@@ -787,6 +1067,9 @@
         }
     }
     
+    // Continue with existing chart, command, and trend functions...
+    // [The rest of the existing functions remain the same but with Service ID integration logging]
+    
     async function loadHealthCharts() {
         if (!serverHealthData.currentServer) {
             console.warn('⚠️ No server selected for charts');
@@ -794,7 +1077,7 @@
         }
         
         try {
-            console.log(`📈 Loading chart data for server ${serverHealthData.currentServer}...`);
+            console.log(`📈 Loading chart data for server ${serverHealthData.currentServer} with Service ID context...`);
             
             const response = await fetch(`/api/server_health/charts/${serverHealthData.currentServer}`);
             const result = await response.json();
@@ -822,7 +1105,7 @@
         }
         
         try {
-            console.log(`📋 Loading command feed for server ${serverHealthData.currentServer}...`);
+            console.log(`📋 Loading command feed for server ${serverHealthData.currentServer} with Service ID context...`);
             
             const response = await fetch(`/api/server_health/commands/${serverHealthData.currentServer}`);
             const result = await response.json();
@@ -832,6 +1115,9 @@
             if (result.success && result.commands) {
                 updateCommandFeed(result.commands);
                 console.log('✅ Loaded', result.commands.length, 'commands');
+                
+                // ✅ SERVICE ID INTEGRATION: Show Service ID context in command feed
+                updateCommandCapabilityDisplay(result.service_id_info);
             } else {
                 console.warn('⚠️ Command feed warning:', result.error);
                 updateCommandFeed([]);
@@ -843,6 +1129,20 @@
         }
     }
     
+    // ✅ SERVICE ID INTEGRATION: New function to update command capability display
+    function updateCommandCapabilityDisplay(serviceIdInfo) {
+        const commandStatus = document.getElementById('command-execution-status');
+        if (commandStatus && serviceIdInfo) {
+            if (serviceIdInfo.command_execution_available) {
+                commandStatus.innerHTML = '🟢 Command Execution: Available (Service ID discovered)';
+                commandStatus.className = 'text-green-400 text-xs mb-2';
+            } else {
+                commandStatus.innerHTML = '🟡 Command Execution: Limited (Service ID needed)';
+                commandStatus.className = 'text-yellow-400 text-xs mb-2';
+            }
+        }
+    }
+    
     async function loadTrendsData() {
         if (!serverHealthData.currentServer) {
             console.warn('⚠️ No server selected for trends data');
@@ -850,7 +1150,7 @@
         }
         
         try {
-            console.log(`📊 Loading trends data for server ${serverHealthData.currentServer}...`);
+            console.log(`📊 Loading trends data for server ${serverHealthData.currentServer} with Service ID context...`);
             
             const response = await fetch(`/api/server_health/trends/${serverHealthData.currentServer}`);
             const result = await response.json();
@@ -872,15 +1172,15 @@
     }
     
     function updateHealthStatusDisplay(data) {
-        console.log('🔧 Updating enhanced health status display with data:', data);
+        console.log('🔧 Updating enhanced health status display with Service ID context:', data);
         
         const statusElement = document.getElementById('health-status-text');
         if (statusElement && data.overall_status) {
             const statusTexts = {
-                'healthy': 'All systems normal - Real data available',
+                'healthy': 'All systems normal - Enhanced monitoring active',
                 'warning': 'System operational with minor issues',
                 'critical': 'Attention required',
-                'loading': 'Loading enhanced health data...'
+                'loading': 'Loading enhanced health data with Service ID integration...'
             };
             
             const statusText = statusTexts[data.overall_status] || 'Status checking...';
@@ -922,7 +1222,7 @@
     }
     
     function showDemoHealthData() {
-        console.log('📊 Showing enhanced demo health data');
+        console.log('📊 Showing enhanced demo health data with Service ID context');
         const demoData = {
             overall_status: 'healthy',
             health_data: {
@@ -937,7 +1237,13 @@
                 }
             },
             data_sources: ['logs_fallback'], // Demo shows estimated data
-            real_cpu_data: false
+            real_cpu_data: false,
+            service_id_info: {
+                has_service_id: false,
+                service_id: null,
+                command_execution_available: false,
+                discovery_status: 'demo'
+            }
         };
         
         updateHealthStatusDisplay(demoData);
@@ -966,21 +1272,28 @@
         
         const statusElement = document.getElementById('health-status-text');
         if (statusElement) {
-            statusElement.textContent = 'Select a server to view enhanced health data';
+            statusElement.textContent = 'Select a server to view enhanced health data with Service ID integration';
             statusElement.className = 'text-gray-400 text-sm mb-2';
         }
         
         updateDataSourceIndicators('loading');
         
+        // Clear capability indicators
+        const serviceIdStatus = document.getElementById('service-id-status');
+        if (serviceIdStatus) {
+            serviceIdStatus.textContent = 'No server selected';
+            serviceIdStatus.className = 'text-gray-400 text-sm';
+        }
+        
         console.log('📊 No server selected - showing enhanced select server message');
     }
     
     // ============================================================================
-    // ENHANCED CHARTS WITH DYNAMIC FPS SCALING
+    // CHARTS, TRENDS, AND COMMAND FUNCTIONS (WITH SERVICE ID CONTEXT)
     // ============================================================================
     
     function initializeHealthCharts() {
-        console.log('📊 Initializing enhanced health charts with DYNAMIC FPS SCALING...');
+        console.log('📊 Initializing enhanced health charts with Service ID integration...');
         
         Object.keys(serverHealthData.charts).forEach(chartKey => {
             const chart = serverHealthData.charts[chartKey];
@@ -1048,7 +1361,7 @@
                 }
             });
             
-            console.log('✅ Enhanced FPS Chart initialized with DYNAMIC SCALING');
+            console.log('✅ Enhanced FPS Chart initialized with Service ID context');
         }
         
         const playersCanvas = document.getElementById('players-chart');
@@ -1091,11 +1404,11 @@
             console.log('✅ Enhanced Players Chart initialized');
         }
         
-        console.log('✅ Enhanced health charts initialized');
+        console.log('✅ Enhanced health charts initialized with Service ID integration');
     }
     
     function updateCharts(chartsData) {
-        console.log('📈 Updating enhanced charts with new data:', chartsData);
+        console.log('📈 Updating enhanced charts with Service ID context:', chartsData);
         
         if (serverHealthData.charts.fps && chartsData.fps) {
             const fpsChart = serverHealthData.charts.fps;
@@ -1161,12 +1474,8 @@
         };
     }
     
-    // ============================================================================
-    // TRENDS DISPLAY FUNCTIONS (ENHANCED)
-    // ============================================================================
-    
     function updateTrendsDisplay(trends) {
-        console.log('📊 [ENHANCED TRENDS] Starting trends display update...');
+        console.log('📊 [ENHANCED TRENDS] Starting trends display update with Service ID context...');
         console.log('📊 [ENHANCED TRENDS] Input data structure:', trends);
         
         if (!trends || typeof trends !== 'object' || Object.keys(trends).length === 0) {
@@ -1294,11 +1603,11 @@
             updateElement('peak-memory-value', '--MB');
         }
         
-        console.log('✅ [ENHANCED TRENDS] Enhanced trends display update completed!');
+        console.log('✅ [ENHANCED TRENDS] Enhanced trends display update completed with Service ID context!');
     }
     
     function generateFallbackTrendsData() {
-        console.log('🔄 [ENHANCED TRENDS] Generating comprehensive fallback trends data...');
+        console.log('🔄 [ENHANCED TRENDS] Generating comprehensive fallback trends data with Service ID context...');
         
         const mockData = {
             response_time: {
@@ -1340,13 +1649,9 @@
             }
         });
         
-        console.log('✅ [ENHANCED TRENDS] Generated enhanced fallback data:', mockData);
+        console.log('✅ [ENHANCED TRENDS] Generated enhanced fallback data with Service ID context:', mockData);
         return mockData;
     }
-    
-    // ============================================================================
-    // COMMAND FEED FUNCTIONS (UNCHANGED)
-    // ============================================================================
     
     function updateCommandFeed(commands) {
         const feedContainer = document.getElementById('command-feed');
@@ -1427,16 +1732,16 @@
         
         serverHealthData.refreshInterval = setInterval(() => {
             if (serverHealthData.isActive && serverHealthData.currentServer) {
-                console.log('🔄 Auto-refreshing Enhanced Server Health data...');
-                loadEnhancedHealthData(); // ✅ ENHANCED: Use enhanced data loading
+                console.log('🔄 Auto-refreshing Enhanced Server Health data with Service ID integration...');
+                loadEnhancedHealthData();
             }
         }, serverHealthData.refreshRate);
         
-        console.log('✅ ENHANCED: Auto-refresh started with enhanced health data loading');
+        console.log('✅ ENHANCED: Auto-refresh started with enhanced health data loading and Service ID integration');
     }
     
     // ============================================================================
-    // ENHANCED PLAYER COUNT INTEGRATION (FIXED VARIABLE SCOPE)
+    // SERVICE ID INTEGRATION: ENHANCED PLAYER COUNT INTEGRATION
     // ============================================================================
     
     function updateServerHealthPlayerCount(serverId, playerData, status = 'success') {
@@ -1501,13 +1806,13 @@
                 sourceElement.textContent = sourceText;
             }
             
-            console.log('✅ ENHANCED: Server Health display updated from enhanced API:', 
+            console.log('✅ ENHANCED: Server Health display updated from enhanced API with Service ID context:', 
                        `${current}/${max} (${percentage}%)`);
         }
     }
     
     // ============================================================================
-    // UTILITY FUNCTIONS (ENHANCED)
+    // UTILITY FUNCTIONS (ENHANCED WITH SERVICE ID CONTEXT)
     // ============================================================================
     
     function getStatusColor(status) {
@@ -1581,7 +1886,7 @@
     }
     
     function showNoServersMessage() {
-        console.log('📊 No servers available for enhanced health monitoring');
+        console.log('📊 No servers available for enhanced health monitoring with Service ID integration');
         
         const selector = document.getElementById('server-health-selector');
         if (selector) {
@@ -1598,23 +1903,29 @@
     }
     
     // ============================================================================
-    // ✅ ENHANCED GLOBAL FUNCTION EXPOSURE (WITH REAL CPU DATA FEATURES)
+    // ✅ SERVICE ID INTEGRATION: ENHANCED GLOBAL FUNCTION EXPOSURE
     // ============================================================================
     
     window.loadServerHealth = loadServerHealth;
-    window.loadEnhancedHealthData = loadEnhancedHealthData; // ✅ NEW
-    window.updateEnhancedStatusCards = updateEnhancedStatusCards; // ✅ NEW
-    window.updateDataSourceIndicators = updateDataSourceIndicators; // ✅ NEW
+    window.loadEnhancedHealthData = loadEnhancedHealthData;
+    window.updateEnhancedStatusCards = updateEnhancedStatusCards;
+    window.updateDataSourceIndicators = updateDataSourceIndicators;
     window.filterCommands = filterCommands;
     window.updateServerHealthPlayerCount = updateServerHealthPlayerCount;
     window.broadcastPlayerCountUpdate = broadcastPlayerCountUpdate;
     window.updateAllPlayerCountDisplays = updateAllPlayerCountDisplays;
     
-    // Enhanced compatibility functions
-    window.refreshHealthData = loadEnhancedHealthData; // ✅ ENHANCED: Now uses enhanced loading
+    // ✅ SERVICE ID INTEGRATION: New Service ID specific functions
+    window.retryServiceIdDiscovery = retryServiceIdDiscovery;
+    window.updateServerCapabilities = updateServerCapabilities;
+    window.updateCapabilityIndicators = updateCapabilityIndicators;
+    window.showServiceIdNotification = showServiceIdNotification;
+    
+    // Enhanced compatibility functions with Service ID integration
+    window.refreshHealthData = loadEnhancedHealthData;
     
     window.updatePlayerCountDisplay = function(serverId, playerData, status = 'success') {
-        console.log(`🔄 ENHANCED: Player count update request for ${serverId} - using Enhanced Server Health data`);
+        console.log(`🔄 ENHANCED: Player count update request for ${serverId} with Service ID context - using Enhanced Server Health data`);
         
         if (window.playerCountCache && window.playerCountCache[serverId]) {
             const cachedData = window.playerCountCache[serverId];
@@ -1623,23 +1934,23 @@
         }
         
         if (serverHealthData.currentServer === serverId) {
-            loadEnhancedHealthData(); // ✅ ENHANCED: Use enhanced data loading
+            loadEnhancedHealthData();
         }
     };
     
     window.refreshPlayerCount = function(serverId) {
-        console.log(`🔄 ENHANCED: Player count refresh for ${serverId} - using Enhanced Health API`);
+        console.log(`🔄 ENHANCED: Player count refresh for ${serverId} with Service ID context - using Enhanced Health API`);
         
         if (serverHealthData.currentServer === serverId) {
-            loadEnhancedHealthData(); // ✅ ENHANCED: Use enhanced data loading
+            loadEnhancedHealthData();
         } else {
             // Try comprehensive endpoint first, fallback to standard
             fetch(`/api/server_health/comprehensive/${serverId}`)
                 .then(response => response.ok ? response.json() : 
                       fetch(`/api/server_health/status/${serverId}`).then(r => r.json()))
                 .then(result => {
-                    if (result.success && result.health_data && result.health_data.metrics) {
-                        const metrics = result.health_data.metrics;
+                    if (result.success && result.data && result.data.metrics) {
+                        const metrics = result.data.metrics;
                         if (metrics.player_count !== undefined) {
                             const playerData = {
                                 current: metrics.player_count,
@@ -1656,22 +1967,22 @@
     };
     
     window.getPlayerCountFromLogs = function(serverId) {
-        console.log(`📋 ENHANCED: Player count from logs request for ${serverId} - redirecting to Enhanced Health API`);
+        console.log(`📋 ENHANCED: Player count from logs request for ${serverId} with Service ID context - redirecting to Enhanced Health API`);
         window.refreshPlayerCount(serverId);
     };
     
     window.refreshServerHealth = function() {
-        console.log('🔄 Manual Enhanced Server Health refresh triggered');
+        console.log('🔄 Manual Enhanced Server Health refresh triggered with Service ID integration');
         setupServerSelectorEnhanced();
         if (serverHealthData.currentServer) {
-            loadEnhancedHealthData(); // ✅ ENHANCED: Use enhanced data loading
+            loadEnhancedHealthData();
         } else {
             showSelectServerMessage();
         }
     };
     
     window.debugServerHealth = function() {
-        console.log('🔍 Enhanced Server Health Debug Info:');
+        console.log('🔍 Enhanced Server Health Debug Info with Service ID Integration:');
         console.log('- Current server:', serverHealthData.currentServer);
         console.log('- Managed servers:', window.managedServers);
         console.log('- Is active:', serverHealthData.isActive);
@@ -1679,18 +1990,37 @@
         console.log('- Health status:', serverHealthData.healthStatus);
         console.log('- Load attempts:', serverHealthData.serverLoadAttempts);
         console.log('- Player count cache:', window.playerCountCache);
-        console.log('- Data sources:', serverHealthData.dataSources); // ✅ NEW
-        console.log('- Real data available:', serverHealthData.realDataAvailable); // ✅ NEW
+        console.log('- Data sources:', serverHealthData.dataSources);
+        console.log('- Real data available:', serverHealthData.realDataAvailable);
+        console.log('- Server capabilities:', serverHealthData.serverCapabilities); // ✅ SERVICE ID INTEGRATION
     };
     
     window.forceServerHealthRefresh = function() {
-        console.log('🔄 FORCE REFRESH: Manually triggering enhanced server health refresh');
+        console.log('🔄 FORCE REFRESH: Manually triggering enhanced server health refresh with Service ID integration');
         serverHealthData.serverLoadAttempts = 0;
         setupServerSelectorEnhanced();
     };
     
+    window.debugServiceIdIntegration = function() {
+        console.log('🔍 SERVICE ID INTEGRATION DEBUG:');
+        console.log('- Server capabilities:', serverHealthData.serverCapabilities);
+        console.log('- Current server Service ID status:', {
+            serverId: serverHealthData.currentServer,
+            hasServiceId: serverHealthData.serverCapabilities.hasServiceId,
+            serviceId: serverHealthData.serverCapabilities.serviceId,
+            discoveryStatus: serverHealthData.serverCapabilities.discoveryStatus,
+            commandExecutionAvailable: serverHealthData.serverCapabilities.commandExecutionAvailable
+        });
+        
+        // Test Service ID discovery for current server
+        if (serverHealthData.currentServer) {
+            console.log('🧪 Testing Service ID discovery for current server...');
+            retryServiceIdDiscovery(serverHealthData.currentServer);
+        }
+    };
+    
     window.debugTrendsDisplay = function() {
-        console.log('🔧 [ENHANCED TRENDS DEBUG] Starting comprehensive trends debugging...');
+        console.log('🔧 [ENHANCED TRENDS DEBUG] Starting comprehensive trends debugging with Service ID context...');
         
         const elementIds = [
             'trends-response-current', 'trends-response-change', 'trends-response-indicator',
@@ -1718,14 +2048,15 @@
         return result;
     };
     
-    console.log('✅ ENHANCED: Server Health JavaScript module loaded successfully with REAL CPU DATA integration');
-    console.log('🏥 Functions available: loadServerHealth, loadEnhancedHealthData, updateEnhancedStatusCards');
-    console.log('🔧 Debug functions: refreshServerHealth, debugServerHealth, debugTrendsDisplay');
-    console.log('🚀 ENHANCEMENT: Real CPU data integration via comprehensive endpoint with GraphQL ServiceSensors');
-    console.log('📊 EFFICIENCY: Smart data source detection and fallback handling');
-    console.log('🎯 PERFORMANCE: Enhanced UI with real vs estimated data indicators');
-    console.log('✨ COMPATIBILITY: All existing functions enhanced while maintaining backward compatibility');
-    console.log('🔧 FIXED: Variable scope errors resolved, enhanced error handling implemented');
-    console.log('🟢 NEW FEATURES: Data source indicators, real CPU thresholds, enhanced status cards');
+    console.log('✅ ENHANCED: Server Health JavaScript module loaded successfully with SERVICE ID INTEGRATION');
+    console.log('🏥 Functions available: loadServerHealth, loadEnhancedHealthData, updateEnhancedStatusCards, retryServiceIdDiscovery');
+    console.log('🔧 Debug functions: refreshServerHealth, debugServerHealth, debugServiceIdIntegration, debugTrendsDisplay');
+    console.log('🚀 SERVICE ID INTEGRATION: Complete dual ID system support');
+    console.log('📊 EFFICIENCY: Smart Service ID discovery and capability detection');
+    console.log('🎯 PERFORMANCE: Enhanced UI with Service ID context and capability indicators');
+    console.log('✨ COMPATIBILITY: All existing functions enhanced with Service ID integration while maintaining backward compatibility');
+    console.log('🔧 FIXED: Service ID integration complete with enhanced error handling and retry mechanisms');
+    console.log('🟢 NEW FEATURES: Service ID notifications, capability indicators, discovery retry, enhanced status cards');
+    console.log('🔍 DISCOVERY: Automatic Service ID discovery integration with manual retry functionality');
 
 </script>
