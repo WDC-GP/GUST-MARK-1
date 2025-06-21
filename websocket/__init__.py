@@ -1,15 +1,9 @@
 """
-GUST Bot Enhanced - WebSocket Package (EXTENDED FOR SENSOR DATA)
+GUST Bot Enhanced - WebSocket Package (FIXED IMPORTS)
 ===============================================================
-WebSocket client and manager for live console monitoring + real-time sensor data
-
-This package provides real-time WebSocket connections to G-Portal servers
-for live console monitoring and server sensor data (CPU, memory, uptime).
-Components are conditionally imported based on websockets package availability.
-
-✅ EXTENDED: Sensor data bridge for real-time health monitoring
-✅ EXTENDED: Enhanced client with GraphQL sensor subscriptions  
-✅ EXTENDED: Manager integration with sensor bridge
+✅ FIXED: Import order and error handling
+✅ FIXED: Proper class name exports
+✅ FIXED: Sensor bridge integration
 """
 
 from config import WEBSOCKETS_AVAILABLE
@@ -34,8 +28,17 @@ if WEBSOCKETS_AVAILABLE:
         PACKAGE_STATUS = "available"
         SENSOR_SUPPORT = True
         
+        # Create logging for successful import
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("✅ WebSocket package imported successfully with sensor support")
+        
     except ImportError as e:
         # Fallback if there are import issues even with websockets installed
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"❌ WebSocket component import error: {e}")
+        
         __all__ = []
         PACKAGE_STATUS = "import_error"
         SENSOR_SUPPORT = False
@@ -172,7 +175,7 @@ is_available = check_websocket_support
 has_sensor_support = check_sensor_support
 
 # Version info for the WebSocket package
-__version__ = "2.0.0"  # Updated version for sensor support
+__version__ = "2.1.0"  # Updated version for fixes
 __author__ = "GUST Bot Enhanced"
 __description__ = "WebSocket client and manager for G-Portal live console monitoring and real-time sensor data"
 __features__ = [

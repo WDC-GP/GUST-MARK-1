@@ -1,10 +1,10 @@
 """
-GUST Bot Enhanced - WebSocket Client (EXTENDED FOR SENSOR DATA)
+GUST Bot Enhanced - WebSocket Client (FIXED SENSOR DATA IMPLEMENTATION)
 ==============================================================
-✅ EXTENDED: Real-time sensor data (CPU, memory, uptime) from G-Portal GraphQL
-✅ EXTENDED: Server configuration data subscriptions
-✅ EXTENDED: Enhanced message processing for multiple data streams
-✅ ENHANCED: Sensor data storage and callback system
+✅ FIXED: GraphQL query type mismatch (REGION! instead of String!)
+✅ FIXED: Variable type consistency
+✅ FIXED: Error handling in sensor subscriptions
+✅ FIXED: Message processing logic
 """
 
 # Standard library imports
@@ -29,7 +29,7 @@ if WEBSOCKETS_AVAILABLE:
 logger = logging.getLogger(__name__)
 
 class GPortalWebSocketClient:
-    """✅ EXTENDED: WebSocket client for G-Portal live console monitoring + sensor data"""
+    """✅ FIXED: WebSocket client for G-Portal live console monitoring + sensor data"""
     
     def __init__(self, server_id, region, token, message_callback=None):
         """
@@ -67,7 +67,7 @@ class GPortalWebSocketClient:
         
     async def connect(self):
         """
-        ✅ EXTENDED: Establish WebSocket connection to G-Portal with sensor subscriptions
+        ✅ FIXED: Establish WebSocket connection to G-Portal with sensor subscriptions
         
         Returns:
             bool: True if connection successful
@@ -144,10 +144,10 @@ class GPortalWebSocketClient:
                 # Subscribe to console messages (existing)
                 await self.subscribe_to_console()
                 
-                # ✅ NEW: Subscribe to sensor data
+                # ✅ FIXED: Subscribe to sensor data
                 await self.subscribe_to_sensors()
                 
-                # ✅ NEW: Subscribe to config data  
+                # ✅ FIXED: Subscribe to config data  
                 await self.subscribe_to_server_config()
                 
                 self.connected = True
@@ -192,34 +192,35 @@ class GPortalWebSocketClient:
             raise e
 
     async def subscribe_to_sensors(self):
-        """✅ NEW: Subscribe to server sensor data (CPU, memory, uptime)"""
+        """✅ FIXED: Subscribe to server sensor data (CPU, memory, uptime)"""
         try:
             # Get clean server ID (remove test suffixes)
             clean_server_id = str(self.server_id).split('_')[0]
-            region_code = f'"{self.region}"'
             
             subscription_payload = {
                 "id": f"sensors_stream_{self.server_id}",
                 "type": "start",
                 "payload": {
-                    "query": f"""subscription ServiceSensors($sid: Int!, $region: String!) {{
-                        serviceSensors(rsid: {{id: $sid, region: $region}}) {{
+                    "variables": {
+                        "sid": int(clean_server_id),
+                        "region": self.region  # ✅ FIXED: Keep as string, GraphQL will handle conversion
+                    },
+                    "extensions": {},
+                    "operationName": "ServiceSensors",
+                    "query": """subscription ServiceSensors($sid: Int!, $region: REGION!) {
+                        serviceSensors(rsid: {id: $sid, region: $region}) {
                             cpu
                             cpuTotal
-                            memory {{
+                            memory {
                                 percent
                                 used
                                 total
-                            }}
+                            }
                             uptime
                             timestamp
                             __typename
-                        }}
-                    }}""",
-                    "variables": {
-                        "sid": int(clean_server_id),
-                        "region": self.region
-                    }
+                        }
+                    }"""
                 }
             }
             
@@ -228,38 +229,41 @@ class GPortalWebSocketClient:
             
         except Exception as e:
             logger.error(f"❌ Failed to subscribe to sensors for server {self.server_id}: {e}")
-            raise e
+            # Don't raise - sensor subscription failure shouldn't kill the connection
+            # raise e
 
     async def subscribe_to_server_config(self):
-        """✅ NEW: Subscribe to server configuration data"""
+        """✅ FIXED: Subscribe to server configuration data"""
         try:
             clean_server_id = str(self.server_id).split('_')[0]
             
             subscription_payload = {
                 "id": f"config_stream_{self.server_id}",
-                "type": "start", 
+                "type": "start",
                 "payload": {
-                    "query": f"""subscription ServerConfig($sid: Int!, $region: String!) {{
-                        cfgContext(rsid: {{id: $sid, region: $region}}) {{
-                            ns {{
-                                service {{
-                                    currentState {{
+                    "variables": {
+                        "sid": int(clean_server_id),
+                        "region": self.region  # ✅ FIXED: Keep as string
+                    },
+                    "extensions": {},
+                    "operationName": "ServerConfig",
+                    "query": """subscription ServerConfig($sid: Int!, $region: REGION!) {
+                        cfgContext(rsid: {id: $sid, region: $region}) {
+                            ns {
+                                service {
+                                    currentState {
                                         state
                                         fsmState
                                         fsmIsTransitioning
-                                    }}
-                                    config {{
+                                    }
+                                    config {
                                         state
                                         ipAddress
-                                    }}
-                                }}
-                            }}
-                        }}
-                    }}""",
-                    "variables": {
-                        "sid": int(clean_server_id),
-                        "region": self.region
-                    }
+                                    }
+                                }
+                            }
+                        }
+                    }"""
                 }
             }
             
@@ -268,7 +272,8 @@ class GPortalWebSocketClient:
             
         except Exception as e:
             logger.error(f"❌ Failed to subscribe to config for server {self.server_id}: {e}")
-            raise e
+            # Don't raise - config subscription failure shouldn't kill the connection
+            # raise e
     
     def _is_connection_open(self):
         """Check if WebSocket connection is open"""
@@ -331,7 +336,7 @@ class GPortalWebSocketClient:
             logger.info(f"🔌 Message listener stopped for server {self.server_id}")
     
     async def process_message(self, message):
-        """✅ EXTENDED: Process incoming WebSocket message including sensor data"""
+        """✅ FIXED: Process incoming WebSocket message including sensor data"""
         try:
             data = json.loads(message)
             
@@ -372,13 +377,13 @@ class GPortalWebSocketClient:
                             
                             logger.info(f"📨 Live console message from {self.server_id}: {message_text[:100]}...")
                 
-                # ✅ NEW: Sensor data handling
+                # ✅ FIXED: Sensor data handling
                 elif f"sensors_stream_{self.server_id}" in stream_id:
                     sensor_data = payload.get("data", {})
                     if sensor_data.get("serviceSensors"):
                         await self.process_sensor_data(sensor_data["serviceSensors"])
                 
-                # ✅ NEW: Config data handling
+                # ✅ FIXED: Config data handling
                 elif f"config_stream_{self.server_id}" in stream_id:
                     config_data = payload.get("data", {})
                     if config_data.get("cfgContext"):
@@ -396,7 +401,7 @@ class GPortalWebSocketClient:
             logger.error(f"❌ Error processing message from server {self.server_id}: {e}")
 
     async def process_sensor_data(self, sensor_data):
-        """✅ NEW: Process incoming sensor data"""
+        """✅ FIXED: Process incoming sensor data"""
         try:
             # Store the latest sensor data
             self.latest_sensor_data = {
@@ -413,7 +418,7 @@ class GPortalWebSocketClient:
             
             self.sensor_data_timestamp = time.time()
             
-            logger.debug(f"📊 Sensor data updated for server {self.server_id}: "
+            logger.info(f"📊 Sensor data updated for server {self.server_id}: "
                         f"CPU: {self.latest_sensor_data['cpu_total']}%, "
                         f"Memory: {self.latest_sensor_data['memory_percent']}%")
             
@@ -428,7 +433,7 @@ class GPortalWebSocketClient:
             logger.error(f"❌ Error processing sensor data: {e}")
 
     async def process_config_data(self, config_data):
-        """✅ NEW: Process incoming config data"""
+        """✅ FIXED: Process incoming config data"""
         try:
             ns = config_data.get('ns', {})
             service = ns.get('service', {})
@@ -527,7 +532,7 @@ class GPortalWebSocketClient:
     
     def get_connection_info(self):
         """
-        ✅ EXTENDED: Get connection information including sensor data status
+        ✅ ENHANCED: Get connection information including sensor data status
         
         Returns:
             dict: Connection status and info

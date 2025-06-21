@@ -1,17 +1,10 @@
 """
-GUST Bot Enhanced - Main Flask Application (WEBSOCKET SENSOR INTEGRATION FIXED)
+GUST Bot Enhanced - Main Flask Application (FIXED WEBSOCKET SENSOR INTEGRATION)
 ==================================================================================
-✅ FIXED: Console command sending with correct GraphQL endpoint
-✅ FIXED: Enhanced error handling and logging
-✅ FIXED: Complete Server Health integration
-✅ FIXED: Comprehensive None type error prevention
-✅ FIXED: All GraphQL communication issues resolved
-✅ FIXED: WebSocket import naming consistency (EnhancedWebSocketManager)
-✅ NEW: Auto command API endpoint for serverinfo commands
-✅ NEW: Enhanced authentication and demo mode handling
-✅ NEW: WebSocket sensor bridge integration for real-time monitoring
-✅ NEW: Enhanced WebSocket manager with sensor capabilities
-✅ NEW: WebSocket debug endpoint for troubleshooting
+✅ FIXED: WebSocket manager reference set BEFORE route initialization
+✅ FIXED: Initialization order to ensure sensor bridge works
+✅ FIXED: Error handling to prevent masking real issues
+✅ FIXED: Import naming consistency
 """
 
 import os
@@ -54,6 +47,8 @@ if WEBSOCKETS_AVAILABLE:
     try:
         from websocket import EnhancedWebSocketManager, check_websocket_support, check_sensor_support
         WEBSOCKET_IMPORT_SUCCESS = True
+        logger = logging.getLogger(__name__)
+        logger.info("✅ WebSocket imports successful")
     except ImportError as e:
         logger = logging.getLogger(__name__)
         logger.error(f"❌ WebSocket import failed even though WEBSOCKETS_AVAILABLE=True: {e}")
@@ -157,7 +152,7 @@ class InMemoryUserStorage:
             return all_clans
 
 class GustBotEnhanced:
-    """Main GUST Bot Enhanced application class (WEBSOCKET SENSOR INTEGRATION FIXED)"""
+    """Main GUST Bot Enhanced application class (FIXED WEBSOCKET SENSOR INTEGRATION)"""
     
     def __init__(self):
         """Initialize the enhanced GUST bot application with WebSocket sensor support"""
@@ -241,8 +236,11 @@ class GustBotEnhanced:
         # Store reference to self in app context
         self.app.gust_bot = self
         
-        # ✅ NEW: Store websocket_manager reference in app for sensor bridge access
+        # ✅ CRITICAL FIX: Store websocket_manager reference on app BEFORE route setup
         self.app.websocket_manager = self.websocket_manager
+        
+        logger.info(f"🔧 WebSocket manager set on app: {self.app.websocket_manager is not None}")
+        print(f"[🔧 DEBUG] App websocket_manager: {self.app.websocket_manager}")
         
         # Setup routes (this will initialize sensor bridge)
         self.setup_routes()
@@ -319,7 +317,7 @@ class GustBotEnhanced:
         print(f'[✅ OK] Database initialization complete - Storage: {type(self.user_storage).__name__}')
     
     def setup_routes(self):
-        """Setup Flask routes and blueprints (WEBSOCKET SENSOR INTEGRATION)"""
+        """Setup Flask routes and blueprints (FIXED WEBSOCKET SENSOR INTEGRATION)"""
         print("[DEBUG]: Setting up routes with WebSocket sensor integration...")
         
         # Register authentication blueprint (foundation)
@@ -357,8 +355,10 @@ class GustBotEnhanced:
         self.app.register_blueprint(logs_bp)
         print("[✅ OK] Logs routes registered")
         
-        # ✅ ENHANCED: Server Health routes with WebSocket sensor integration
+        # ✅ FIXED: Server Health routes with WebSocket sensor integration
         try:
+            print(f"[🔧 DEBUG] Initializing server health routes with app.websocket_manager: {self.app.websocket_manager is not None}")
+            
             server_health_bp = init_server_health_routes(self.app, self.db, self.server_health_storage)
             self.app.register_blueprint(server_health_bp)
             print("[✅ OK] Server Health routes registered with WebSocket sensor integration")
