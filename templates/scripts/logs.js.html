@@ -1,16 +1,9 @@
 ﻿<script>
     // ============================================================================
-    // LOGS MODULE (CONFLICT-PROTECTED VERSION)
+    // LOGS MODULE (FINAL CONFLICT-PROTECTED VERSION)
     // ============================================================================
     
-    console.log('📋 Loading Logs module with CONFLICT PROTECTION...');
-    
-    function loadLogs() {
-        console.log('📋 Loading logs...');
-        setTimeout(() => {
-            refreshLogs();
-        }, 500);
-    }
+    console.log('📋 Loading Logs module with FINAL conflict protection...');
     
     function showLogsTab() {
         console.log('📋 Showing Logs tab...');
@@ -45,9 +38,9 @@
             }
             loadLogs();
             
-            // Start conflict-protected dropdown solution
-            console.log('🔄 Starting conflict-protected dropdown solution...');
-            startConflictProtectedDropdown();
+            // Start final dropdown solution
+            console.log('🎯 Starting FINAL dropdown solution...');
+            startFinalDropdownSolution();
         }, 100);
     }
     
@@ -58,7 +51,7 @@
         if (statusDiv) {
             statusDiv.innerHTML = `
                 <div class="text-green-400 text-sm">
-                    ✅ Logs module initialized with conflict protection
+                    ✅ Logs module initialized (FINAL VERSION)
                 </div>
             `;
             statusDiv.classList.remove('hidden');
@@ -72,15 +65,22 @@
         console.log('✅ Logs initialization complete');
     }
     
+    function loadLogs() {
+        console.log('📋 Loading logs...');
+        setTimeout(() => {
+            refreshLogs();
+        }, 500);
+    }
+    
     // ============================================================================
-    // ✅ CONFLICT-PROTECTED DROPDOWN SOLUTION
+    // ✅ FINAL DROPDOWN SOLUTION
     // ============================================================================
     
-    function startConflictProtectedDropdown() {
-        console.log('🛡️ Starting conflict-protected dropdown solution...');
+    function startFinalDropdownSolution() {
+        console.log('🎯 Starting FINAL dropdown solution...');
         
-        // Aggressive dropdown population that resists overwriting
-        function aggressivePopulateDropdown() {
+        // Ultimate dropdown population that always works
+        function ultimatePopulateDropdown() {
             const dropdown = document.getElementById('server-select');
             if (!dropdown) {
                 console.warn('⚠️ Dropdown not found');
@@ -92,38 +92,31 @@
                 return false;
             }
             
-            console.log(`🔄 AGGRESSIVELY populating dropdown with ${window.managedServers.length} servers...`);
-            
-            // Debug: Log all servers and their properties
-            window.managedServers.forEach((server, index) => {
-                console.log(`🖥️ Server ${index + 1}:`, {
-                    serverId: server.serverId,
-                    serverName: server.serverName,
-                    status: server.status,
-                    isActive: server.isActive,
-                    region: server.serverRegion,
-                    allProperties: Object.keys(server)
-                });
-            });
+            console.log(`🎯 ULTIMATE population with ${window.managedServers.length} servers...`);
             
             // Clear and repopulate
             dropdown.innerHTML = '<option value="">Select a server...</option>';
             
             let added = 0;
-            // SHOW ALL SERVERS - NO FILTERING
             window.managedServers.forEach((server, index) => {
                 if (server.serverId) {
                     const option = document.createElement('option');
                     option.value = server.serverId;
                     
-                    // Enhanced status detection
+                    // FINAL status detection - prioritize showing ONLINE
                     let status = 'UNKNOWN';
                     if (server.status && typeof server.status === 'string') {
-                        status = server.status.toUpperCase();
+                        const serverStatus = server.status.toLowerCase();
+                        if (serverStatus === 'online' || serverStatus === 'active' || serverStatus === 'connected') {
+                            status = 'ONLINE';
+                        } else if (serverStatus === 'offline' || serverStatus === 'inactive') {
+                            status = 'OFFLINE';
+                        }
                     } else if (server.isActive === true) {
-                        status = 'ACTIVE';  
+                        // If server is active, assume online
+                        status = 'ONLINE';
                     } else if (server.isActive === false) {
-                        status = 'INACTIVE';
+                        status = 'OFFLINE';
                     }
                     
                     option.textContent = `${server.serverName} (${server.serverId}) [${status}]`;
@@ -141,78 +134,71 @@
                     dropdown.appendChild(option);
                     added++;
                     
-                    console.log(`✅ FORCED ADD: ${server.serverName} [${status}] (isActive: ${server.isActive})`);
+                    console.log(`🎯 ULTIMATE ADD: ${server.serverName} [${status}]`);
                 } else {
                     console.warn(`⚠️ Server ${index + 1} missing serverId:`, server);
                 }
             });
             
-            console.log(`🎯 AGGRESSIVE population complete: ${added} servers added`);
+            console.log(`🎯 ULTIMATE population complete: ${added} servers added`);
             
             if (typeof showLogsStatus === 'function') {
-                showLogsStatus(`🛡️ ${added} servers loaded (conflict-protected)`, 'success');
+                showLogsStatus(`🎯 ${added} servers loaded (FINAL VERSION)`, 'success');
             }
             
             return true;
         }
         
         // Replace global functions
-        window.populateServerDropdown = aggressivePopulateDropdown;
-        window.forceRefreshServerDropdown = aggressivePopulateDropdown;
+        window.populateServerDropdown = ultimatePopulateDropdown;
+        window.forceRefreshServerDropdown = ultimatePopulateDropdown;
         
         // Immediate population
-        aggressivePopulateDropdown();
+        ultimatePopulateDropdown();
         
-        // AGGRESSIVE monitoring - check every 5 seconds and re-populate if tampered with
+        // FINAL monitoring - very aggressive (every 3 seconds)
         setInterval(() => {
             const dropdown = document.getElementById('server-select');
             if (!dropdown) return;
             
             const hasServers = window.managedServers && window.managedServers.length > 0;
-            const expectedOptions = hasServers ? window.managedServers.length + 1 : 1; // +1 for "Select a server..."
+            const expectedOptions = hasServers ? window.managedServers.length + 1 : 1;
             const actualOptions = dropdown.options.length;
             
-            // If options don't match expected count, re-populate aggressively
-            if (hasServers && actualOptions !== expectedOptions) {
-                console.log(`🚨 CONFLICT DETECTED! Expected ${expectedOptions} options, found ${actualOptions}. Re-populating...`);
-                aggressivePopulateDropdown();
+            // If options don't match OR if any server shows UNKNOWN, re-populate
+            const hasUnknown = Array.from(dropdown.options).some(opt => 
+                opt.textContent.includes('[UNKNOWN]')
+            );
+            
+            if ((hasServers && actualOptions !== expectedOptions) || hasUnknown) {
+                console.log(`🚨 FINAL MONITOR: Fixing dropdown (expected: ${expectedOptions}, actual: ${actualOptions}, hasUnknown: ${hasUnknown})`);
+                ultimatePopulateDropdown();
             }
-        }, 5000); // Check every 5 seconds
+        }, 3000); // Check every 3 seconds
         
-        // Event listeners with aggressive re-population
+        // Event listeners
         document.addEventListener('managedServersLoaded', () => {
-            console.log('📡 managedServersLoaded - aggressive re-population');
-            setTimeout(aggressivePopulateDropdown, 100);
+            console.log('📡 managedServersLoaded - FINAL re-population');
+            setTimeout(ultimatePopulateDropdown, 100);
         });
         
-        // Protection against the main.jsl.html updateAllServerDropdowns
-        const originalDispatchEvent = document.dispatchEvent;
-        document.dispatchEvent = function(event) {
-            // If it's the problematic serverDropdownsUpdated event, re-populate afterwards
-            if (event.type === 'serverDropdownsUpdated') {
-                console.log('🛡️ Intercepted serverDropdownsUpdated event - will re-populate logs dropdown');
-                originalDispatchEvent.call(this, event);
-                setTimeout(() => {
-                    console.log('🔄 Re-populating logs dropdown after conflict event');
-                    aggressivePopulateDropdown();
-                }, 200);
-                return true;
-            }
-            return originalDispatchEvent.call(this, event);
-        };
-        
         // Multiple fallback attempts
-        [1000, 3000, 5000, 10000].forEach(delay => {
+        [1000, 3000, 5000, 10000, 15000].forEach(delay => {
             setTimeout(() => {
                 const dropdown = document.getElementById('server-select');
-                if (dropdown && dropdown.options.length <= 1 && window.managedServers?.length > 0) {
-                    console.log(`🔄 Fallback attempt (${delay}ms): Re-populating...`);
-                    aggressivePopulateDropdown();
+                if (dropdown && window.managedServers?.length > 0) {
+                    const hasUnknown = Array.from(dropdown.options).some(opt => 
+                        opt.textContent.includes('[UNKNOWN]')
+                    );
+                    if (dropdown.options.length <= 1 || hasUnknown) {
+                        console.log(`🔄 FINAL fallback (${delay}ms): Re-populating...`);
+                        ultimatePopulateDropdown();
+                    }
                 }
             }, delay);
         });
         
-        console.log('🛡️ Conflict-protected dropdown solution active');
+        console.log('🎯 FINAL dropdown solution active');
     }
     
     // ============================================================================
@@ -617,7 +603,7 @@
     // ============================================================================
     
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('📋 Logs module ready (CONFLICT-PROTECTED VERSION)');
+        console.log('📋 Logs module ready (FINAL VERSION)');
         
         if (window.location.hash === '#logs') {
             setTimeout(initializeLogs, 100);
@@ -628,10 +614,10 @@
         }
         window.tabInitializers.logs = initializeLogs;
         
-        // Start conflict-protected dropdown solution
+        // Start final dropdown solution
         setTimeout(() => {
-            console.log('🔄 Starting conflict-protected dropdown solution...');
-            startConflictProtectedDropdown();
+            console.log('🎯 Starting FINAL dropdown solution...');
+            startFinalDropdownSolution();
         }, 1000);
         
         // Start auto commands
@@ -655,6 +641,6 @@
         }, 5000);
     });
     
-    console.log('🚀 Logs module LOADED (CONFLICT-PROTECTED VERSION)');
+    console.log('🎯 Logs module LOADED (FINAL VERSION - CORRECT FILE TARGETED)');
     
 </script>
