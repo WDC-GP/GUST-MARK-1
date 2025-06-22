@@ -1,11 +1,7 @@
 /**
- * GUST Bot Enhanced - WebSocket Service (EXTENDED FOR SENSOR DATA)
- * ================================================================
- * Manages WebSocket connections for live console monitoring + real-time sensor data
- * ✅ EXTENDED: Real-time sensor data (CPU, memory, uptime) subscriptions
- * ✅ EXTENDED: Server configuration data monitoring
- * ✅ EXTENDED: Sensor data storage and retrieval
- * ✅ EXTENDED: Health monitoring integration
+ * GUST Bot Enhanced - WebSocket Service
+ * ===================================
+ * Manages WebSocket connections for live console monitoring
  */
 
 class WebSocketService {
@@ -18,11 +14,6 @@ class WebSocketService {
         this.reconnectTimeouts = new Map();
         this.connectionStates = new Map();
         
-        // ✅ NEW: Sensor data storage
-        this.sensorData = new Map();
-        this.configData = new Map();
-        this.sensorCallbacks = new Map();
-        
         this.init();
     }
     
@@ -34,17 +25,13 @@ class WebSocketService {
             connectionTimeout: 15000,
             messageBufferSize: 1000,
             autoReconnect: true,
-            debug: false,
-            // ✅ NEW: Sensor options
-            sensorDataBufferSize: 100,
-            sensorDataMaxAge: 60000, // 60 seconds
-            enableSensorData: true
+            debug: false
         };
     }
     
     init() {
         this.bindEvents();
-        this.log('WebSocket service initialized with sensor data support');
+        this.log('WebSocket service initialized');
     }
     
     bindEvents() {
@@ -53,10 +40,6 @@ class WebSocketService {
             this.eventBus.on('server:deleted', (data) => this.handleServerDeleted(data));
             this.eventBus.on('console:connect', (data) => this.connect(data.serverId, data.region));
             this.eventBus.on('console:disconnect', (data) => this.disconnect(data.serverId));
-            
-            // ✅ NEW: Sensor-specific events
-            this.eventBus.on('sensor:subscribe', (data) => this.subscribeSensorData(data.serverId, data.region));
-            this.eventBus.on('sensor:unsubscribe', (data) => this.unsubscribeSensorData(data.serverId));
         }
         
         // Handle page visibility changes
@@ -75,7 +58,7 @@ class WebSocketService {
     }
     
     /**
-     * ✅ EXTENDED: Connect to live console + sensor data for a server
+     * Connect to live console for a server
      * @param {string} serverId - Server ID
      * @param {string} region - Server region
      * @param {Object} options - Connection options
@@ -89,7 +72,7 @@ class WebSocketService {
         }
         
         try {
-            this.log(`Connecting to server ${serverId} (${region}) with sensor data support`);
+            this.log(`Connecting to server ${serverId} (${region})`);
             
             // Get authentication token
             const token = await this.getAuthToken();
@@ -108,27 +91,13 @@ class WebSocketService {
                 connected: true,
                 reconnectAttempts: 0,
                 lastConnected: Date.now(),
-                messageCount: 0,
-                // ✅ NEW: Sensor data status
-                sensorDataEnabled: this.options.enableSensorData,
-                sensorDataCount: 0,
-                lastSensorData: null
+                messageCount: 0
             });
             
-            // ✅ NEW: Subscribe to sensor data if enabled
-            if (this.options.enableSensorData) {
-                try {
-                    await this.subscribeSensorData(serverId, region);
-                    await this.subscribeServerConfig(serverId, region);
-                } catch (sensorError) {
-                    this.log(`Sensor subscription failed for server ${serverId}: ${sensorError.message}`, 'warn');
-                }
-            }
-            
             // Emit connected event
-            this.emitEvent('websocket:connected', { serverId, region, sensorEnabled: this.options.enableSensorData });
+            this.emitEvent('websocket:connected', { serverId, region });
             
-            this.log(`Connected to server ${serverId} with ${this.options.enableSensorData ? 'sensor data' : 'console only'}`);
+            this.log(`Connected to server ${serverId}`);
             return connection;
             
         } catch (error) {
@@ -139,7 +108,7 @@ class WebSocketService {
     }
     
     /**
-     * ✅ EXTENDED: Create WebSocket connection to G-Portal with sensor support
+     * Create WebSocket connection to G-Portal
      */
     async createConnection(serverId, region, token, options = {}) {
         return new Promise((resolve, reject) => {
@@ -191,8 +160,7 @@ class WebSocketService {
                                 .catch(reject);
                                 
                         } else if (data.type === 'data' && subscribed) {
-                            // ✅ EXTENDED: Handle both console and sensor data
-                            this.handleWebSocketMessage(serverId, data);
+                            this.handleConsoleMessage(serverId, data);
                             
                         } else if (data.type === 'error') {
                             this.log(`WebSocket error for server ${serverId}:`, data.payload, 'error');
@@ -224,27 +192,6 @@ class WebSocketService {
     }
     
     /**
-     * ✅ NEW: Handle all WebSocket messages (console + sensor data)
-     */
-    handleWebSocketMessage(serverId, data) {
-        const streamId = data.id || '';
-        const payload = data.payload?.data;
-        
-        if (streamId.includes('console_stream_')) {
-            // Existing console message handling
-            this.handleConsoleMessage(serverId, data);
-        } 
-        else if (streamId.includes('sensors_stream_')) {
-            // ✅ NEW: Sensor data handling
-            this.handleSensorMessage(serverId, payload);
-        }
-        else if (streamId.includes('config_stream_')) {
-            // ✅ NEW: Config data handling
-            this.handleConfigMessage(serverId, payload);
-        }
-    }
-    
-    /**
      * Subscribe to console messages for a server
      */
     async subscribeToConsole(ws, serverId, region) {
@@ -273,407 +220,6 @@ class WebSocketService {
         
         ws.send(JSON.stringify(subscriptionMessage));
         this.log(`Subscribed to console messages for server ${serverId}`);
-    }
-    
-    /**
-     * ✅ NEW: Subscribe to sensor data for a server
-     */
-    async subscribeSensorData(serverId, region = 'US') {
-        try {
-            const connection = this.connections.get(this.getConnectionKey(serverId));
-            if (!connection) {
-                throw new Error('No WebSocket connection available');
-            }
-            
-            // Clean server ID (remove test suffixes)
-            const cleanServerId = serverId.toString().split('_')[0];
-            
-            // Subscribe to sensor data
-            const sensorSubscription = {
-                id: `sensors_stream_${serverId}`,
-                type: 'start',
-                payload: {
-                    query: `subscription ServiceSensors($sid: Int!, $region: String!) {
-                        serviceSensors(rsid: {id: $sid, region: $region}) {
-                            cpu
-                            cpuTotal
-                            memory {
-                                percent
-                                used
-                                total
-                            }
-                            uptime
-                            timestamp
-                            __typename
-                        }
-                    }`,
-                    variables: {
-                        sid: parseInt(cleanServerId),
-                        region: region.toUpperCase()
-                    }
-                }
-            };
-            
-            connection.send(JSON.stringify(sensorSubscription));
-            this.log(`Subscribed to sensor data for server ${serverId}`);
-            
-        } catch (error) {
-            this.log(`Failed to subscribe to sensor data for ${serverId}: ${error.message}`, 'error');
-            throw error;
-        }
-    }
-    
-    /**
-     * ✅ NEW: Subscribe to server configuration data
-     */
-    async subscribeServerConfig(serverId, region = 'US') {
-        try {
-            const connection = this.connections.get(this.getConnectionKey(serverId));
-            if (!connection) {
-                throw new Error('No WebSocket connection available');
-            }
-            
-            const cleanServerId = serverId.toString().split('_')[0];
-            
-            const configSubscription = {
-                id: `config_stream_${serverId}`,
-                type: 'start',
-                payload: {
-                    query: `subscription ServerConfig($sid: Int!, $region: String!) {
-                        cfgContext(rsid: {id: $sid, region: $region}) {
-                            ns {
-                                service {
-                                    currentState {
-                                        state
-                                        fsmState
-                                        fsmIsTransitioning
-                                    }
-                                    config {
-                                        state
-                                        ipAddress
-                                    }
-                                }
-                            }
-                        }
-                    }`,
-                    variables: {
-                        sid: parseInt(cleanServerId),
-                        region: region.toUpperCase()
-                    }
-                }
-            };
-            
-            connection.send(JSON.stringify(configSubscription));
-            this.log(`Subscribed to config data for server ${serverId}`);
-            
-        } catch (error) {
-            this.log(`Failed to subscribe to config data for ${serverId}: ${error.message}`, 'error');
-            throw error;
-        }
-    }
-    
-    /**
-     * ✅ NEW: Handle sensor data messages
-     */
-    handleSensorMessage(serverId, data) {
-        try {
-            if (data && data.serviceSensors) {
-                const sensorData = {
-                    serverId: serverId,
-                    cpu: data.serviceSensors.cpu || 0,
-                    cpuTotal: data.serviceSensors.cpuTotal || 0,
-                    memoryPercent: data.serviceSensors.memory?.percent || 0,
-                    memoryUsed: data.serviceSensors.memory?.used || 0,
-                    memoryTotal: data.serviceSensors.memory?.total || 0,
-                    uptime: data.serviceSensors.uptime || 0,
-                    timestamp: data.serviceSensors.timestamp || new Date().toISOString(),
-                    receivedAt: Date.now(),
-                    dataSource: 'websocket_live'
-                };
-                
-                // Store sensor data
-                this.storeSensorData(serverId, sensorData);
-                
-                // Update connection state
-                const connectionKey = this.getConnectionKey(serverId);
-                const state = this.connectionStates.get(connectionKey);
-                if (state) {
-                    state.sensorDataCount++;
-                    state.lastSensorData = Date.now();
-                }
-                
-                // Emit sensor data event
-                this.emitEvent('websocket:sensor_data', sensorData);
-                this.emitEvent(`websocket:sensor_data:${serverId}`, sensorData);
-                
-                // Call sensor callbacks
-                this.callSensorCallbacks(serverId, sensorData);
-                
-                this.log(`Sensor data updated for server ${serverId}: CPU ${sensorData.cpuTotal}%, Memory ${sensorData.memoryPercent}%`);
-            }
-        } catch (error) {
-            this.log(`Error handling sensor message for server ${serverId}: ${error.message}`, 'error');
-        }
-    }
-    
-    /**
-     * ✅ NEW: Handle config data messages
-     */
-    handleConfigMessage(serverId, data) {
-        try {
-            if (data && data.cfgContext && data.cfgContext.ns && data.cfgContext.ns.service) {
-                const service = data.cfgContext.ns.service;
-                const currentState = service.currentState || {};
-                const config = service.config || {};
-                
-                const configData = {
-                    serverId: serverId,
-                    serverState: currentState.state || 'UNKNOWN',
-                    fsmState: currentState.fsmState || 'Unknown',
-                    isTransitioning: currentState.fsmIsTransitioning || false,
-                    ipAddress: config.ipAddress || '',
-                    timestamp: new Date().toISOString(),
-                    receivedAt: Date.now(),
-                    dataSource: 'websocket_live'
-                };
-                
-                // Store config data
-                this.storeConfigData(serverId, configData);
-                
-                // Emit config data event
-                this.emitEvent('websocket:config_data', configData);
-                this.emitEvent(`websocket:config_data:${serverId}`, configData);
-                
-                this.log(`Config data updated for server ${serverId}: State ${configData.serverState}`);
-            }
-        } catch (error) {
-            this.log(`Error handling config message for server ${serverId}: ${error.message}`, 'error');
-        }
-    }
-    
-    /**
-     * ✅ NEW: Store sensor data with history
-     */
-    storeSensorData(serverId, sensorData) {
-        const sensorKey = `sensor_${serverId}`;
-        const historyKey = `sensor_history_${serverId}`;
-        
-        // Store latest data
-        this.sensorData.set(sensorKey, sensorData);
-        
-        // Store in history
-        if (!this.sensorData.has(historyKey)) {
-            this.sensorData.set(historyKey, []);
-        }
-        
-        const history = this.sensorData.get(historyKey);
-        history.push(sensorData);
-        
-        // Limit history size
-        if (history.length > this.options.sensorDataBufferSize) {
-            history.shift();
-        }
-    }
-    
-    /**
-     * ✅ NEW: Store config data
-     */
-    storeConfigData(serverId, configData) {
-        const configKey = `config_${serverId}`;
-        this.configData.set(configKey, configData);
-    }
-    
-    /**
-     * ✅ NEW: Get latest sensor data for a server
-     */
-    getLatestSensorData(serverId) {
-        const sensorKey = `sensor_${serverId}`;
-        const data = this.sensorData.get(sensorKey);
-        
-        if (!data) return null;
-        
-        // Check if data is fresh
-        const age = Date.now() - data.receivedAt;
-        if (age > this.options.sensorDataMaxAge) {
-            this.log(`Sensor data for server ${serverId} is stale (${Math.round(age/1000)}s old)`, 'warn');
-            return null;
-        }
-        
-        return data;
-    }
-    
-    /**
-     * ✅ NEW: Get sensor data history
-     */
-    getSensorDataHistory(serverId, limit = 50) {
-        const historyKey = `sensor_history_${serverId}`;
-        const history = this.sensorData.get(historyKey) || [];
-        
-        return limit ? history.slice(-limit) : history;
-    }
-    
-    /**
-     * ✅ NEW: Get latest config data
-     */
-    getLatestConfigData(serverId) {
-        const configKey = `config_${serverId}`;
-        return this.configData.get(configKey) || null;
-    }
-    
-    /**
-     * ✅ NEW: Check if sensor data is fresh
-     */
-    isSensorDataFresh(serverId, maxAge = null) {
-        const data = this.sensorData.get(`sensor_${serverId}`);
-        if (!data) return false;
-        
-        const age = Date.now() - data.receivedAt;
-        const threshold = maxAge || this.options.sensorDataMaxAge;
-        
-        return age <= threshold;
-    }
-    
-    /**
-     * ✅ NEW: Register sensor data callback
-     */
-    onSensorData(serverId, callback) {
-        const callbackKey = `sensor_callback_${serverId}`;
-        
-        if (!this.sensorCallbacks.has(callbackKey)) {
-            this.sensorCallbacks.set(callbackKey, []);
-        }
-        
-        this.sensorCallbacks.get(callbackKey).push(callback);
-        
-        // Return unregister function
-        return () => {
-            const callbacks = this.sensorCallbacks.get(callbackKey);
-            if (callbacks) {
-                const index = callbacks.indexOf(callback);
-                if (index !== -1) {
-                    callbacks.splice(index, 1);
-                }
-            }
-        };
-    }
-    
-    /**
-     * ✅ NEW: Call sensor data callbacks
-     */
-    callSensorCallbacks(serverId, sensorData) {
-        const callbackKey = `sensor_callback_${serverId}`;
-        const callbacks = this.sensorCallbacks.get(callbackKey) || [];
-        
-        callbacks.forEach(callback => {
-            try {
-                callback(sensorData);
-            } catch (error) {
-                this.log(`Error in sensor callback for server ${serverId}:`, error, 'error');
-            }
-        });
-    }
-    
-    /**
-     * ✅ NEW: Test sensor data subscription
-     */
-    async testSensorSubscription(serverId) {
-        try {
-            this.log(`Testing sensor subscription for server ${serverId}`);
-            
-            // Check if connected
-            if (!this.isConnected(serverId)) {
-                throw new Error('Server not connected');
-            }
-            
-            // Subscribe to sensor data
-            const connectionKey = this.getConnectionKey(serverId);
-            const state = this.connectionStates.get(connectionKey);
-            if (state) {
-                await this.subscribeSensorData(serverId, state.region);
-            }
-            
-            // Wait for sensor data (up to 10 seconds)
-            return new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => {
-                    reject(new Error('Sensor data test timeout'));
-                }, 10000);
-                
-                const checkData = () => {
-                    const sensorData = this.getLatestSensorData(serverId);
-                    if (sensorData) {
-                        clearTimeout(timeout);
-                        resolve(sensorData);
-                    } else {
-                        setTimeout(checkData, 1000);
-                    }
-                };
-                
-                checkData();
-            });
-            
-        } catch (error) {
-            this.log(`Sensor subscription test failed for server ${serverId}: ${error.message}`, 'error');
-            throw error;
-        }
-    }
-    
-    /**
-     * ✅ NEW: Unsubscribe from sensor data
-     */
-    unsubscribeSensorData(serverId) {
-        const connection = this.connections.get(this.getConnectionKey(serverId));
-        if (connection) {
-            try {
-                // Stop sensor subscription
-                const stopSensorMessage = {
-                    id: `sensors_stream_${serverId}`,
-                    type: 'stop'
-                };
-                connection.send(JSON.stringify(stopSensorMessage));
-                
-                // Stop config subscription
-                const stopConfigMessage = {
-                    id: `config_stream_${serverId}`,
-                    type: 'stop'
-                };
-                connection.send(JSON.stringify(stopConfigMessage));
-                
-                this.log(`Unsubscribed from sensor data for server ${serverId}`);
-            } catch (error) {
-                this.log(`Error unsubscribing sensor data for server ${serverId}:`, error, 'error');
-            }
-        }
-    }
-    
-    /**
-     * ✅ NEW: Get sensor statistics
-     */
-    getSensorStats() {
-        const totalServers = this.connections.size;
-        let serversWithSensorData = 0;
-        let serversWithFreshData = 0;
-        let totalSensorMessages = 0;
-        
-        this.connectionStates.forEach((state, key) => {
-            if (state.sensorDataCount > 0) {
-                serversWithSensorData++;
-                totalSensorMessages += state.sensorDataCount;
-            }
-            
-            const serverId = key.replace('server_', '');
-            if (this.isSensorDataFresh(serverId)) {
-                serversWithFreshData++;
-            }
-        });
-        
-        return {
-            totalServers,
-            serversWithSensorData,
-            serversWithFreshData,
-            totalSensorMessages,
-            sensorDataCoverage: totalServers > 0 ? `${serversWithSensorData}/${totalServers}` : '0/0',
-            freshDataCoverage: totalServers > 0 ? `${serversWithFreshData}/${totalServers}` : '0/0'
-        };
     }
     
     /**
@@ -869,27 +415,22 @@ class WebSocketService {
     }
     
     /**
-     * ✅ EXTENDED: Disconnect from server with sensor data cleanup
+     * Disconnect from server
      */
     disconnect(serverId) {
         const connectionKey = this.getConnectionKey(serverId);
         const connection = this.connections.get(connectionKey);
         
         if (connection) {
-            // Send stop subscriptions
+            // Send stop subscription
             try {
-                const stopConsoleMessage = {
+                const stopMessage = {
                     id: `console_stream_${serverId}`,
                     type: 'stop'
                 };
-                connection.send(JSON.stringify(stopConsoleMessage));
-                
-                // ✅ NEW: Stop sensor subscriptions
-                if (this.options.enableSensorData) {
-                    this.unsubscribeSensorData(serverId);
-                }
+                connection.send(JSON.stringify(stopMessage));
             } catch (error) {
-                this.log(`Error sending stop messages for server ${serverId}:`, error, 'error');
+                this.log(`Error sending stop message for server ${serverId}:`, error, 'error');
             }
             
             // Close connection
@@ -904,19 +445,13 @@ class WebSocketService {
             this.reconnectTimeouts.delete(connectionKey);
         }
         
-        // ✅ NEW: Clean up sensor data
-        this.sensorData.delete(`sensor_${serverId}`);
-        this.sensorData.delete(`sensor_history_${serverId}`);
-        this.configData.delete(`config_${serverId}`);
-        this.sensorCallbacks.delete(`sensor_callback_${serverId}`);
-        
         // Update state
         const state = this.connectionStates.get(connectionKey);
         if (state) {
             state.connected = false;
         }
         
-        this.log(`Disconnected from server ${serverId} (including sensor data)`);
+        this.log(`Disconnected from server ${serverId}`);
         this.emitEvent('websocket:disconnected', { serverId });
     }
     
@@ -962,35 +497,19 @@ class WebSocketService {
     }
     
     /**
-     * ✅ EXTENDED: Get connection status including sensor data
+     * Get connection status
      */
     getConnectionStatus(serverId = null) {
         if (serverId) {
             const connectionKey = this.getConnectionKey(serverId);
-            const state = this.connectionStates.get(connectionKey);
-            if (state) {
-                return {
-                    ...state,
-                    // ✅ NEW: Sensor data status
-                    hasSensorData: this.getLatestSensorData(serverId) !== null,
-                    sensorDataFresh: this.isSensorDataFresh(serverId),
-                    hasConfigData: this.getLatestConfigData(serverId) !== null
-                };
-            }
-            return null;
+            return this.connectionStates.get(connectionKey) || null;
         }
         
         // Return all connection statuses
         const statuses = {};
         this.connectionStates.forEach((state, key) => {
             const serverId = key.replace('server_', '');
-            statuses[serverId] = {
-                ...state,
-                // ✅ NEW: Sensor data status
-                hasSensorData: this.getLatestSensorData(serverId) !== null,
-                sensorDataFresh: this.isSensorDataFresh(serverId),
-                hasConfigData: this.getLatestConfigData(serverId) !== null
-            };
+            statuses[serverId] = { ...state };
         });
         
         return statuses;
@@ -1094,7 +613,7 @@ class WebSocketService {
     }
     
     /**
-     * ✅ EXTENDED: Get service statistics including sensor data
+     * Get service statistics
      */
     getStats() {
         const totalConnections = this.connections.size;
@@ -1108,24 +627,18 @@ class WebSocketService {
             }
         });
         
-        // ✅ NEW: Sensor statistics
-        const sensorStats = this.getSensorStats();
-        
         return {
             totalConnections,
             activeConnections,
             totalMessages,
             maxReconnectAttempts: this.options.maxReconnectAttempts,
             reconnectDelay: this.options.reconnectDelay,
-            autoReconnect: this.options.autoReconnect,
-            // ✅ NEW: Sensor data statistics
-            sensorDataEnabled: this.options.enableSensorData,
-            ...sensorStats
+            autoReconnect: this.options.autoReconnect
         };
     }
     
     /**
-     * ✅ EXTENDED: Destroy service and cleanup including sensor data
+     * Destroy service and cleanup
      */
     destroy() {
         this.disconnectAll();
@@ -1140,12 +653,7 @@ class WebSocketService {
         // Clear states
         this.connectionStates.clear();
         
-        // ✅ NEW: Clear sensor data
-        this.sensorData.clear();
-        this.configData.clear();
-        this.sensorCallbacks.clear();
-        
-        this.log('WebSocket service destroyed (including sensor data)');
+        this.log('WebSocket service destroyed');
     }
 }
 

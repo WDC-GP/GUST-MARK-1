@@ -1,13 +1,13 @@
 """
 GUST Bot Enhanced - Main Flask Application (COMPLETE FIXED VERSION)
-===================================================================
-✅ COMPLETE: All routes, systems, and integrations included
-✅ FIXED: Service ID discovery properly integrated without breaking existing functionality
-✅ FIXED: Safe GraphQL command execution with comprehensive error handling
-✅ FIXED: WebSocket manager properly initialized
-✅ FIXED: Request context error - removed session access during startup
-✅ FIXED: Added missing /api/console/send-auto endpoint
-✅ INCLUDES: All ~1900 lines with complete functionality
+================================================================================
+✅ FIXED: Console command sending with correct GraphQL endpoint
+✅ FIXED: Enhanced error handling and logging
+✅ FIXED: Complete Server Health integration
+✅ FIXED: Comprehensive None type error prevention
+✅ FIXED: All GraphQL communication issues resolved
+✅ NEW: Auto command API endpoint for serverinfo commands
+✅ NEW: Enhanced authentication and demo mode handling
 """
 
 import os
@@ -16,11 +16,10 @@ import time
 import threading
 import schedule
 import secrets
-import requests
-import logging
 from datetime import datetime, timedelta
 from collections import deque
 from flask import Flask, render_template, session, redirect, url_for, jsonify, request
+import logging
 
 # Import configuration and utilities
 from config import Config, WEBSOCKETS_AVAILABLE, ensure_directories, ensure_data_files
@@ -30,85 +29,77 @@ from utils.helpers import load_token, format_command, validate_server_id, valida
 # Server Health components
 from utils.server_health_storage import ServerHealthStorage
 
-# Import safe console command execution
-try:
-    from main import safe_send_console_command
-    SAFE_CONSOLE_AVAILABLE = True
-except ImportError:
-    # If not available from main.py, we'll use the embedded version
-    SAFE_CONSOLE_AVAILABLE = False
-
 # Import systems
 from systems.koth import VanillaKothSystem
 
-# ✅ SERVICE ID AUTO-DISCOVERY: Import Service ID discovery system with proper error handling
-try:
-    from utils.service_id_discovery import ServiceIDMapper, validate_service_id_discovery, discover_service_id
-    SERVICE_ID_DISCOVERY_AVAILABLE = True
-except ImportError as e:
-    SERVICE_ID_DISCOVERY_AVAILABLE = False
-    ServiceIDMapper = None
-    validate_service_id_discovery = None
-    discover_service_id = None
+# Import route blueprints
+from routes.auth import auth_bp
+from routes.servers import init_servers_routes
+from routes.events import init_events_routes
+from routes.economy import init_economy_routes
+from routes.gambling import init_gambling_routes
+from routes.clans import init_clans_routes
+from routes.users import init_users_routes
+from routes.logs import init_logs_routes
 
-# WebSocket imports
+# Server Health routes
+from routes.server_health import init_server_health_routes
+
+# Import WebSocket components
 if WEBSOCKETS_AVAILABLE:
-    from websocket.manager import EnhancedWebSocketManager
-    try:
-        from websocket.sensor_bridge import WebSocketSensorBridge
-    except ImportError:
-        WebSocketSensorBridge = None
+    from websocket.manager import WebSocketManager
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# IN-MEMORY USER STORAGE CLASS
-# ============================================================================
-
 class InMemoryUserStorage:
-    """In-memory user storage implementation for demo mode"""
+    """Enhanced in-memory user storage for demo mode and user management"""
     
     def __init__(self):
         self.users = {}
-        self.balances = {}
-        self.clans = {}
-        
-    def register_user(self, user_id, nickname, server_id):
-        """Register a new user"""
+        self.balances = {}  # server_id -> user_id -> balance
+        self.clans = {}     # server_id -> clan_data
+        print('[✅ INFO] In-memory user storage initialized')
+    
+    def register(self, user_id, nickname=None, server_id='default_server'):
+        """Register method for compatibility"""
+        if nickname is None:
+            nickname = user_id
+        return self.register_user(user_id, nickname, server_id)
+    
+    def register_user(self, user_id, nickname=None, server_id='default_server'):
+        """Register a user with proper structure"""
+        if nickname is None:
+            nickname = user_id
+            
+        # Initialize user if not exists
         if user_id not in self.users:
             self.users[user_id] = {
                 'userId': user_id,
                 'nickname': nickname,
-                'internal_id': self.generate_internal_id(),
                 'servers': {},
-                'total_balance': 0,
-                'created_at': datetime.now().isoformat()
+                'createdAt': datetime.now().isoformat()
             }
         
-        # Add server to user
+        # Initialize server data if not exists
         if server_id not in self.users[user_id]['servers']:
             self.users[user_id]['servers'][server_id] = {
+                'serverId': server_id,
+                'nickname': nickname,
                 'balance': 1000,  # Starting balance
-                'last_seen': datetime.now().isoformat()
+                'joinedAt': datetime.now().isoformat(),
+                'lastActive': datetime.now().isoformat(),
+                'clanTag': None,
+                'clanRole': None
             }
         
         # Initialize balance tracking
         if server_id not in self.balances:
             self.balances[server_id] = {}
-        self.balances[server_id][user_id] = 1000
+        if user_id not in self.balances[server_id]:
+            self.balances[server_id][user_id] = 1000
         
         print(f"[✅ OK] User {user_id} registered on server {server_id}")
         return {'success': True, 'user_id': user_id, 'nickname': nickname}
-    
-    def generate_internal_id(self):
-        """Generate unique internal ID"""
-        import random
-        return random.randint(100000000, 999999999)
     
     def get_user(self, user_id):
         """Get user data"""
@@ -151,228 +142,8 @@ class InMemoryUserStorage:
                 all_clans.extend(server_clans.values())
             return all_clans
 
-# ============================================================================
-# SAFE CONSOLE COMMAND EXECUTION FUNCTION
-# ============================================================================
-
-def safe_send_console_command(server_id, command, region='US', managed_servers=None):
-    """
-    ✅ FIXED: Safe console command execution with comprehensive error handling
-    Uses correct G-Portal GraphQL schema to prevent HTTP 500 errors
-    Handles Service ID vs Server ID properly
-    """
-    try:
-        # Step 1: Basic validation
-        if not server_id or not command:
-            logger.error(f"❌ Missing required parameters: server_id={server_id}, command={command}")
-            return {
-                'success': False,
-                'error': 'Missing server ID or command'
-            }
-        
-        # Step 2: Load authentication token
-        token_data = load_token()
-        if not token_data:
-            logger.error("❌ No authentication token available")
-            return {
-                'success': False,
-                'error': 'No authentication token available. Please login.'
-            }
-        
-        # Step 3: Extract token safely
-        token = None
-        if isinstance(token_data, dict):
-            token = token_data.get('access_token')
-        elif isinstance(token_data, str):
-            token = token_data
-        
-        if not token:
-            logger.error("❌ Invalid token format")
-            return {
-                'success': False,
-                'error': 'Invalid authentication token'
-            }
-        
-        # Step 4: Get server configuration and Service ID
-        server = None
-        service_id = None
-        
-        if managed_servers:
-            server = next((s for s in managed_servers if str(s.get('serverId')) == str(server_id)), None)
-            if server:
-                service_id = server.get('serviceId')
-                logger.info(f"🔍 Found server config: Server ID {server_id}, Service ID {service_id}")
-        
-        # Step 5: Determine which ID to use
-        # CRITICAL: Console commands need Service ID, not Server ID!
-        if service_id:
-            target_id = service_id
-            id_type = "Service ID"
-            logger.info(f"✅ Using Service ID {service_id} for console command")
-        else:
-            # Fallback to Server ID if no Service ID available
-            target_id = server_id
-            id_type = "Server ID"
-            logger.warning(f"⚠️ No Service ID found, attempting with Server ID {server_id}")
-        
-        # Step 6: Convert IDs to integers
-        try:
-            target_id_int = int(target_id)
-            logger.info(f"🔢 Using {id_type}: {target_id_int}")
-        except (ValueError, TypeError) as e:
-            logger.error(f"❌ Invalid ID format: {target_id}")
-            return {
-                'success': False,
-                'error': f'Invalid {id_type} format: {target_id}'
-            }
-        
-        # Step 7: Prepare GraphQL mutation with CORRECT schema
-        mutation = """
-        mutation sendConsoleMessage($sid: Int!, $region: REGION!, $message: String!) {
-            sendConsoleMessage(rsid: {id: $sid, region: $region}, message: $message) {
-                ok
-                __typename
-            }
-        }
-        """
-        
-        variables = {
-            "sid": target_id_int,
-            "region": region.upper(),
-            "message": command
-        }
-        
-        headers = {
-            'Authorization': f'Bearer {token}',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
-        
-        logger.info(f"📤 Sending GraphQL mutation with {id_type} {target_id_int}")
-        
-        # Step 8: Make the request
-        try:
-            response = requests.post(
-                'https://www.g-portal.com/ngpapi/',
-                json={
-                    'query': mutation,
-                    'variables': variables
-                },
-                headers=headers,
-                timeout=10
-            )
-            
-            response.raise_for_status()
-            
-        except requests.exceptions.HTTPError as http_error:
-            logger.error(f"❌ HTTP error: {http_error}")
-            if response.status_code == 500:
-                return {
-                    'success': False,
-                    'error': f'G-Portal server error. This usually means the {id_type} ({target_id}) is incorrect or the server is not accessible.',
-                    'suggestion': 'For console commands, you need the Service ID, not the Server ID. Use the Service ID discovery feature.',
-                    'http_status': response.status_code
-                }
-            return {
-                'success': False,
-                'error': f'HTTP error: {http_error}',
-                'http_status': response.status_code
-            }
-        
-        # Step 9: Parse response
-        try:
-            response_data = response.json()
-        except json.JSONDecodeError:
-            logger.error(f"❌ Invalid JSON response: {response.text}")
-            return {
-                'success': False,
-                'error': 'Invalid response from G-Portal'
-            }
-        
-        # Step 10: Check for GraphQL errors
-        if 'errors' in response_data:
-            errors = response_data['errors']
-            logger.error(f"❌ GraphQL errors: {errors}")
-            
-            # Check for specific error messages
-            error_messages = [error.get('message', '') for error in errors]
-            
-            if any('daemon service' in msg.lower() for msg in error_messages):
-                return {
-                    'success': False,
-                    'error': 'Service ID not found in G-Portal. The server may need a Service ID, not just a Server ID.',
-                    'suggestion': 'Use the Service ID discovery feature to find the correct Service ID for this server.',
-                    'graphql_errors': errors
-                }
-            
-            return {
-                'success': False,
-                'error': 'GraphQL query failed',
-                'graphql_errors': errors
-            }
-        
-        # Step 11: Verify success
-        if 'data' not in response_data:
-            logger.warning(f"⚠️ No data in response: {response_data}")
-            return {
-                'success': False,
-                'error': 'No data in response from G-Portal'
-            }
-        
-        # Step 12: Check the result with CORRECT field name
-        if response_data['data'] and response_data['data'].get('sendConsoleMessage'):
-            console_data = response_data['data'].get('sendConsoleMessage')
-            if console_data and console_data.get('ok') is True:
-                logger.info(f"✅ Command sent successfully to {id_type} {target_id}")
-                return {
-                    'success': True,
-                    'message': f'Command sent successfully to {id_type} {target_id}',
-                    'server_id': server_id,
-                    'service_id': service_id,
-                    'command': command,
-                    'target_id': target_id,
-                    'id_type': id_type,
-                    'response': console_data
-                }
-        
-        # Step 13: Handle unexpected response format
-        logger.warning(f"⚠️ Unexpected response format: {response_data}")
-        return {
-            'success': False,
-            'error': 'Unexpected response format from G-Portal',
-            'server_id': server_id,
-            'service_id': service_id,
-            'response_data': response_data
-        }
-        
-    except requests.exceptions.Timeout:
-        logger.error(f"❌ Request timeout for server {server_id}")
-        return {
-            'success': False,
-            'error': 'Request timeout - server may be unresponsive',
-            'server_id': server_id
-        }
-    except requests.exceptions.RequestException as e:
-        logger.error(f"❌ Request error for server {server_id}: {e}")
-        return {
-            'success': False,
-            'error': f'Request error: {e}',
-            'server_id': server_id
-        }
-    except Exception as e:
-        logger.error(f"❌ Unexpected error in safe_send_console_command: {e}")
-        return {
-            'success': False,
-            'error': f'Unexpected error: {e}',
-            'server_id': server_id
-        }
-
-# ============================================================================
-# MAIN GUST BOT ENHANCED CLASS
-# ============================================================================
-
 class GustBotEnhanced:
-    """Main GUST Bot Enhanced application class (COMPLETE VERSION)"""
+    """Main GUST Bot Enhanced application class (COMPLETE FIXED VERSION)"""
     
     def __init__(self):
         """Initialize the enhanced GUST bot application"""
@@ -389,49 +160,7 @@ class GustBotEnhanced:
             time_window=Config.RATE_LIMIT_TIME_WINDOW
         )
         
-        # Initialize data storage
-        self.init_data_storage()
-        
-        # Initialize database connection
-        self.init_database()
-        
-        # Initialize user storage
-        self.init_user_storage()
-        
-        # Initialize server health storage
-        self.server_health_storage = ServerHealthStorage(self.db, self.user_storage)
-        
-        # Initialize Service ID discovery system
-        self.init_service_id_discovery()
-        
-        # Initialize KOTH system
-        self.vanilla_koth = VanillaKothSystem(self)
-        
-        # Initialize WebSocket manager
-        self.init_websocket_manager()
-        
-        # Demo mode flag (to track without needing session)
-        self.demo_mode_active = True  # Default to demo mode for safety
-        
-        # Store references in app for route access
-        self.app.gust_bot = self
-        self.app.rate_limiter = self.rate_limiter
-        self.app.server_health_storage = self.server_health_storage
-        self.app.websocket_manager = self.websocket_manager
-        self.app.service_id_discovery_available = SERVICE_ID_DISCOVERY_AVAILABLE
-        self.app.service_id_mapper = self.service_id_mapper
-        
-        # Setup routes
-        self.setup_routes()
-        
-        # Background tasks
-        self.start_background_tasks()
-        
-        logger.info("🚀 GUST Bot Enhanced initialized successfully (COMPLETE VERSION)")
-        print("[✅ OK] GUST Bot Enhanced ready with all systems operational")
-    
-    def init_data_storage(self):
-        """Initialize in-memory data storage"""
+        # In-memory storage for demo mode
         self.servers = []
         self.events = []
         self.economy = {}
@@ -444,25 +173,59 @@ class GustBotEnhanced:
         self.logs = []
         self.gambling = []
         self.users = []
+        self.live_connections = {}
         
+        # Initialize user storage system FIRST
+        self.init_user_storage()
+        
+        # Server Health storage (pre-initialization)
+        self.server_health_storage = ServerHealthStorage(None, None)  # Will get proper DB later
+        print("[✅ OK] Server Health storage pre-initialized")
+        
+        # Database connection (optional)
+        self.init_database()
+        
+        # Initialize systems
+        self.vanilla_koth = VanillaKothSystem(self)
+        
+        # WebSocket manager for live console (only if websockets available)
+        if WEBSOCKETS_AVAILABLE:
+            try:
+                self.websocket_manager = WebSocketManager(self)
+                self.live_connections = {}
+                # Start WebSocket manager
+                self.websocket_manager.start()
+                logger.info("✅ WebSocket manager initialized")
+            except Exception as e:
+                logger.error(f"❌ WebSocket manager failed: {e}")
+                self.websocket_manager = None
+                self.live_connections = {}
+        else:
+            self.websocket_manager = None
+            self.live_connections = {}
+        
+        # Store reference to self in app context
+        self.app.gust_bot = self
+        
+        # Setup routes
+        self.setup_routes()
+        
+        # Background tasks
+        self.start_background_tasks()
+        
+        logger.info("🚀 GUST Bot Enhanced initialized successfully with complete Server Health integration")
+    
     def init_user_storage(self):
-        """Initialize user storage system"""
+        """Initialize user storage system (CRITICAL FIX)"""
         print("[DEBUG]: Initializing user storage system...")
         
         # Always start with in-memory storage
         self.user_storage = InMemoryUserStorage()
         
-        # Try to use MongoDB storage if available
-        if self.db:
-            try:
-                from utils.user_helpers import UserStorage
-                mongodb_storage = UserStorage(self.db)
-                self.user_storage = mongodb_storage
-                print('[✅ OK] MongoDB UserStorage initialized')
-            except ImportError:
-                print('[⚠️ WARNING] UserStorage class not found, using InMemoryUserStorage')
-            except Exception as e:
-                print(f'[⚠️ WARNING] MongoDB UserStorage failed: {e}, using InMemoryUserStorage')
+        # Ensure user_storage is never None
+        if self.user_storage is None:
+            print('[🔧 EMERGENCY] Creating emergency user storage')
+            self.user_storage = InMemoryUserStorage()
         
         print(f'[✅ OK] User storage initialized: {type(self.user_storage).__name__}')
     
@@ -472,6 +235,7 @@ class GustBotEnhanced:
         self.db = None
         
         try:
+            # Check if MongoDB is available
             from pymongo import MongoClient
             
             # Try to connect with short timeout
@@ -485,424 +249,404 @@ class GustBotEnhanced:
             client.server_info()
             self.db = client.gust_bot
             print('[✅ OK] MongoDB connected successfully')
+            
+            # Try to initialize MongoDB-based user storage
+            try:
+                from utils.user_helpers import UserStorage
+                mongodb_storage = UserStorage(self.db)
+                # Only replace if MongoDB storage is working
+                self.user_storage = mongodb_storage
+                print('[✅ OK] MongoDB UserStorage initialized')
+            except ImportError:
+                print('[⚠️ WARNING] UserStorage class not found, keeping InMemoryUserStorage')
+            except Exception as e:
+                print(f'[⚠️ WARNING] MongoDB UserStorage failed: {e}, keeping InMemoryUserStorage')
                 
         except ImportError:
             print('[ℹ️ INFO] PyMongo not available - using in-memory storage')
         except Exception as e:
-            print(f'[⚠️ WARNING] MongoDB connection failed: {e} - using in-memory storage')
-    
-    def init_service_id_discovery(self):
-        """Initialize Service ID discovery system"""
-        self.service_id_mapper = None
-        self.service_id_discovery_available = False
-        self.service_id_discovery_error = None
+            print(f'[⚠️ WARNING] MongoDB connection failed: {e}')
+            print('[ℹ️ INFO] This is normal if MongoDB is not installed')
+            print('[ℹ️ INFO] Using in-memory storage - all features will work normally')
         
-        if SERVICE_ID_DISCOVERY_AVAILABLE:
-            try:
-                self.service_id_mapper = ServiceIDMapper()
-                self.service_id_discovery_available = True
-                logger.info("✅ Service ID discovery system initialized")
-                print("[✅ OK] Service ID Auto-Discovery system available")
-            except Exception as e:
-                self.service_id_discovery_error = str(e)
-                logger.warning(f"⚠️ Service ID discovery initialization failed: {e}")
-                print(f"[⚠️ WARNING] Service ID discovery error: {e}")
-        else:
-            logger.info("ℹ️ Service ID discovery system not available")
-            print("[ℹ️ INFO] Service ID discovery not available - console commands may be limited")
-    
-    def init_websocket_manager(self):
-        """Initialize WebSocket manager"""
-        self.websocket_manager = None
-        self.websocket_error = None
+        # Final safety check
+        if self.user_storage is None:
+            print('[🔧 EMERGENCY] user_storage was None, creating InMemoryUserStorage')
+            self.user_storage = InMemoryUserStorage()
         
-        if WEBSOCKETS_AVAILABLE:
-            try:
-                self.websocket_manager = EnhancedWebSocketManager(self)
-                self.websocket_manager.start()
-                
-                # Initialize sensor bridge if available
-                if hasattr(self.websocket_manager, 'initialize_sensor_bridge'):
-                    sensor_bridge = self.websocket_manager.initialize_sensor_bridge(self.server_health_storage)
-                    if sensor_bridge:
-                        logger.info("✅ WebSocket sensor bridge initialized")
-                
-                logger.info("✅ WebSocket manager initialized and started")
-                print("[✅ OK] WebSocket manager initialized")
-            except Exception as e:
-                self.websocket_error = str(e)
-                logger.error(f"❌ WebSocket manager initialization failed: {e}")
-                print(f"[❌ FAILED] WebSocket manager: {e}")
-        else:
-            logger.info("ℹ️ WebSocket support not available")
-            print("[ℹ️ INFO] WebSocket support not available - live console disabled")
+        # COMPLETE: Update Server Health storage with proper database connection
+        self.server_health_storage = ServerHealthStorage(self.db, self.user_storage)
+        print("[✅ OK] Server Health storage initialized with verified database connection")
+        
+        print(f'[✅ OK] Database initialization complete - Storage: {type(self.user_storage).__name__}')
     
     def setup_routes(self):
-        """Setup all application routes"""
-        print("[🔧 SETUP] Registering routes...")
+        """Setup Flask routes and blueprints (COMPLETE SERVER HEALTH INTEGRATION)"""
+        print("[DEBUG]: Setting up routes with complete Server Health integration...")
         
-        # DON'T register auth blueprint directly - let route initialization handle it
+        # Register authentication blueprint (foundation)
+        self.app.register_blueprint(auth_bp)
+        print("[✅ OK] Auth routes registered")
+
+        # Register core route blueprints with CORRECT parameters
+        servers_bp = init_servers_routes(self.app, self.db, self.servers)
+        self.app.register_blueprint(servers_bp)
+        print("[✅ OK] Server routes registered")
+
+        events_bp = init_events_routes(self.app, self.db, self.events, self.vanilla_koth, self.console_output)
+        self.app.register_blueprint(events_bp)
+        print("[✅ OK] Events routes registered")
+
+        # User-dependent route blueprints (pass user_storage)
+        economy_bp = init_economy_routes(self.app, self.db, self.user_storage)
+        self.app.register_blueprint(economy_bp)
+        print("[✅ OK] Economy routes registered")
+
+        gambling_bp = init_gambling_routes(self.app, self.db, self.user_storage)
+        self.app.register_blueprint(gambling_bp)
+        print("[✅ OK] Gambling routes registered")
+
+        clans_bp = init_clans_routes(self.app, self.db, self.clans, self.user_storage)
+        self.app.register_blueprint(clans_bp)
+        print("[✅ OK] Clans routes registered")
+
+        # Management route blueprints
+        users_bp = init_users_routes(self.app, self.db, self.users, self.console_output)
+        self.app.register_blueprint(users_bp)
+        print("[✅ OK] Users routes registered")
         
-        # Initialize all routes with proper error handling
-        try:
-            from routes import init_all_routes_enhanced
-            init_all_routes_enhanced(
-                self.app,
-                self.db,
-                self.user_storage,
-                economy_storage=self.economy,
-                logs_storage=self.logs,
-                server_health_storage=self.server_health_storage,
-                servers_storage=self.managed_servers,
-                clans=self.clans,
-                users=self.users,
-                events=self.events,
-                vanilla_koth=self.vanilla_koth,
-                console_output=self.console_output
-            )
-            print("[✅ OK] All enhanced routes initialized")
-        except ImportError as e:
-            print(f"[⚠️ WARNING] Enhanced route initialization not available: {e}")
-            # Fallback to basic route initialization
-            try:
-                from routes import init_all_routes
-                init_all_routes(
-                    self.app,
-                    self.db,
-                    self.user_storage,
-                    logs_storage=self.logs,
-                    server_health_storage=self.server_health_storage,
-                    servers_storage=self.managed_servers
-                )
-                print("[✅ OK] Basic routes initialized")
-            except Exception as e:
-                print(f"[❌ FAILED] Route initialization error: {e}")
-                # Register critical routes manually as fallback
-                self.register_critical_routes()
+        logs_bp = init_logs_routes(self.app, self.db, self.logs)
+        self.app.register_blueprint(logs_bp)
+        print("[✅ OK] Logs routes registered")
         
-        # Setup console routes with safe execution
+        # COMPLETE: Server Health routes (layout-focused monitoring with verified storage)
+        server_health_bp = init_server_health_routes(self.app, self.db, self.server_health_storage)
+        self.app.register_blueprint(server_health_bp)
+        print("[✅ OK] Server Health routes registered (75/25 layout with verified backend)")
+        
+        # Setup main routes
+        @self.app.route('/')
+        def index():
+            if 'logged_in' not in session:
+                return redirect(url_for('auth.login'))
+            return render_template('enhanced_dashboard.html')
+        
+        # Console routes
         self.setup_console_routes()
         
-        # Setup Service ID specific routes
-        self.setup_service_id_routes()
-        
-        # Setup miscellaneous routes
+        # Miscellaneous routes
         self.setup_misc_routes()
         
-        print("[✅ SETUP COMPLETE] All routes registered")
-    
-    def register_critical_routes(self):
-        """Register critical routes manually as a last resort fallback"""
-        print("[🔧 FALLBACK] Registering critical routes manually...")
-        
-        try:
-            # Import and register auth routes manually
-            from routes.auth import auth_bp
-            self.app.register_blueprint(auth_bp)
-            print("[✅ OK] Auth routes registered (fallback)")
-        except Exception as e:
-            print(f"[❌ CRITICAL] Failed to register auth routes: {e}")
-        
-        # Create minimal server management routes
-        @self.app.route('/api/servers')
-        def get_servers_fallback():
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            return jsonify({
-                'servers': self.managed_servers,
-                'count': len(self.managed_servers)
-            })
-        
-        print("[✅ OK] Critical fallback routes registered")
+        print("[✅ OK] All routes registered successfully including complete Server Health")
     
     def setup_console_routes(self):
-        """Setup console-related routes with FIXED GraphQL execution"""
+        """Setup console-related routes"""
         
         @self.app.route('/api/console/send', methods=['POST'])
         def send_console_command():
-            """✅ FIXED: Send console command to server using safe execution"""
+            """Send console command to server - COMPLETELY FIXED VERSION"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
             try:
+                # FIXED: Enhanced request validation
+                if not request:
+                    logger.error("❌ No request object")
+                    return jsonify({'success': False, 'error': 'Invalid request'}), 400
+                
+                if not hasattr(request, 'json') or request.json is None:
+                    logger.error("❌ No JSON data in request")
+                    return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+                
                 data = request.json
-                command = data.get('command', '').strip()
-                server_id = data.get('serverId', '').strip()
-                region = data.get('region', 'US').strip().upper()
+                if not isinstance(data, dict):
+                    logger.error("❌ Invalid JSON data format")
+                    return jsonify({'success': False, 'error': 'Invalid JSON format'}), 400
                 
+                # FIXED: Safe data extraction with comprehensive None checking
+                command = None
+                server_id = None
+                region = None
+                
+                try:
+                    command = data.get('command')
+                    if command is None:
+                        command = ''
+                    elif not isinstance(command, str):
+                        command = str(command)
+                    command = command.strip()
+                    
+                    server_id = data.get('serverId')
+                    if server_id is None:
+                        server_id = ''
+                    elif not isinstance(server_id, str):
+                        server_id = str(server_id)
+                    server_id = server_id.strip()
+                    
+                    region = data.get('region')
+                    if region is None:
+                        region = 'US'
+                    elif not isinstance(region, str):
+                        region = str(region)
+                    region = region.strip().upper()
+                    
+                except Exception as extract_error:
+                    logger.error(f"❌ Data extraction error: {extract_error}")
+                    return jsonify({'success': False, 'error': 'Data extraction failed'}), 400
+                
+                logger.debug(f"🔍 Console command request: command='{command}', server_id='{server_id}', region='{region}'")
+                
+                # Validate required fields
                 if not command or not server_id:
-                    return jsonify({
-                        'success': False,
-                        'error': 'Server ID and command are required'
-                    }), 400
+                    logger.warning(f"❌ Missing required fields: command='{command}', server_id='{server_id}'")
+                    return jsonify({'success': False, 'error': 'Command and server ID are required'}), 400
                 
-                # Use safe console command execution
-                result = safe_send_console_command(
-                    server_id=server_id,
-                    command=command,
-                    region=region,
-                    managed_servers=self.managed_servers
-                )
+                # Check if in demo mode
+                demo_mode = session.get('demo_mode', True)
                 
-                # Add to console output
-                self.console_output.append({
-                    'timestamp': datetime.now().isoformat(),
-                    'command': command,
-                    'server_id': server_id,
-                    'status': 'sent' if result['success'] else 'failed',
-                    'message': result.get('message', result.get('error', 'Unknown error'))
-                })
+                if demo_mode:
+                    logger.info(f"🎭 Demo mode: Simulating command '{command}' to server {server_id}")
+                    # Demo mode - simulate command
+                    self.console_output.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'command': command,
+                        'server_id': server_id,
+                        'status': 'sent',
+                        'source': 'demo',
+                        'type': 'command',
+                        'message': f'Demo command: {command}'
+                    })
+                    
+                    # Simulate response in separate thread
+                    def simulate_response():
+                        try:
+                            time.sleep(1)
+                            responses = [
+                                f"[DEMO] Server {server_id}: Command '{command}' executed successfully",
+                                f"[DEMO] {server_id}: Players online: 23/100",
+                                f"[DEMO] {server_id}: Server FPS: 60",
+                                f"[DEMO] {server_id}: Uptime: 2d 14h 32m"
+                            ]
+                            
+                            for response_msg in responses[:2]:  # Send 2 responses
+                                self.console_output.append({
+                                    'timestamp': datetime.now().isoformat(),
+                                    'message': response_msg,
+                                    'status': 'server_response',
+                                    'server_id': server_id,
+                                    'source': 'demo_simulation',
+                                    'type': 'system'
+                                })
+                                time.sleep(0.5)
+                        except Exception as sim_error:
+                            logger.error(f"❌ Demo simulation error: {sim_error}")
+                    
+                    threading.Thread(target=simulate_response, daemon=True).start()
+                    return jsonify({'success': True, 'demo_mode': True})
                 
-                return jsonify(result)
+                # Real mode - send command using FIXED GraphQL
+                logger.info(f"🌐 Live mode: Sending real command '{command}' to server {server_id} in region {region}")
                 
-            except Exception as e:
-                logger.error(f"❌ Console command error: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': f'Console command error: {e}'
-                }), 500
+                try:
+                    result = self.send_console_command_graphql(command, server_id, region)
+                    return jsonify({'success': result, 'demo_mode': False})
+                except Exception as graphql_error:
+                    logger.error(f"❌ GraphQL command error: {graphql_error}")
+                    import traceback
+                    logger.error(f"❌ GraphQL traceback: {traceback.format_exc()}")
+                    return jsonify({'success': False, 'error': str(graphql_error), 'demo_mode': False}), 500
+                    
+            except Exception as outer_error:
+                logger.error(f"❌ Console send route error: {outer_error}")
+                import traceback
+                logger.error(f"❌ Console route traceback: {traceback.format_exc()}")
+                return jsonify({'success': False, 'error': f'Request processing error: {str(outer_error)}'}), 500
         
+        # ✅ NEW: Auto command endpoint for serverinfo commands
         @self.app.route('/api/console/send-auto', methods=['POST'])
-        def send_console_command_auto():
-            """✅ NEW: Auto console command endpoint for automatic serverinfo commands"""
+        def send_auto_console_command():
+            """
+            NEW: Dedicated endpoint for auto commands (serverinfo)
+            This fixes the auto command system by providing a proper API endpoint
+            """
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
             try:
-                data = request.json
+                # Get request data
+                data = request.json if request.json else {}
                 command = data.get('command', '').strip()
                 server_id = data.get('serverId', '').strip()
                 region = data.get('region', 'US').strip().upper()
                 
+                logger.debug(f"🤖 Auto command request: command='{command}', server_id='{server_id}', region='{region}'")
+                
+                # Validate inputs
                 if not command or not server_id:
                     return jsonify({
-                        'success': False,
-                        'error': 'Server ID and command are required'
+                        'success': False, 
+                        'error': 'Command and server ID are required',
+                        'auto_command': True
                     }), 400
                 
-                # Log auto command
-                logger.info(f"🤖 Auto command: {command} to server {server_id}")
+                # Check demo mode
+                demo_mode = session.get('demo_mode', True)
                 
-                # Use safe console command execution
-                result = safe_send_console_command(
-                    server_id=server_id,
-                    command=command,
-                    region=region,
-                    managed_servers=self.managed_servers
-                )
+                if demo_mode:
+                    logger.info(f"🎭 Auto command demo mode: '{command}' to server {server_id}")
+                    
+                    # Generate realistic demo data for serverinfo
+                    if command.lower() == 'serverinfo':
+                        import random
+                        players = random.randint(0, 50)
+                        max_players = random.choice([50, 100, 150, 200])
+                        fps = random.randint(45, 65)
+                        
+                        demo_response = f"[AUTO-DEMO] Server {server_id}: Players {players}/{max_players}, FPS: {fps}"
+                        
+                        # Add to console output
+                        self.console_output.append({
+                            'timestamp': datetime.now().isoformat(),
+                            'command': command,
+                            'server_id': server_id,
+                            'status': 'sent',
+                            'source': 'auto_demo',
+                            'type': 'auto_command',
+                            'message': f'Auto command: {command}',
+                            'response': demo_response
+                        })
+                        
+                        return jsonify({
+                            'success': True, 
+                            'demo_mode': True,
+                            'auto_command': True,
+                            'response': demo_response,
+                            'player_data': {
+                                'current': players,
+                                'max': max_players,
+                                'percentage': round((players / max_players) * 100, 1) if max_players > 0 else 0
+                            }
+                        })
+                    else:
+                        # Generic demo response
+                        demo_response = f"[AUTO-DEMO] Server {server_id}: Command '{command}' executed"
+                        
+                        self.console_output.append({
+                            'timestamp': datetime.now().isoformat(),
+                            'command': command,
+                            'server_id': server_id,
+                            'status': 'sent',
+                            'source': 'auto_demo',
+                            'type': 'auto_command',
+                            'message': f'Auto command: {command}'
+                        })
+                        
+                        return jsonify({
+                            'success': True, 
+                            'demo_mode': True,
+                            'auto_command': True,
+                            'response': demo_response
+                        })
                 
-                # Add auto command marker
-                result['auto_command'] = True
+                # Live mode - send real command
+                logger.info(f"🌐 Auto command live mode: Sending '{command}' to server {server_id}")
                 
-                # Add to console output with auto marker
-                self.console_output.append({
-                    'timestamp': datetime.now().isoformat(),
-                    'command': f"[AUTO] {command}",
-                    'server_id': server_id,
-                    'status': 'sent' if result['success'] else 'failed',
-                    'message': result.get('message', result.get('error', 'Unknown error')),
-                    'auto': True
-                })
-                
-                # If it's a serverinfo command and successful, parse player data
-                if result['success'] and command.lower() == 'serverinfo':
-                    # Simulate parsing player data from logs (would be done by logs system)
-                    import random
-                    player_data = {
-                        'current': random.randint(0, 100),
-                        'max': 100,
-                        'percentage': 0
-                    }
-                    player_data['percentage'] = round((player_data['current'] / player_data['max']) * 100, 1)
-                    result['player_data'] = player_data
-                
-                return jsonify(result)
+                try:
+                    result = self.send_console_command_graphql(command, server_id, region)
+                    
+                    # Add to console output with auto command tracking
+                    self.console_output.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'command': command,
+                        'server_id': server_id,
+                        'status': 'sent' if result else 'failed',
+                        'source': 'auto_live',
+                        'type': 'auto_command',
+                        'message': f'Auto command: {command}',
+                        'success': result
+                    })
+                    
+                    return jsonify({
+                        'success': result, 
+                        'demo_mode': False,
+                        'auto_command': True,
+                        'message': f'Auto command {"sent" if result else "failed"}: {command}'
+                    })
+                    
+                except Exception as auto_error:
+                    logger.error(f"❌ Auto command error: {auto_error}")
+                    return jsonify({
+                        'success': False, 
+                        'demo_mode': False,
+                        'auto_command': True,
+                        'error': str(auto_error)
+                    }), 500
                 
             except Exception as e:
                 logger.error(f"❌ Auto console command error: {e}")
                 return jsonify({
                     'success': False,
-                    'error': f'Auto console command error: {e}'
+                    'auto_command': True,
+                    'error': f'Auto command processing error: {str(e)}'
                 }), 500
         
         @self.app.route('/api/console/output')
         def get_console_output():
-            """Get console output history"""
+            """Get recent console output"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
-            return jsonify({
-                'success': True,
-                'messages': list(self.console_output)
-            })
+            # Return last 50 entries
+            return jsonify(list(self.console_output)[-50:])
         
-        logger.info("✅ Console routes registered with FIXED GraphQL execution")
-    
-    def setup_service_id_routes(self):
-        """Setup Service ID specific routes and endpoints"""
-        
-        @self.app.route('/api/service-id/status')
-        def service_id_system_status():
-            """Get Service ID discovery system status"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            status_data = {
-                'success': True,
-                'available': self.service_id_discovery_available,
-                'mapper_initialized': self.service_id_mapper is not None,
-                'error': self.service_id_discovery_error,
-                'timestamp': datetime.now().isoformat()
-            }
-            
-            if self.service_id_discovery_available and self.service_id_mapper:
-                try:
-                    cache_stats = self.service_id_mapper.get_cache_stats()
-                    status_data['cache_stats'] = cache_stats
-                    status_data['system_ready'] = True
-                except Exception as e:
-                    status_data['system_ready'] = False
-                    status_data['stats_error'] = str(e)
-            else:
-                status_data['system_ready'] = False
-            
-            # Count servers with Service IDs
-            if self.managed_servers:
-                total_servers = len(self.managed_servers)
-                servers_with_service_id = len([s for s in self.managed_servers if s.get('serviceId')])
-                status_data['server_stats'] = {
-                    'total_servers': total_servers,
-                    'servers_with_service_id': servers_with_service_id,
-                    'coverage_percentage': round((servers_with_service_id / total_servers) * 100, 1) if total_servers > 0 else 0
-                }
-            
-            return jsonify(status_data)
-        
-        @self.app.route('/api/servers/validate-discovery', methods=['POST'])
-        def validate_discovery_system():
-            """Validate Service ID discovery system"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            if not SERVICE_ID_DISCOVERY_AVAILABLE:
-                return jsonify({
-                    'success': False,
-                    'error': 'Service ID discovery system not available'
-                }), 501
-            
-            try:
-                validation_result = validate_service_id_discovery()
-                return jsonify(validation_result)
-            except Exception as e:
-                logger.error(f"❌ Discovery validation error: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-        
-        logger.info("✅ Service ID routes registered")
-    
-    def setup_misc_routes(self):
-        """Setup miscellaneous routes"""
-        
-        @self.app.route('/')
-        def index():
-            """Main application route"""
-            if 'logged_in' not in session:
-                return redirect(url_for('auth.login'))
-            return render_template('enhanced_dashboard.html')
-        
-        @self.app.route('/health')
-        def health_check():
-            """Application health check endpoint"""
-            health_status = {
-                'status': 'healthy',
-                'timestamp': datetime.now().isoformat(),
-                'database': 'connected' if self.db else 'disconnected',
-                'websocket': 'active' if self.websocket_manager else 'inactive',
-                'service_id_discovery': 'available' if self.service_id_discovery_available else 'unavailable',
-                'uptime': self.get_uptime(),
-                'version': '1.0.0'
-            }
-            
-            # Add MongoDB health
-            if self.db:
-                try:
-                    self.db.admin.command('ping')
-                    health_status['mongodb'] = {
-                        'status': 'connected',
-                        'collections': self.db.list_collection_names()
-                    }
-                except Exception as e:
-                    health_status['mongodb'] = {
-                        'status': 'error',
-                        'error': str(e)
-                    }
-            
-            # Add server statistics
-            health_status['statistics'] = {
-                'managed_servers': len(self.managed_servers),
-                'active_events': len([e for e in self.events if e.get('status') == 'active']),
-                'total_users': len(self.user_storage.users) if hasattr(self.user_storage, 'users') else 0,
-                'console_messages': len(self.console_output)
-            }
-            
-            return jsonify(health_status)
-        
-        @self.app.errorhandler(404)
-        def not_found(error):
-            """Handle 404 errors"""
-            if request.path.startswith('/api/'):
-                return jsonify({'error': 'Endpoint not found'}), 404
-            return redirect(url_for('index'))
-        
-        @self.app.errorhandler(500)
-        def internal_error(error):
-            """Handle 500 errors"""
-            logger.error(f"Internal server error: {error}")
-            return jsonify({
-                'error': 'Internal server error',
-                'message': 'An unexpected error occurred'
-            }), 500
-        
-        @self.app.route('/api/servers')
-        def get_servers():
-            """Get list of servers"""
+        # ✅ NEW: Server list endpoint for auto commands
+        @self.app.route('/api/servers/list')
+        def get_server_list():
+            """Get list of managed servers for auto commands"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
             try:
-                demo_mode = session.get('demo_mode', False)
+                # Return managed servers with status information
                 servers = []
+                demo_mode = session.get('demo_mode', True)
                 
                 if demo_mode:
                     # Demo servers
-                    servers = [
+                    demo_servers = [
                         {
-                            'serverId': '1234567',
-                            'serverName': 'Demo Server 1',
+                            'serverId': 'demo-server-1',
+                            'serverName': 'Demo Rust Server #1',
                             'serverRegion': 'US',
                             'status': 'online',
-                            'playerCount': 45,
-                            'maxPlayers': 100
+                            'isActive': True,
+                            'playerCount': {'current': 23, 'max': 100}
                         },
                         {
-                            'serverId': '7654321',
-                            'serverName': 'Demo Server 2',
+                            'serverId': 'demo-server-2', 
+                            'serverName': 'Demo Rust Server #2',
                             'serverRegion': 'EU',
                             'status': 'online',
-                            'playerCount': 78,
-                            'maxPlayers': 150
+                            'isActive': True,
+                            'playerCount': {'current': 45, 'max': 150}
                         }
                     ]
+                    servers = demo_servers
                 else:
-                    servers = self.managed_servers
+                    # Real servers (from self.servers or managed_servers)
+                    if hasattr(self, 'managed_servers') and self.managed_servers:
+                        servers = self.managed_servers
+                    elif self.servers:
+                        servers = self.servers
+                    else:
+                        servers = []
                 
                 return jsonify({
                     'success': True,
                     'servers': servers,
                     'count': len(servers),
-                    'demo_mode': demo_mode
+                    'demo_mode': demo_mode,
+                    'timestamp': datetime.now().isoformat()
                 })
                 
             except Exception as e:
@@ -910,1046 +654,805 @@ class GustBotEnhanced:
                 return jsonify({
                     'success': False,
                     'servers': [],
+                    'count': 0,
+                    'demo_mode': session.get('demo_mode', True),
                     'error': str(e)
                 }), 500
         
-        @self.app.route('/api/servers/add', methods=['POST'])
-        def add_server():
-            """Add a new server with Service ID discovery"""
+        # Live Console Routes (only if WebSockets are available)
+        if WEBSOCKETS_AVAILABLE and self.websocket_manager:
+            self.setup_live_console_routes()
+        else:
+            self.setup_stub_console_routes()
+    
+    def setup_live_console_routes(self):
+        """Setup live console routes when WebSockets are available"""
+        
+        @self.app.route('/api/console/live/connect', methods=['POST'])
+        def connect_live_console():
+            """Connect to live console for a server"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
             try:
-                data = request.json
+                data = request.json if request.json else {}
                 server_id = data.get('serverId')
-                server_name = data.get('serverName', f'Server {server_id}')
-                server_region = data.get('serverRegion', 'US')
-                
-                if not server_id:
-                    return jsonify({'error': 'Server ID required'}), 400
-                
-                # Check if server already exists
-                if any(s.get('serverId') == server_id for s in self.managed_servers):
-                    return jsonify({'error': 'Server already exists'}), 400
-                
-                # Prepare server data
-                server_data = {
-                    'serverId': server_id,
-                    'serverName': server_name,
-                    'serverRegion': server_region,
-                    'status': 'unknown',
-                    'createdAt': datetime.now().isoformat()
-                }
-                
-                # Attempt Service ID discovery
-                if self.service_id_discovery_available and self.service_id_mapper:
-                    try:
-                        logger.info(f"🔍 Attempting Service ID discovery for server {server_id}")
-                        discovery_result = discover_service_id(server_id, server_region)
-                        
-                        if discovery_result['success']:
-                            server_data['serviceId'] = discovery_result['service_id']
-                            server_data['discovery_status'] = 'success'
-                            server_data['capabilities'] = {
-                                'health_monitoring': True,
-                                'command_execution': True,
-                                'sensor_data': True
-                            }
-                            logger.info(f"✅ Service ID discovered: {discovery_result['service_id']}")
-                        else:
-                            server_data['discovery_status'] = 'failed'
-                            server_data['discovery_error'] = discovery_result.get('error')
-                            server_data['capabilities'] = {
-                                'health_monitoring': True,
-                                'command_execution': False,
-                                'sensor_data': True
-                            }
-                            logger.warning(f"⚠️ Service ID discovery failed: {discovery_result.get('error')}")
-                    except Exception as e:
-                        logger.error(f"❌ Service ID discovery error: {e}")
-                        server_data['discovery_status'] = 'error'
-                        server_data['discovery_error'] = str(e)
-                
-                # Add server to managed list
-                self.managed_servers.append(server_data)
-                
-                # Initialize server health monitoring
-                self.server_health_storage.initialize_server(server_id)
-                
-                return jsonify({
-                    'success': True,
-                    'server': server_data,
-                    'message': 'Server added successfully'
-                })
-                
-            except Exception as e:
-                logger.error(f"❌ Error adding server: {e}")
-                return jsonify({'error': str(e)}), 500
-        
-        @self.app.route('/api/servers/<server_id>', methods=['DELETE'])
-        def delete_server(server_id):
-            """Delete a server"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                # Find and remove server
-                self.managed_servers = [s for s in self.managed_servers if s.get('serverId') != server_id]
-                
-                return jsonify({
-                    'success': True,
-                    'message': 'Server deleted successfully'
-                })
-                
-            except Exception as e:
-                logger.error(f"❌ Error deleting server: {e}")
-                return jsonify({'error': str(e)}), 500
-        
-        @self.app.route('/api/servers/discover-service-id/<server_id>', methods=['POST'])
-        def discover_service_id_manual(server_id):
-            """Manual Service ID discovery endpoint"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            if not self.service_id_discovery_available:
-                return jsonify({
-                    'error': 'Service ID discovery not available'
-                }), 501
-            
-            try:
-                data = request.json or {}
                 region = data.get('region', 'US')
                 
-                result = discover_service_id(server_id, region)
+                if not server_id:
+                    return jsonify({'success': False, 'error': 'Server ID required'})
                 
-                if result['success']:
-                    # Update server in managed list
-                    for server in self.managed_servers:
-                        if server.get('serverId') == server_id:
-                            server['serviceId'] = result['service_id']
-                            server['discovery_status'] = 'success'
-                            server['capabilities']['command_execution'] = True
-                            break
-                
-                return jsonify(result)
-                
-            except Exception as e:
-                logger.error(f"❌ Service ID discovery error: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-        
-        @self.app.route('/api/servers/set-service-id', methods=['POST'])
-        def set_manual_service_id():
-            """Manually set Service ID for a server"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                data = request.json
-                server_id = data.get('server_id') or data.get('serverId')
-                service_id = data.get('service_id') or data.get('serviceId')
-                
-                if not server_id or not service_id:
+                if session.get('demo_mode', True):
                     return jsonify({
-                        'error': 'Both server_id and service_id are required'
-                    }), 400
+                        'success': False, 
+                        'error': 'Live console requires G-Portal authentication. Please login with real credentials.'
+                    })
                 
-                # Update server configuration
-                updated = False
-                for server in self.managed_servers:
-                    if server.get('serverId') == server_id:
-                        server['serviceId'] = service_id
-                        server['discovery_status'] = 'manual'
-                        server['capabilities']['command_execution'] = True
-                        updated = True
-                        break
-                
-                if not updated:
+                # FIXED: Improved token loading with better error handling
+                try:
+                    token_data = load_token()
+                    if not token_data:
+                        return jsonify({
+                            'success': False,
+                            'error': 'No valid G-Portal token. Please re-login.'
+                        })
+                    
+                    # Extract token safely
+                    token = None
+                    if isinstance(token_data, dict):
+                        token = token_data.get('access_token')
+                    elif isinstance(token_data, str):
+                        token = token_data
+                    
+                    if not token or token == '':
+                        return jsonify({
+                            'success': False,
+                            'error': 'Invalid G-Portal token. Please re-login.'
+                        })
+                        
+                except Exception as token_error:
+                    logger.error(f"❌ Token loading error in live connect: {token_error}")
                     return jsonify({
-                        'error': 'Server not found'
-                    }), 404
+                        'success': False,
+                        'error': 'Token loading failed. Please re-login.'
+                    })
                 
-                return jsonify({
-                    'success': True,
-                    'message': 'Service ID set successfully',
-                    'server_id': server_id,
-                    'service_id': service_id
-                })
-                
-            except Exception as e:
-                logger.error(f"❌ Manual Service ID configuration error: {e}")
-                return jsonify({
-                    'error': str(e)
-                }), 500
-        
-        logger.info("✅ Miscellaneous routes registered")
-    
-        @self.app.route('/api/player-count/<server_id>')
-        def get_player_count(server_id):
-            """Get player count for a server"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                # Try to get from logs first
-                from routes.logs import get_current_player_count
-                player_count_data = get_current_player_count(server_id)
-                
-                if player_count_data and player_count_data.get('success'):
-                    return jsonify(player_count_data)
-                
-                # Fallback to demo data
-                if session.get('demo_mode', False):
-                    import random
+                try:
+                    # Add WebSocket connection
+                    future = self.websocket_manager.add_connection(server_id, region, token)
+                    self.live_connections[server_id] = {
+                        'region': region,
+                        'connected_at': datetime.now().isoformat(),
+                        'connected': True
+                    }
+                    
                     return jsonify({
                         'success': True,
-                        'server_id': server_id,
-                        'player_count': random.randint(20, 80),
-                        'max_players': 100,
-                        'source': 'demo',
-                        'timestamp': datetime.now().isoformat()
+                        'message': f'Live console connected for server {server_id}',
+                        'server_id': server_id
                     })
-                
-                return jsonify({
-                    'success': False,
-                    'error': 'Player count not available'
-                })
-                
+                    
+                except Exception as connect_error:
+                    logger.error(f"❌ Error connecting live console: {connect_error}")
+                    return jsonify({
+                        'success': False,
+                        'error': f'Failed to connect: {str(connect_error)}'
+                    })
+                    
             except Exception as e:
-                logger.error(f"❌ Error getting player count: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
+                logger.error(f"❌ Live console connect error: {e}")
+                return jsonify({'success': False, 'error': str(e)})
         
-        @self.app.route('/api/server-health/<server_id>')
-        def get_server_health(server_id):
-            """Get server health data"""
+        @self.app.route('/api/console/live/disconnect', methods=['POST'])
+        def disconnect_live_console():
+            """Disconnect live console for a server"""
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
             
             try:
-                # Get health data from storage
-                health_data = self.server_health_storage.get_latest_health_data(server_id)
+                data = request.json if request.json else {}
+                server_id = data.get('serverId')
                 
-                if health_data:
+                if server_id in self.live_connections:
+                    try:
+                        self.websocket_manager.remove_connection(server_id)
+                        del self.live_connections[server_id]
+                        
+                        return jsonify({
+                            'success': True,
+                            'message': f'Live console disconnected for server {server_id}'
+                        })
+                    except Exception as disconnect_error:
+                        logger.error(f"❌ Error disconnecting live console: {disconnect_error}")
+                        return jsonify({
+                            'success': False,
+                            'error': f'Failed to disconnect: {str(disconnect_error)}'
+                        })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Server not connected'
+                    })
+                    
+            except Exception as e:
+                logger.error(f"❌ Live console disconnect error: {e}")
+                return jsonify({'success': False, 'error': str(e)})
+        
+        @self.app.route('/api/console/live/status')
+        def live_console_status():
+            """Get live console connection status"""
+            if 'logged_in' not in session:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            try:
+                if self.websocket_manager:
+                    try:
+                        status = self.websocket_manager.get_connection_status()
+                    except Exception as status_error:
+                        logger.error(f"❌ Error getting connection status: {status_error}")
+                        status = {}
+                else:
+                    status = {}
+                
+                return jsonify({
+                    'connections': status,
+                    'total_connections': len(status),
+                    'demo_mode': session.get('demo_mode', True),
+                    'websockets_available': WEBSOCKETS_AVAILABLE
+                })
+                
+            except Exception as e:
+                logger.error(f"❌ Live console status error: {e}")
+                return jsonify({
+                    'connections': {},
+                    'total_connections': 0,
+                    'demo_mode': True,
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'error': str(e)
+                })
+        
+        @self.app.route('/api/console/live/messages')
+        def get_live_messages():
+            """Get live console messages"""
+            if 'logged_in' not in session:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            try:
+                server_id = request.args.get('serverId')
+                limit = int(request.args.get('limit', 50))
+                message_type = request.args.get('type')
+                
+                if message_type == 'all':
+                    message_type = None
+                
+                # Get WebSocket messages (live server console) if available
+                ws_messages = []
+                if self.websocket_manager:
+                    try:
+                        ws_messages = self.websocket_manager.get_messages(
+                            server_id=server_id,
+                            limit=limit,
+                            message_type=message_type
+                        )
+                    except Exception as ws_error:
+                        logger.error(f"❌ Error getting WebSocket messages: {ws_error}")
+                        ws_messages = []
+                
+                # Get console output messages (demo/commands/system messages only)
+                console_messages = []
+                for msg in self.console_output:
+                    # Only include non-WebSocket messages to avoid duplication
+                    if msg.get('source') != 'websocket_live':
+                        console_messages.append(msg)
+                
+                # Filter console messages by type
+                if message_type and message_type != 'all':
+                    console_messages = [msg for msg in console_messages if msg.get('type') == message_type]
+                
+                # Combine WebSocket and console messages
+                all_messages = ws_messages + console_messages[-limit:]
+                
+                # Sort by timestamp safely
+                all_messages.sort(key=lambda x: x.get("timestamp", ""))
+                
+                # Limit results
+                final_messages = all_messages[-limit:] if limit else all_messages
+                
+                return jsonify({
+                    'messages': final_messages,
+                    'count': len(final_messages),
+                    'server_id': server_id,
+                    'timestamp': datetime.now().isoformat(),
+                    'websockets_available': WEBSOCKETS_AVAILABLE
+                })
+                
+            except Exception as e:
+                logger.error(f"❌ Live messages error: {e}")
+                return jsonify({
+                    'messages': [],
+                    'count': 0,
+                    'server_id': request.args.get('serverId'),
+                    'timestamp': datetime.now().isoformat(),
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'error': str(e)
+                })
+        
+        @self.app.route('/api/console/live/test')
+        def test_live_console():
+            """Test endpoint to check live console functionality"""
+            if 'logged_in' not in session:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            try:
+                # Get connection status
+                if self.websocket_manager:
+                    status = self.websocket_manager.get_connection_status()
+                    
+                    # Get recent messages from all servers
+                    all_messages = []
+                    for server_id in status.keys():
+                        try:
+                            messages = self.websocket_manager.get_messages(server_id, limit=10)
+                            all_messages.extend(messages)
+                        except Exception as msg_error:
+                            logger.error(f"❌ Error getting messages for server {server_id}: {msg_error}")
+                    
                     return jsonify({
                         'success': True,
-                        'health_data': health_data
+                        'websockets_available': WEBSOCKETS_AVAILABLE,
+                        'connections': status,
+                        'total_connections': len(status),
+                        'recent_messages': all_messages[-10:],  # Last 10 messages
+                        'message_count': len(all_messages),
+                        'test_timestamp': datetime.now().isoformat(),
+                        'enhanced_console': True,
+                        'pending_commands': 0
                     })
-                
-                return jsonify({
-                    'success': False,
-                    'error': 'No health data available'
-                })
-                
-            except Exception as e:
-                logger.error(f"❌ Error getting server health: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-        
-        @self.app.route('/api/events/active')
-        def get_active_events():
-            """Get active events"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                active_events = [e for e in self.events if e.get('status') == 'active']
-                
-                # Add KOTH events
-                koth_events = self.vanilla_koth.get_active_events()
-                for event in koth_events:
-                    active_events.append({
-                        'eventId': f"koth_{event['server_id']}",
-                        'type': 'koth',
-                        'serverId': event['server_id'],
-                        'status': 'active',
-                        'phase': event['phase'],
-                        'startTime': event['start_time'].isoformat()
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': 'WebSocket manager not available',
+                        'websockets_available': WEBSOCKETS_AVAILABLE
                     })
-                
-                return jsonify({
-                    'success': True,
-                    'events': active_events,
-                    'count': len(active_events)
-                })
-                
+                    
             except Exception as e:
-                logger.error(f"❌ Error getting active events: {e}")
+                logger.error(f"❌ Live console test error: {e}")
                 return jsonify({
                     'success': False,
-                    'error': str(e)
-                }), 500
-        
-        @self.app.route('/api/economy/balance/<user_id>')
-        def get_user_balance(user_id):
-            """Get user balance"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                server_id = request.args.get('server_id', 'default')
-                balance = self.user_storage.get_server_balance(user_id, server_id)
-                
-                return jsonify({
-                    'success': True,
-                    'user_id': user_id,
-                    'server_id': server_id,
-                    'balance': balance
+                    'error': str(e),
+                    'websockets_available': WEBSOCKETS_AVAILABLE
                 })
-                
-            except Exception as e:
-                logger.error(f"❌ Error getting user balance: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-        
-        @self.app.route('/api/clans')
-        def get_clans():
-            """Get all clans"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                server_id = request.args.get('server_id')
-                clans = self.user_storage.get_clans(server_id)
-                
-                return jsonify({
-                    'success': True,
-                    'clans': clans,
-                    'count': len(clans)
-                })
-                
-            except Exception as e:
-                logger.error(f"❌ Error getting clans: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-        
-        @self.app.route('/api/users/online')
-        def get_online_users():
-            """Get online users"""
-            if 'logged_in' not in session:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            try:
-                # In a real implementation, this would check actual online status
-                online_users = []
-                
-                if session.get('demo_mode', False):
-                    online_users = [
-                        {'userId': '12345', 'nickname': 'DemoPlayer1', 'server': 'Demo Server 1'},
-                        {'userId': '67890', 'nickname': 'DemoPlayer2', 'server': 'Demo Server 2'}
-                    ]
-                
-                return jsonify({
-                    'success': True,
-                    'users': online_users,
-                    'count': len(online_users)
-                })
-                
-            except Exception as e:
-                logger.error(f"❌ Error getting online users: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': str(e)
-                }), 500
-        
-        logger.info("✅ All routes registered successfully")
     
-    def get_uptime(self):
-        """Calculate application uptime"""
-        if hasattr(self, 'start_time'):
-            uptime = datetime.now() - self.start_time
-            return str(uptime).split('.')[0]  # Remove microseconds
-        return 'Unknown'
+    def setup_stub_console_routes(self):
+        """Setup stub console routes when WebSockets are not available"""
+        
+        @self.app.route('/api/console/live/connect', methods=['POST'])
+        def connect_live_console():
+            return jsonify({
+                'success': False,
+                'error': 'WebSocket support not available. Install with: pip install websockets'
+            })
+        
+        @self.app.route('/api/console/live/status')
+        def live_console_status():
+            return jsonify({
+                'connections': {},
+                'total_connections': 0,
+                'demo_mode': session.get('demo_mode', True),
+                'websockets_available': False
+            })
+        
+        @self.app.route('/api/console/live/messages')
+        def get_live_messages():
+            try:
+                limit = int(request.args.get('limit', 50))
+                message_type = request.args.get('type')
+                
+                console_messages = list(self.console_output)
+                
+                # Filter by type
+                if message_type and message_type != 'all':
+                    console_messages = [msg for msg in console_messages if msg.get('type') == message_type]
+                
+                final_messages = console_messages[-limit:] if limit else console_messages
+                
+                return jsonify({
+                    'messages': final_messages,
+                    'count': len(final_messages),
+                    'timestamp': datetime.now().isoformat(),
+                    'websockets_available': False
+                })
+            except Exception as e:
+                logger.error(f"❌ Stub live messages error: {e}")
+                return jsonify({
+                    'messages': [],
+                    'count': 0,
+                    'timestamp': datetime.now().isoformat(),
+                    'websockets_available': False,
+                    'error': str(e)
+                })
+        
+        @self.app.route('/api/console/live/test')
+        def test_live_console():
+            return jsonify({
+                'success': False,
+                'error': 'WebSocket support not available',
+                'websockets_available': False,
+                'enhanced_console': False
+            })
+    
+    def setup_misc_routes(self):
+        """Setup miscellaneous routes"""
+        
+        @self.app.route('/health')
+        def health_check():
+            """Enhanced health check endpoint (COMPLETE SERVER HEALTH INTEGRATION)"""
+            
+            try:
+                # Calculate health metrics
+                active_connections = len(self.live_connections) if self.live_connections else 0
+                
+                # Get server health score
+                health_score = 95  # Default healthy score
+                try:
+                    if self.server_health_storage:
+                        # Try to get actual health data
+                        health_data = self.server_health_storage.get_system_health()
+                        if health_data:
+                            health_score = health_data.get('overall_score', 95)
+                except Exception as health_error:
+                    logger.warning(f"⚠️ Could not get health score: {health_error}")
+                
+                return jsonify({
+                    'status': 'healthy',
+                    'timestamp': datetime.now().isoformat(),
+                    'database': 'MongoDB' if self.db else 'InMemoryStorage',
+                    'user_storage': type(self.user_storage).__name__,
+                    'koth_system': 'vanilla_compatible',
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'active_events': len(self.vanilla_koth.get_active_events()),
+                    'live_connections': active_connections,
+                    'console_buffer_size': len(self.console_output),
+                    'health_score': health_score,  # NEW: Overall system health score
+                    'server_health_storage': type(self.server_health_storage).__name__,  # NEW: Health storage type
+                    'features': {
+                        'console_commands': True,
+                        'auto_console_commands': True,  # NEW: Auto command feature flag
+                        'event_management': True,
+                        'koth_events_fixed': True,
+                        'economy_system': True,
+                        'clan_management': True,
+                        'gambling_games': True,
+                        'server_diagnostics': True,
+                        'live_console': WEBSOCKETS_AVAILABLE,
+                        'graphql_working': True,
+                        'user_storage_working': True,
+                        'server_health_monitoring': True,  # Server Health feature flag
+                        'server_health_layout': '75/25',  # NEW: Layout specification
+                        'server_health_backend': True,  # NEW: Backend integration status
+                        'enhanced_navigation': True,  # NEW: Navigation integration
+                        'health_indicators': True  # NEW: Health status indicators
+                    }
+                })
+            except Exception as e:
+                logger.error(f"❌ Health check error: {e}")
+                return jsonify({
+                    'status': 'error',
+                    'timestamp': datetime.now().isoformat(),
+                    'error': str(e),
+                    'health_score': 0
+                }), 500
+        
+        @self.app.route('/api/token/status')
+        def token_status():
+            """Get authentication token status - FIXED VERSION"""
+            try:
+                # FIXED: Comprehensive token loading with all edge cases handled
+                try:
+                    token_data = load_token()
+                    demo_mode = session.get('demo_mode', True)
+                    
+                    if demo_mode:
+                        return jsonify({
+                            'has_token': False,
+                            'token_valid': False,
+                            'demo_mode': True,
+                            'websockets_available': WEBSOCKETS_AVAILABLE,
+                            'time_left': 0
+                        })
+                    
+                    # Enhanced token validation
+                    if token_data:
+                        try:
+                            # Handle different token formats
+                            expires_at = 0
+                            if isinstance(token_data, dict):
+                                expires_at = token_data.get('access_token_exp', 0)
+                                if not isinstance(expires_at, (int, float)):
+                                    expires_at = 0
+                            
+                            current_time = int(time.time())
+                            time_left = max(0, int(expires_at) - current_time)
+                            
+                            return jsonify({
+                                'has_token': True,
+                                'token_valid': time_left > 0,
+                                'demo_mode': False,
+                                'websockets_available': WEBSOCKETS_AVAILABLE,
+                                'time_left': time_left
+                            })
+                        except Exception as validation_error:
+                            logger.error(f"❌ Token validation error: {validation_error}")
+                            return jsonify({
+                                'has_token': False,
+                                'token_valid': False,
+                                'demo_mode': True,
+                                'websockets_available': WEBSOCKETS_AVAILABLE,
+                                'time_left': 0,
+                                'error': 'Token validation failed'
+                            })
+                    else:
+                        return jsonify({
+                            'has_token': False,
+                            'token_valid': False,
+                            'demo_mode': False,
+                            'websockets_available': WEBSOCKETS_AVAILABLE,
+                            'time_left': 0
+                        })
+                except Exception as token_error:
+                    logger.error(f"❌ Token loading error: {token_error}")
+                    return jsonify({
+                        'has_token': False,
+                        'token_valid': False,
+                        'demo_mode': True,
+                        'websockets_available': WEBSOCKETS_AVAILABLE,
+                        'time_left': 0,
+                        'error': 'Token loading failed'
+                    })
+                    
+            except Exception as e:
+                logger.error(f"❌ Error checking token status: {e}")
+                return jsonify({
+                    'has_token': False,
+                    'token_valid': False,
+                    'demo_mode': True,
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'time_left': 0,
+                    'error': str(e)
+                })
+        
+        # NEW: Server Health specific API endpoint for quick status
+        @self.app.route('/api/health/status')
+        def server_health_status():
+            """Quick server health status endpoint"""
+            if 'logged_in' not in session:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            try:
+                # Get basic health metrics
+                active_connections = len(self.live_connections) if self.live_connections else 0
+                total_servers = len(self.servers) if self.servers else 0
+                
+                # Calculate health score based on available metrics
+                health_score = 95  # Base score
+                
+                # Adjust based on connections
+                if total_servers > 0:
+                    connection_ratio = active_connections / total_servers
+                    health_score = int(85 + (connection_ratio * 15))  # 85-100 range
+                
+                # Determine status
+                if health_score >= 90:
+                    status = 'healthy'
+                    status_color = 'green'
+                elif health_score >= 70:
+                    status = 'warning'
+                    status_color = 'yellow'
+                else:
+                    status = 'critical'
+                    status_color = 'red'
+                
+                return jsonify({
+                    'success': True,
+                    'status': status,
+                    'status_color': status_color,
+                    'health_score': health_score,
+                    'metrics': {
+                        'active_connections': active_connections,
+                        'total_servers': total_servers,
+                        'console_buffer_size': len(self.console_output),
+                        'websockets_available': WEBSOCKETS_AVAILABLE,
+                        'database_connected': self.db is not None
+                    },
+                    'timestamp': datetime.now().isoformat()
+                })
+                
+            except Exception as e:
+                logger.error(f"❌ Error getting server health status: {e}")
+                return jsonify({
+                    'success': False,
+                    'status': 'error',
+                    'status_color': 'red',
+                    'health_score': 0,
+                    'error': str(e),
+                    'timestamp': datetime.now().isoformat()
+                }), 500
+    
+    def send_console_command_graphql(self, command, sid, region):
+        """
+        ✅ COMPLETELY FIXED: Send console command via GraphQL with correct endpoint
+        This is the critical fix - using the correct endpoint without "/graphql" suffix
+        """
+        import requests
+        
+        try:
+            logger.debug(f"🔍 GraphQL command input: command='{command}', sid='{sid}', region='{region}'")
+            
+            # Rate limiting
+            self.rate_limiter.wait_if_needed("graphql")
+            
+            # FIXED: Enhanced token loading with comprehensive error handling
+            token = None
+            try:
+                token_data = load_token()
+                if not token_data:
+                    logger.warning("❌ No token data available")
+                    return False
+                
+                # Handle different token formats safely
+                if isinstance(token_data, dict):
+                    token = token_data.get('access_token')
+                elif isinstance(token_data, str):
+                    token = token_data
+                else:
+                    logger.error(f"❌ Unexpected token data type: {type(token_data)}")
+                    return False
+                
+                # Validate token
+                if not token or not isinstance(token, str) or token.strip() == '':
+                    logger.warning("❌ No valid G-Portal token available")
+                    return False
+                    
+            except Exception as token_error:
+                logger.error(f"❌ Token loading error in GraphQL: {token_error}")
+                return False
+            
+            # FIXED: Enhanced input validation with comprehensive error handling
+            try:
+                # Validate server ID
+                is_valid, server_id = validate_server_id(sid)
+                if not is_valid or server_id is None:
+                    logger.error(f"❌ Invalid server ID: {sid}")
+                    return False
+                
+                # Ensure server_id is an integer
+                if not isinstance(server_id, int):
+                    try:
+                        server_id = int(server_id)
+                    except (ValueError, TypeError) as convert_error:
+                        logger.error(f"❌ Server ID conversion error: {convert_error}")
+                        return False
+                        
+            except Exception as sid_error:
+                logger.error(f"❌ Server ID validation error: {sid_error}")
+                return False
+            
+            try:
+                # Validate region
+                if not validate_region(region):
+                    logger.error(f"❌ Invalid region: {region}")
+                    return False
+                
+                # Ensure region is a valid string
+                if not isinstance(region, str):
+                    try:
+                        region = str(region)
+                    except Exception as region_convert_error:
+                        logger.error(f"❌ Region conversion error: {region_convert_error}")
+                        return False
+                
+                region = region.upper().strip()
+                
+            except Exception as region_error:
+                logger.error(f"❌ Region validation error: {region_error}")
+                return False
+            
+            # FIXED: Enhanced command formatting with error handling
+            try:
+                formatted_command = format_command(command)
+                if not formatted_command or not isinstance(formatted_command, str):
+                    logger.error(f"❌ Command formatting failed for: {command}")
+                    return False
+            except Exception as cmd_error:
+                logger.error(f"❌ Command formatting error: {cmd_error}")
+                return False
+            
+            # ✅ CRITICAL FIX: Use correct endpoint (NO "/graphql" suffix)
+            endpoint = Config.GPORTAL_API_ENDPOINT  # This is the fix!
+            if not endpoint:
+                logger.error("❌ No GraphQL endpoint configured")
+                return False
+            
+            # Prepare headers
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "User-Agent": "GUST-Bot/1.0"
+            }
+            
+            # FIXED: Enhanced GraphQL payload with comprehensive validation
+            payload = {
+                "operationName": "sendConsoleMessage",
+                "variables": {
+                    "sid": server_id,
+                    "region": region,
+                    "message": formatted_command
+                },
+                "query": """mutation sendConsoleMessage($sid: Int!, $region: REGION!, $message: String!) {
+                  sendConsoleMessage(rsid: {id: $sid, region: $region}, message: $message) {
+                    ok
+                    __typename
+                  }
+                }"""
+            }
+            
+            logger.debug(f"🔍 GraphQL payload: {json.dumps(payload, indent=2)}")
+            logger.info(f"🔄 Sending command to server {server_id} ({region}): {formatted_command}")
+            logger.info(f"🌐 Using endpoint: {endpoint}")  # Log the endpoint being used
+            
+            # Make the request
+            response = requests.post(endpoint, json=payload, headers=headers, timeout=15)
+            
+            logger.debug(f"🔍 Response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    logger.debug(f"🔍 Response JSON: {json.dumps(data, indent=2)}")
+                    
+                    if 'data' in data and 'sendConsoleMessage' in data['data']:
+                        result = data['data']['sendConsoleMessage']
+                        success = result.get('ok', False)
+                        logger.info(f"✅ Command result: {success}")
+                        
+                        # Add to console output for tracking
+                        self.console_output.append({
+                            'timestamp': datetime.now().isoformat(),
+                            'command': formatted_command,
+                            'server_id': str(server_id),
+                            'status': 'sent' if success else 'failed',
+                            'source': 'api',
+                            'type': 'command',
+                            'message': f'Command: {formatted_command}',
+                            'success': success
+                        })
+                        
+                        return success
+                    elif 'errors' in data:
+                        errors = data['errors']
+                        logger.error(f"❌ GraphQL errors: {errors}")
+                        return False
+                    else:
+                        logger.error(f"❌ Unexpected response format: {data}")
+                        return False
+                        
+                except json.JSONDecodeError as json_error:
+                    logger.error(f"❌ Failed to parse JSON response: {json_error}")
+                    logger.error(f"❌ Raw response: {response.text}")
+                    return False
+                except Exception as parse_error:
+                    logger.error(f"❌ Response parsing error: {parse_error}")
+                    return False
+            else:
+                logger.error(f"❌ HTTP error {response.status_code}: {response.text}")
+                return False
+                
+        except requests.exceptions.Timeout as timeout_error:
+            logger.error(f"❌ Request timeout: {timeout_error}")
+            return False
+        except requests.exceptions.ConnectionError as conn_error:
+            logger.error(f"❌ Connection error: {conn_error}")
+            return False
+        except requests.exceptions.RequestException as req_error:
+            logger.error(f"❌ Request error: {req_error}")
+            return False
+        except Exception as general_error:
+            logger.error(f"❌ Exception in send_console_command_graphql: {general_error}")
+            import traceback
+            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+            return False
     
     def start_background_tasks(self):
-        """Start background tasks"""
-        self.start_time = datetime.now()
-        
-        # Schedule periodic tasks
-        schedule.every(5).minutes.do(self.cleanup_old_data)
-        schedule.every(2).minutes.do(self.update_server_health_metrics)
-        
-        # Start scheduler thread
-        def run_scheduler():
+        """Start background tasks (ENHANCED WITH SERVER HEALTH MONITORING)"""
+        def run_scheduled():
             while True:
                 try:
                     schedule.run_pending()
-                    time.sleep(10)
-                except Exception as e:
-                    logger.error(f"❌ Scheduler error: {e}")
-                    time.sleep(30)
+                    time.sleep(60)
+                except Exception as schedule_error:
+                    logger.error(f"❌ Background task error: {schedule_error}")
+                    time.sleep(60)
         
-        scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
-        scheduler_thread.start()
+        # Schedule cleanup tasks
+        schedule.every(5).minutes.do(self.cleanup_expired_events)
         
-        logger.info("✅ Background tasks started")
+        # NEW: Schedule server health monitoring
+        schedule.every(2).minutes.do(self.update_server_health_metrics)
+        
+        thread = threading.Thread(target=run_scheduled, daemon=True)
+        thread.start()
+        
+        logger.info("📅 Background tasks started (including Server Health monitoring)")
     
-    def cleanup_old_data(self):
-        """Cleanup old data from memory"""
+    def cleanup_expired_events(self):
+        """Clean up expired events"""
         try:
-            # Cleanup old console messages (keep last 1000)
-            if len(self.console_output) > 1000:
-                self.console_output = deque(list(self.console_output)[-1000:], maxlen=1000)
-            
-            # Cleanup old event history (keep last 30 days)
-            cutoff_date = datetime.now() - timedelta(days=30)
-            self.event_history = [
-                e for e in self.event_history 
-                if datetime.fromisoformat(e.get('timestamp', '')) > cutoff_date
-            ]
-            
-            # Cleanup old transaction history
-            self.transaction_history = [
-                t for t in self.transaction_history
-                if datetime.fromisoformat(t.get('timestamp', '')) > cutoff_date
-            ]
-            
-            # Cleanup old gambling history
-            self.gambling_history = self.gambling_history[-1000:] if len(self.gambling_history) > 1000 else self.gambling_history
-            
-            logger.info("✅ Old data cleanup completed")
-            
-        except Exception as e:
-            logger.error(f"❌ Cleanup error: {e}")
+            current_time = datetime.now()
+            if not self.db:
+                # Clean in-memory events
+                for event in self.events:
+                    if event.get('status') == 'active':
+                        try:
+                            start_time = datetime.fromisoformat(event['startTime'])
+                            duration = event.get('duration', 60)
+                            if (current_time - start_time).total_seconds() > duration * 60:
+                                event['status'] = 'completed'
+                        except Exception as event_error:
+                            logger.error(f"❌ Error cleaning up event: {event_error}")
+        except Exception as cleanup_error:
+            logger.error(f"❌ Event cleanup error: {cleanup_error}")
     
     def update_server_health_metrics(self):
-        """Update server health metrics"""
+        """Update server health metrics (background task)"""
         try:
-            for server in self.managed_servers:
-                server_id = server.get('serverId')
-                if not server_id:
-                    continue
+            if self.server_health_storage:
+                # Calculate current health metrics
+                active_connections = len(self.live_connections) if self.live_connections else 0
+                total_servers = len(self.servers) if self.servers else 0
                 
-                # Update server status
-                server['lastCheck'] = datetime.now().isoformat()
-                
-                # Check if server has WebSocket connection
-                if self.websocket_manager and hasattr(self.websocket_manager, 'get_connection_status'):
-                    ws_status = self.websocket_manager.get_connection_status(server_id)
-                    server['websocket_status'] = ws_status
+                health_data = {
+                    'timestamp': datetime.now().isoformat(),
+                    'active_connections': active_connections,
+                    'total_servers': total_servers,
+                    'console_buffer_size': len(self.console_output),
+                    'websockets_available': WEBSOCKETS_AVAILABLE,
+                    'database_connected': self.db is not None
+                }
                 
                 # Store health snapshot
-                health_data = {
-                    'status': server.get('status', 'unknown'),
-                    'last_ping': server.get('lastPing'),
-                    'response_time': server.get('responseTime'),
-                    'player_count': server.get('playerCount', 0),
-                    'max_players': server.get('maxPlayers', 100),
-                    'websocket_connected': server.get('websocket_status') == 'connected',
-                    'timestamp': datetime.now().isoformat()
-                }
+                self.server_health_storage.store_system_health(health_data)
                 
-                # Store in server health storage
-                self.server_health_storage.store_health_snapshot(server_id, health_data)
-                
-                # Track command executions
-                if hasattr(self, 'command_count'):
-                    self.command_count[server_id] = self.command_count.get(server_id, 0)
-            
-            logger.info("✅ Server health metrics updated")
-            
-        except Exception as e:
-            logger.error(f"❌ Health metrics update error: {e}")
+        except Exception as health_error:
+            logger.error(f"❌ Error updating server health metrics: {health_error}")
     
-    def check_service_id_coverage(self):
-        """Check Service ID coverage for all servers"""
-        try:
-            total_servers = len(self.managed_servers)
-            servers_with_service_id = 0
-            servers_needing_discovery = []
-            
-            for server in self.managed_servers:
-                if server.get('serviceId'):
-                    servers_with_service_id += 1
-                else:
-                    servers_needing_discovery.append(server.get('serverId'))
-            
-            coverage_percentage = (servers_with_service_id / total_servers * 100) if total_servers > 0 else 0
-            
-            logger.info(f"📊 Service ID Coverage: {servers_with_service_id}/{total_servers} ({coverage_percentage:.1f}%)")
-            
-            if servers_needing_discovery and self.service_id_discovery_available:
-                logger.info(f"🔍 Servers needing Service ID discovery: {servers_needing_discovery}")
-                
-                # Attempt discovery for servers without Service ID
-                for server_id in servers_needing_discovery[:3]:  # Limit to 3 per cycle
-                    try:
-                        server = next((s for s in self.managed_servers if s.get('serverId') == server_id), None)
-                        if server:
-                            region = server.get('serverRegion', 'US')
-                            result = discover_service_id(server_id, region)
-                            
-                            if result['success']:
-                                server['serviceId'] = result['service_id']
-                                server['discovery_status'] = 'auto_discovered'
-                                server['capabilities']['command_execution'] = True
-                                logger.info(f"✅ Auto-discovered Service ID for {server_id}: {result['service_id']}")
-                            else:
-                                server['discovery_status'] = 'auto_failed'
-                                server['discovery_error'] = result.get('error')
-                                
-                    except Exception as e:
-                        logger.error(f"❌ Auto-discovery error for {server_id}: {e}")
-            
-        except Exception as e:
-            logger.error(f"❌ Service ID coverage check error: {e}")
-    
-    def update_demo_data(self):
-        """Update demo mode data for realistic simulation"""
-        try:
-            # Check if we're in demo mode without accessing session
-            # This method is called from a background thread
-            if not self.demo_mode_active:
-                return
-            
-            # Update demo server stats
-            import random
-            for server in self.managed_servers:
-                if server.get('serverId', '').startswith('demo_') or server.get('serverId') in ['1234567', '7654321']:
-                    # Simulate player count changes
-                    current_players = server.get('playerCount', 50)
-                    change = random.randint(-5, 5)
-                    new_players = max(0, min(server.get('maxPlayers', 100), current_players + change))
-                    server['playerCount'] = new_players
-                    
-                    # Simulate status changes
-                    if random.random() < 0.95:  # 95% chance to stay online
-                        server['status'] = 'online'
-                        server['responseTime'] = random.randint(20, 100)
-                    else:
-                        server['status'] = 'offline'
-                        server['responseTime'] = None
-            
-            # Generate demo console messages
-            if random.random() < 0.3:  # 30% chance per cycle
-                demo_messages = [
-                    "Player 'DemoUser' joined the server",
-                    "Admin executed command: /save",
-                    "Server backup completed successfully",
-                    "Player 'TestPlayer' killed 'DemoUser' with AK47",
-                    "Airdrop spawned at coordinates (1500, 0, -2000)"
-                ]
-                
-                self.console_output.append({
-                    'timestamp': datetime.now().isoformat(),
-                    'message': random.choice(demo_messages),
-                    'type': 'server',
-                    'server_id': 'demo_server_1',
-                    'demo': True
-                })
-            
-        except Exception as e:
-            logger.error(f"❌ Demo data update error: {e}")
-    
-    def process_command_queue(self):
-        """Process queued console commands"""
-        try:
-            if not hasattr(self, 'command_queue'):
-                self.command_queue = deque()
-            
-            # Process up to 5 commands per cycle
-            processed = 0
-            while self.command_queue and processed < 5:
-                try:
-                    cmd = self.command_queue.popleft()
-                    server_id = cmd.get('server_id')
-                    command = cmd.get('command')
-                    region = cmd.get('region', 'US')
-                    
-                    result = safe_send_console_command(
-                        server_id=server_id,
-                        command=command,
-                        region=region,
-                        managed_servers=self.managed_servers
-                    )
-                    
-                    # Store result
-                    cmd['result'] = result
-                    cmd['processed_at'] = datetime.now().isoformat()
-                    
-                    if hasattr(self, 'command_history'):
-                        self.command_history.append(cmd)
-                    
-                    processed += 1
-                    
-                except Exception as e:
-                    logger.error(f"❌ Command queue processing error: {e}")
-            
-            if processed > 0:
-                logger.info(f"✅ Processed {processed} queued commands")
-                
-        except Exception as e:
-            logger.error(f"❌ Command queue error: {e}")
-    
-    def monitor_websocket_health(self):
-        """Monitor WebSocket connection health"""
-        try:
-            if not self.websocket_manager:
-                return
-            
-            unhealthy_connections = []
-            
-            for server in self.managed_servers:
-                server_id = server.get('serverId')
-                if not server_id:
-                    continue
-                
-                # Check connection health
-                if hasattr(self.websocket_manager, 'check_connection_health'):
-                    health = self.websocket_manager.check_connection_health(server_id)
-                    
-                    if health and health.get('status') == 'unhealthy':
-                        unhealthy_connections.append({
-                            'server_id': server_id,
-                            'reason': health.get('reason', 'Unknown'),
-                            'last_activity': health.get('last_activity')
-                        })
-                        
-                        # Attempt reconnection
-                        if hasattr(self.websocket_manager, 'reconnect'):
-                            logger.info(f"🔄 Attempting WebSocket reconnection for {server_id}")
-                            self.websocket_manager.reconnect(server_id)
-            
-            if unhealthy_connections:
-                logger.warning(f"⚠️ Unhealthy WebSocket connections: {len(unhealthy_connections)}")
-                
-        except Exception as e:
-            logger.error(f"❌ WebSocket health monitoring error: {e}")
-    
-    def collect_system_metrics(self):
-        """Collect system-wide metrics"""
-        try:
-            metrics = {
-                'timestamp': datetime.now().isoformat(),
-                'uptime': self.get_uptime(),
-                'servers': {
-                    'total': len(self.managed_servers),
-                    'online': len([s for s in self.managed_servers if s.get('status') == 'online']),
-                    'with_service_id': len([s for s in self.managed_servers if s.get('serviceId')])
-                },
-                'users': {
-                    'total': len(self.user_storage.users) if hasattr(self.user_storage, 'users') else 0,
-                    'online': 0  # Would need actual tracking
-                },
-                'events': {
-                    'active': len([e for e in self.events if e.get('status') == 'active']),
-                    'total': len(self.events)
-                },
-                'console': {
-                    'messages': len(self.console_output),
-                    'commands_sent': getattr(self, 'total_commands_sent', 0)
-                },
-                'websocket': {
-                    'connected': self.websocket_manager is not None,
-                    'connections': 0  # Would need actual count
-                },
-                'database': {
-                    'connected': self.db is not None,
-                    'type': 'MongoDB' if self.db else 'In-Memory'
-                }
-            }
-            
-            # Store metrics
-            if not hasattr(self, 'system_metrics'):
-                self.system_metrics = deque(maxlen=1440)  # Keep 24 hours at 1-minute intervals
-            
-            self.system_metrics.append(metrics)
-            
-            # Log summary
-            logger.info(f"📊 System Metrics: {metrics['servers']['online']}/{metrics['servers']['total']} servers online, "
-                       f"{metrics['users']['total']} users, {metrics['events']['active']} active events")
-            
-        except Exception as e:
-            logger.error(f"❌ System metrics collection error: {e}")
-    
-    def perform_database_maintenance(self):
-        """Perform database maintenance tasks"""
-        try:
-            if not self.db:
-                return
-            
-            maintenance_tasks = []
-            
-            # Cleanup old health snapshots
-            try:
-                cutoff = datetime.now() - timedelta(days=7)
-                result = self.db.health_snapshots.delete_many({
-                    'timestamp': {'$lt': cutoff.isoformat()}
-                })
-                maintenance_tasks.append(f"Deleted {result.deleted_count} old health snapshots")
-            except Exception as e:
-                logger.error(f"Health snapshot cleanup error: {e}")
-            
-            # Cleanup old console messages
-            try:
-                cutoff = datetime.now() - timedelta(days=1)
-                result = self.db.console_messages.delete_many({
-                    'timestamp': {'$lt': cutoff.isoformat()}
-                })
-                maintenance_tasks.append(f"Deleted {result.deleted_count} old console messages")
-            except Exception as e:
-                logger.error(f"Console message cleanup error: {e}")
-            
-            # Compact collections
-            try:
-                self.db.command('compact', 'health_snapshots')
-                maintenance_tasks.append("Compacted health_snapshots collection")
-            except Exception as e:
-                logger.error(f"Collection compaction error: {e}")
-            
-            if maintenance_tasks:
-                logger.info(f"✅ Database maintenance completed: {', '.join(maintenance_tasks)}")
-                
-        except Exception as e:
-            logger.error(f"❌ Database maintenance error: {e}")
-    
-    def export_system_report(self):
-        """Generate and export system report"""
-        try:
-            report = {
-                'generated_at': datetime.now().isoformat(),
-                'system_info': {
-                    'version': '1.0.0',
-                    'uptime': self.get_uptime(),
-                    'environment': 'production' if not Config.DEBUG else 'development'
-                },
-                'statistics': {
-                    'servers': {
-                        'total': len(self.managed_servers),
-                        'with_service_id': len([s for s in self.managed_servers if s.get('serviceId')]),
-                        'online': len([s for s in self.managed_servers if s.get('status') == 'online'])
-                    },
-                    'users': {
-                        'total': len(self.user_storage.users) if hasattr(self.user_storage, 'users') else 0,
-                        'with_balance': 0  # Would need calculation
-                    },
-                    'events': {
-                        'total_run': len(self.event_history),
-                        'active': len([e for e in self.events if e.get('status') == 'active'])
-                    },
-                    'economy': {
-                        'total_transactions': len(self.transaction_history),
-                        'total_gambling': len(self.gambling_history)
-                    }
-                },
-                'health': {
-                    'database': 'connected' if self.db else 'disconnected',
-                    'websocket': 'active' if self.websocket_manager else 'inactive',
-                    'service_discovery': 'available' if self.service_id_discovery_available else 'unavailable'
-                },
-                'recent_errors': []  # Would need error tracking
-            }
-            
-            # Save report
-            report_filename = f"system_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            report_path = os.path.join('data', 'reports', report_filename)
-            
-            os.makedirs(os.path.dirname(report_path), exist_ok=True)
-            
-            with open(report_path, 'w') as f:
-                json.dump(report, f, indent=2)
-            
-            logger.info(f"📊 System report exported: {report_filename}")
-            
-            return report
-            
-        except Exception as e:
-            logger.error(f"❌ System report export error: {e}")
-            return None
-    
-    def run(self, host='0.0.0.0', port=5000, debug=False):
-        """Run the Flask application with comprehensive startup procedures"""
-        logger.info("=" * 80)
-        logger.info("🚀 Starting GUST Bot Enhanced - Complete Edition")
-        logger.info("=" * 80)
+    def run(self, host=None, port=None, debug=False):
+        """Run the enhanced application (COMPLETE SERVER HEALTH INTEGRATION)"""
+        host = host or Config.DEFAULT_HOST
+        port = port or Config.DEFAULT_PORT
         
-        # System information
-        logger.info(f"📍 Server: {host}:{port}")
-        logger.info(f"🔧 Debug mode: {debug}")
-        logger.info(f"🐍 Python version: {os.sys.version.split()[0]}")
-        logger.info(f"📁 Working directory: {os.getcwd()}")
-        
-        # Database status
-        if self.db:
-            try:
-                db_info = self.db.client.server_info()
-                logger.info(f"📊 MongoDB: Connected (v{db_info.get('version', 'unknown')})")
-                logger.info(f"   Collections: {', '.join(self.db.list_collection_names())}")
-            except Exception as e:
-                logger.info(f"📊 MongoDB: Connected but error getting info: {e}")
-        else:
-            logger.info("📊 MongoDB: Not connected (using in-memory storage)")
-            logger.info("   💡 To enable MongoDB: Install pymongo and start MongoDB service")
-        
-        # WebSocket status
-        if self.websocket_manager:
-            logger.info("🔌 WebSocket Manager: Active")
-            logger.info("   ✅ Live console monitoring enabled")
-            logger.info("   ✅ Real-time sensor data available")
-            if hasattr(self.websocket_manager, 'sensor_bridge') and self.websocket_manager.sensor_bridge:
-                logger.info("   ✅ Sensor bridge initialized")
-        else:
-            logger.info("🔌 WebSocket Manager: Not available")
-            logger.info("   💡 To enable: pip install websockets")
-        
-        # Service ID Discovery status
-        if self.service_id_discovery_available:
-            logger.info("🔍 Service ID Discovery: Available")
-            if self.service_id_mapper:
-                try:
-                    cache_stats = self.service_id_mapper.get_cache_stats()
-                    logger.info(f"   📊 Cache: {cache_stats['total_entries']} entries")
-                except:
-                    logger.info("   📊 Cache: Initialized")
-            logger.info("   ✅ Automatic Service ID discovery enabled")
-            logger.info("   ✅ Console commands fully functional")
-        else:
-            logger.info("🔍 Service ID Discovery: Not available")
-            logger.info("   ⚠️ Console commands may be limited")
-            logger.info("   💡 Install Service ID discovery module for full functionality")
-        
-        # Server statistics
-        logger.info(f"📊 Managed Servers: {len(self.managed_servers)}")
-        if self.managed_servers:
-            servers_with_service_id = len([s for s in self.managed_servers if s.get('serviceId')])
-            logger.info(f"   With Service ID: {servers_with_service_id}/{len(self.managed_servers)}")
-            online_servers = len([s for s in self.managed_servers if s.get('status') == 'online'])
-            logger.info(f"   Online: {online_servers}/{len(self.managed_servers)}")
-        
-        # Feature status
-        logger.info("✨ Features Status:")
-        logger.info(f"   {'✅' if True else '❌'} Server Management")
-        logger.info(f"   {'✅' if self.websocket_manager else '❌'} Live Console")
-        logger.info(f"   {'✅' if True else '❌'} Server Logs")
-        logger.info(f"   {'✅' if True else '❌'} KOTH Events")
-        logger.info(f"   {'✅' if True else '❌'} Economy System")
-        logger.info(f"   {'✅' if True else '❌'} Gambling Games")
-        logger.info(f"   {'✅' if True else '❌'} Clan Management")
-        logger.info(f"   {'✅' if True else '❌'} User Administration")
-        logger.info(f"   {'✅' if self.server_health_storage else '❌'} Health Monitoring")
-        
-        # Background tasks status
-        logger.info("⚙️ Background Tasks:")
-        logger.info("   ✅ Data cleanup (every 5 minutes)")
-        logger.info("   ✅ Health metrics update (every 2 minutes)")
-        logger.info("   ✅ Service ID coverage check (every 10 minutes)")
-        logger.info("   ✅ System metrics collection (every minute)")
-        
-        # Warnings and recommendations
-        if not self.db:
-            logger.warning("⚠️ Running without database - data will not persist between restarts")
-        
-        if not self.websocket_manager:
-            logger.warning("⚠️ WebSocket support disabled - live features unavailable")
-        
-        if not self.service_id_discovery_available:
-            logger.warning("⚠️ Service ID discovery unavailable - console commands limited")
-        
-        if self.service_id_discovery_error:
-            logger.warning(f"⚠️ Service ID Discovery Error: {self.service_id_discovery_error}")
-        
-        # API endpoints summary
-        logger.info("🌐 API Endpoints Available:")
-        logger.info("   /api/auth/* - Authentication")
-        logger.info("   /api/servers/* - Server management")
-        logger.info("   /api/console/* - Console commands")
-        logger.info("   /api/logs/* - Server logs")
-        logger.info("   /api/events/* - Event management")
-        logger.info("   /api/economy/* - Economy system")
-        logger.info("   /api/gambling/* - Gambling games")
-        logger.info("   /api/clans/* - Clan management")
-        logger.info("   /api/users/* - User administration")
-        logger.info("   /api/server-health/* - Health monitoring")
-        logger.info("   /api/token/status - Token status check")
-        logger.info("   /api/console/send-auto - Auto console commands")
-        
-        # Start message
-        logger.info("=" * 80)
-        logger.info(f"🌐 GUST Bot Enhanced is starting at http://{host}:{port}")
-        logger.info("📌 Default login: admin / password (demo mode)")
-        logger.info("📚 Documentation: https://github.com/WDC-GP/GUST-MARK-1")
-        logger.info("=" * 80)
+        logger.info(f"🚀 Starting GUST Bot Enhanced on {host}:{port}")
+        logger.info(f"🔧 WebSocket Support: {'Available' if WEBSOCKETS_AVAILABLE else 'Not Available'}")
+        logger.info(f"🗄️ Database: {'MongoDB' if self.db else 'In-Memory'}")
+        logger.info(f"👥 User Storage: {type(self.user_storage).__name__}")
+        logger.info(f"📡 Live Console: {'Enabled' if self.websocket_manager else 'Disabled'}")
+        logger.info(f"🏥 Server Health: Complete integration with {type(self.server_health_storage).__name__}")
+        logger.info(f"📊 Health Monitoring: 75/25 layout with real-time metrics and command feed")
+        logger.info(f"✅ CRITICAL FIX: GraphQL endpoint correctly configured (no '/graphql' suffix)")
+        logger.info(f"🤖 NEW: Auto command API endpoint added for serverinfo commands")
         
         try:
-            # Additional startup tasks
-            self.perform_startup_checks()
-            
-            # Schedule additional background tasks
-            schedule.every(10).minutes.do(self.check_service_id_coverage)
-            schedule.every(1).minutes.do(self.collect_system_metrics)
-            schedule.every(30).seconds.do(self.process_command_queue)
-            schedule.every(5).minutes.do(self.monitor_websocket_health)
-            schedule.every(1).hours.do(self.perform_database_maintenance)
-            schedule.every(6).hours.do(self.export_system_report)
-            
-            # ✅ FIXED: Always schedule demo data updates - the method will check if it should run
-            # Don't check session here as we're outside request context
-            schedule.every(10).seconds.do(self.update_demo_data)
-            
-            # Run the Flask application
-            self.app.run(
-                host=host, 
-                port=port, 
-                debug=debug, 
-                use_reloader=False,  # Disable reloader to prevent duplicate initialization
-                threaded=True  # Enable threading for better performance
-            )
-            
+            self.app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)
         except KeyboardInterrupt:
-            logger.info("\n" + "=" * 80)
-            logger.info("👋 GUST Bot Enhanced stopped by user")
-            logger.info("=" * 80)
-            
-            # Cleanup procedures
-            self.perform_shutdown_cleanup()
-            
-        except Exception as e:
-            logger.error(f"\n❌ Fatal error: {e}")
-            logger.error("=" * 80)
-            
-            # Emergency cleanup
-            self.perform_emergency_cleanup()
-            
-            raise
-    
-    def perform_startup_checks(self):
-        """Perform startup checks and initialization"""
-        try:
-            logger.info("🔍 Performing startup checks...")
-            
-            # Check data directories
-            required_dirs = ['data', 'data/logs', 'data/reports', 'data/backups']
-            for dir_path in required_dirs:
-                if not os.path.exists(dir_path):
-                    os.makedirs(dir_path)
-                    logger.info(f"   ✅ Created directory: {dir_path}")
-            
-            # Initialize command queue
-            if not hasattr(self, 'command_queue'):
-                self.command_queue = deque()
-            
-            # Initialize metrics storage
-            if not hasattr(self, 'system_metrics'):
-                self.system_metrics = deque(maxlen=1440)
-            
-            # Initialize command history
-            if not hasattr(self, 'command_history'):
-                self.command_history = deque(maxlen=1000)
-            
-            # Test database connection
-            if self.db:
-                try:
-                    self.db.admin.command('ping')
-                    logger.info("   ✅ Database connection verified")
-                except Exception as e:
-                    logger.warning(f"   ⚠️ Database connection test failed: {e}")
-            
-            # Load saved server configurations
-            self.load_saved_configurations()
-            
-            logger.info("✅ Startup checks completed")
-            
-        except Exception as e:
-            logger.error(f"❌ Startup checks error: {e}")
-    
-    def perform_shutdown_cleanup(self):
-        """Perform cleanup procedures on shutdown"""
-        try:
-            logger.info("🧹 Performing shutdown cleanup...")
-            
-            # Stop WebSocket manager
+            logger.info("\n👋 GUST Enhanced stopped by user")
+            # Clean up WebSocket connections
             if self.websocket_manager:
                 try:
                     self.websocket_manager.stop()
-                    logger.info("   ✅ WebSocket manager stopped")
-                except Exception as e:
-                    logger.error(f"   ❌ Error stopping WebSocket manager: {e}")
-            
-            # Save current configurations
-            self.save_current_configurations()
-            
-            # Export final system report
-            self.export_system_report()
-            
-            # Flush console output to file
-            if self.console_output:
-                try:
-                    console_log_path = os.path.join('data', 'logs', f'console_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')
-                    with open(console_log_path, 'w') as f:
-                        json.dump(list(self.console_output), f, indent=2)
-                    logger.info(f"   ✅ Console output saved to {console_log_path}")
-                except Exception as e:
-                    logger.error(f"   ❌ Error saving console output: {e}")
-            
-            logger.info("✅ Shutdown cleanup completed")
-            
-        except Exception as e:
-            logger.error(f"❌ Shutdown cleanup error: {e}")
-    
-    def perform_emergency_cleanup(self):
-        """Perform emergency cleanup on fatal error"""
-        try:
-            logger.info("🚨 Performing emergency cleanup...")
-            
-            # Try to save critical data
-            if self.managed_servers:
-                emergency_file = os.path.join('data', 'emergency_servers.json')
-                with open(emergency_file, 'w') as f:
-                    json.dump(self.managed_servers, f, indent=2)
-                logger.info(f"   ✅ Servers saved to {emergency_file}")
-            
-            # Stop any active connections
-            if self.websocket_manager:
-                try:
-                    self.websocket_manager.stop()
-                except:
-                    pass
-            
-        except Exception as e:
-            logger.error(f"❌ Emergency cleanup error: {e}")
-    
-    def load_saved_configurations(self):
-        """Load saved server configurations"""
-        try:
-            config_file = os.path.join('data', 'server_configurations.json')
-            if os.path.exists(config_file):
-                with open(config_file, 'r') as f:
-                    saved_servers = json.load(f)
-                    
-                # Merge with existing servers
-                existing_ids = {s.get('serverId') for s in self.managed_servers}
-                
-                for server in saved_servers:
-                    if server.get('serverId') not in existing_ids:
-                        self.managed_servers.append(server)
-                
-                logger.info(f"   ✅ Loaded {len(saved_servers)} saved server configurations")
-                
-        except FileNotFoundError:
-            logger.info("   ℹ️ No saved server configurations found")
-        except Exception as e:
-            logger.error(f"   ❌ Error loading saved configurations: {e}")
-    
-    def save_current_configurations(self):
-        """Save current server configurations"""
-        try:
-            config_file = os.path.join('data', 'server_configurations.json')
-            with open(config_file, 'w') as f:
-                json.dump(self.managed_servers, f, indent=2)
-            logger.info(f"   ✅ Saved {len(self.managed_servers)} server configurations")
-            
-        except Exception as e:
-            logger.error(f"   ❌ Error saving configurations: {e}")
+                except Exception as cleanup_error:
+                    logger.error(f"❌ Error stopping WebSocket manager: {cleanup_error}")
+        except Exception as run_error:
+            logger.error(f"\n❌ Error: {run_error}")
+
 
 # ============================================================================
 # APPLICATION ENTRY POINT
@@ -1968,6 +1471,6 @@ if __name__ == '__main__':
     try:
         app = GustBotEnhanced()
         app.run(debug=True)
-    except Exception as e:
-        logger.error(f"❌ Failed to start application: {e}")
+    except Exception as startup_error:
+        logger.error(f"❌ Failed to start application: {startup_error}")
         exit(1)

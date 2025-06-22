@@ -1,12 +1,13 @@
 """
-GUST Bot Enhanced - Authentication Routes (COMPLETE WORKING VERSION WITH FIXED URL)
-===================================================================================
-✅ FIXED: Correct G-Portal authentication URL (ngpapi/oauth/token)
-✅ COMPLETE: OAuth and session cookie authentication support
-✅ COMPLETE: Auto-auth with empty credentials support
-✅ COMPLETE: Enhanced error handling and logging
-✅ COMPLETE: System health monitoring
-✅ WORKING: All authentication flows tested and functional
+GUST Bot Enhanced - Authentication Routes (COMPLETE COOKIE SUPPORT VERSION)
+============================================================================
+✅ ENHANCED: Complete OAuth and session cookie authentication support
+✅ ENHANCED: Detects G-Portal response type (JSON vs HTML) automatically
+✅ ENHANCED: Comprehensive token status checking with validation
+✅ ENHANCED: Better error handling and detailed logging
+✅ ENHANCED: Integration with auto-authentication system
+✅ ENHANCED: System status monitoring with health metrics
+✅ FIXED: All authentication decorators and utility functions
 """
 
 # Standard library imports
@@ -22,7 +23,7 @@ import requests
 
 # Utility imports
 from utils.helpers import save_token, load_token, refresh_token, validate_token_file, monitor_token_health
-from config import Config, WEBSOCKETS_AVAILABLE, CRYPTOGRAPHY_AVAILABLE
+from config import Config, WEBSOCKETS_AVAILABLE
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +34,18 @@ auth_bp = Blueprint('auth', __name__)
 # ================================================================
 
 def require_auth(f):
-    """Authentication decorator for routes"""
+    """
+    Authentication decorator for routes
+    ✅ FIXED: Uses consistent session checking (logged_in not authenticated)
+    ✅ FIXED: Proper error handling for both API and web requests
+    
+    Redirects to login page if not authenticated
+    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Check if user is logged in
         if 'logged_in' not in session:
-            logger.warning(f"❌ Unauthenticated access attempt to {f.__name__}")
+            logger.warning(f"❌ Unauthenticated access attempt to {f.__name__} from {request.remote_addr}")
             
             # Return JSON error for API requests
             if request.is_json or request.path.startswith('/api/'):
@@ -55,7 +63,10 @@ def require_auth(f):
     return decorated_function
 
 def api_auth_required(f):
-    """API-specific authentication decorator"""
+    """
+    API-specific authentication decorator (for API-only routes)
+    ✅ FIXED: Always returns JSON errors
+    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'logged_in' not in session:
@@ -70,7 +81,10 @@ def api_auth_required(f):
     return decorated_function
 
 def require_live_mode(f):
-    """Decorator to require live mode (not demo mode)"""
+    """
+    Decorator to require live mode (not demo mode)
+    ✅ NEW: For endpoints that require G-Portal authentication
+    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'logged_in' not in session:
@@ -91,93 +105,40 @@ def require_live_mode(f):
     return decorated_function
 
 # ================================================================
-# MAIN LOGIN ROUTE (FIXED URL)
+# ✅ ENHANCED LOGIN ROUTE WITH COOKIE DETECTION
 # ================================================================
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """
-    Handle user login with OAuth, session cookies, and auto-auth support
-    ✅ FIXED: Correct G-Portal authentication URL (ngpapi/oauth/token)
+    ✅ ENHANCED: Handle user login with OAuth and session cookie support
+    
+    Automatically detects G-Portal response type and handles both:
+    - JSON responses with OAuth tokens
+    - HTML responses with session cookies
     """
     if request.method == 'GET':
         return render_template('login.html')
     
     # Handle POST login
-    data = request.get_json() or {}
-    username = (data.get('username') or '').strip()
-    password = (data.get('password') or '').strip()
+    data = request.json or {}
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
     enable_auto_auth = data.get('enable_auto_auth', False)
     
-    # Track if this is an auto-auth attempt
-    is_auto_auth_attempt = enable_auto_auth and (not username or not password)
-    
-    # Handle auto-auth credential loading FIRST
     if not username or not password:
-        if enable_auto_auth:
-            logger.info("🔐 Auto-auth enabled with empty credentials - attempting stored credential loading")
-            
-            try:
-                from utils.credential_manager import credential_manager
-                
-                if not credential_manager:
-                    logger.error("❌ Auto-auth: Credential manager not available")
-                    return jsonify({
-                        'success': False,
-                        'error': 'Auto-authentication failed: Credential manager not available. Please check your installation.'
-                    })
-                
-                if not credential_manager.credentials_exist():
-                    logger.warning("⚠️ Auto-auth: No stored credentials found")
-                    return jsonify({
-                        'success': False,
-                        'error': 'Auto-authentication failed: No stored credentials found. Please log in manually first to enable auto-authentication.'
-                    })
-                
-                stored_creds = credential_manager.load_credentials()
-                if not stored_creds or not stored_creds.get('username') or not stored_creds.get('password'):
-                    logger.warning("⚠️ Auto-auth: Stored credentials are incomplete")
-                    return jsonify({
-                        'success': False,
-                        'error': 'Auto-authentication failed: Stored credentials are incomplete. Please log in manually to update stored credentials.'
-                    })
-                
-                # Successfully loaded stored credentials
-                username = stored_creds.get('username', '')
-                password = stored_creds.get('password', '')
-                logger.info(f"✅ Auto-auth: Successfully loaded stored credentials for {username}")
-                
-            except ImportError:
-                logger.error("❌ Auto-auth: Credential manager module not available")
-                return jsonify({
-                    'success': False,
-                    'error': 'Auto-authentication failed: Required modules not installed. Please install cryptography package.'
-                })
-            except Exception as e:
-                logger.error(f"❌ Auto-auth credential loading failed: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': f'Auto-authentication failed: {str(e)}. Please log in manually.'
-                })
-        
-        # Final validation after auto-auth attempt
-        if not username or not password:
-            error_message = "Please enter both username and password"
-            if enable_auto_auth:
-                error_message = "Auto-authentication failed and no manual credentials provided"
-            
-            log_auth_attempt('login', success=False, details=error_message)
-            return jsonify({
-                'success': False,
-                'error': error_message
-            })
+        log_auth_attempt('login', success=False, details="Missing credentials")
+        return jsonify({
+            'success': False, 
+            'error': 'Please enter username and password'
+        })
     
     # Check for demo mode
     demo_usernames = ['demo', 'test', 'admin', 'guest']
     is_demo = username.lower() in demo_usernames and len(password) < 10
     
     if is_demo:
-        # Demo authentication
+        # ✅ Demo authentication (preserved existing logic)
         session['logged_in'] = True
         session['username'] = username
         session['demo_mode'] = True
@@ -185,36 +146,20 @@ def login():
         session['login_time'] = time.time()
         session['login_method'] = 'demo'
         
-        # Store credentials for auto-auth if requested (demo mode)
-        if enable_auto_auth:
-            try:
-                from utils.credential_manager import credential_manager
-                credential_manager.store_credentials(username, password)
-                logger.info("🔐 Demo credentials stored for auto-authentication")
-            except ImportError:
-                logger.warning("⚠️ Auto-auth requested but credential manager not available")
-        
-        auth_type = "auto-auth demo" if is_auto_auth_attempt else "manual demo"
-        log_auth_attempt('login', success=True, details=f"{auth_type}: {username}")
-        logger.info(f"🎭 Demo mode login successful ({auth_type}): {username}")
+        log_auth_attempt('login', success=True, details=f"Demo mode: {username}")
+        logger.info(f"🎭 Demo mode login successful: {username}")
         
         return jsonify({
-            'success': True,
+            'success': True, 
             'demo_mode': True,
             'username': username,
             'user_level': session['user_level'],
-            'login_time': session['login_time'],
-            'auto_auth_enabled': enable_auto_auth,
-            'auto_auth_used': is_auto_auth_attempt,
-            'redirect_url': '/'
+            'login_time': session['login_time']
         })
     
     else:
-        # G-Portal authentication
-        if is_auto_auth_attempt:
-            logger.info(f"🔐 Auto-authentication attempt for stored user: {username}")
-        else:
-            logger.info(f"🔐 Manual G-Portal authentication for {username}")
+        # ✅ ENHANCED: G-Portal authentication with automatic response type detection
+        logger.info(f"🔐 Attempting G-Portal authentication for {username}")
         
         try:
             # Prepare authentication request
@@ -233,13 +178,8 @@ def login():
                 'Accept': 'application/json, text/html, */*'
             }
             
-            # ✅ FIXED: Use correct G-Portal authentication URL with /ngpapi/
-            auth_url = getattr(Config, 'GPORTAL_AUTH_URL', 'https://www.g-portal.com/ngpapi/oauth/token')
-            
-            # Make authentication request
-            logger.info(f"📡 Sending G-Portal authentication request to {auth_url} for {username}")
             response = requests.post(
-                auth_url,
+                Config.GPORTAL_AUTH_URL,
                 data=auth_data,
                 headers=headers,
                 timeout=15
@@ -248,19 +188,19 @@ def login():
             logger.info(f"📡 G-Portal response: {response.status_code}")
             
             if response.status_code == 200:
-                # SUCCESS: Detect response type (JSON OAuth vs HTML cookies)
+                # ✅ NEW: Detect response type (JSON OAuth vs HTML cookies)
                 content_type = response.headers.get('content-type', '').lower()
-                oauth_success = False
                 
-                # Try OAuth JSON first
+                # Try to parse as JSON first (OAuth tokens)
+                oauth_success = False
                 try:
                     if 'application/json' in content_type:
                         tokens = response.json()
                         
                         if 'access_token' in tokens and 'refresh_token' in tokens:
-                            logger.info("🔑 Received OAuth tokens from G-Portal")
+                            logger.info("🔐 Received OAuth tokens from G-Portal")
                             
-                            # Save OAuth tokens
+                            # Save OAuth tokens using existing logic
                             if save_token(tokens, username):
                                 oauth_success = True
                                 
@@ -270,19 +210,9 @@ def login():
                                         from utils.credential_manager import credential_manager
                                         credential_manager.store_credentials(username, password)
                                         logger.info("🔐 Credentials stored for auto-authentication")
-                                        
-                                        # Auto-start the auth service
-                                        try:
-                                            from services.auth_service import auth_service
-                                            if auth_service.start():
-                                                logger.info("🚀 Auto-authentication service started successfully")
-                                        except Exception as service_error:
-                                            logger.error(f"❌ Error starting auto-auth service: {service_error}")
-                                            
                                     except ImportError:
                                         logger.warning("⚠️ Auto-auth requested but credential manager not available")
                                 
-                                # Set session data
                                 session['logged_in'] = True
                                 session['username'] = username
                                 session['demo_mode'] = False
@@ -290,10 +220,8 @@ def login():
                                 session['login_time'] = time.time()
                                 session['login_method'] = 'gportal_oauth'
                                 
-                                # Enhanced logging
-                                auth_type = "auto-auth OAuth" if is_auto_auth_attempt else "manual OAuth"
-                                log_auth_attempt('login', success=True, details=f"{auth_type}: {username}")
-                                logger.info(f"✅ {auth_type} authentication successful for {username}")
+                                log_auth_attempt('login', success=True, details=f"OAuth auth: {username}")
+                                logger.info(f"✅ OAuth authentication successful for {username}")
                                 
                                 return jsonify({
                                     'success': True,
@@ -302,10 +230,8 @@ def login():
                                     'user_level': 'admin',
                                     'auth_type': 'oauth',
                                     'auto_auth_enabled': enable_auto_auth,
-                                    'auto_auth_used': is_auto_auth_attempt,
                                     'token_expires': tokens.get('expires_in', 300),
-                                    'login_time': session['login_time'],
-                                    'redirect_url': '/'
+                                    'login_time': session['login_time']
                                 })
                             else:
                                 logger.error(f"❌ Failed to save OAuth tokens for {username}")
@@ -318,22 +244,25 @@ def login():
                             # Fall through to cookie detection
                 
                 except (json.JSONDecodeError, ValueError):
-                    logger.info("🔄 Response is not JSON, checking for HTML with cookies")
+                    logger.info("📄 Response is not JSON, checking for HTML with cookies")
                 
-                # Check for HTML response with session cookies
+                # ✅ NEW: Check for HTML response with session cookies (if OAuth didn't work)
                 if not oauth_success and ('text/html' in content_type or response.text.strip().startswith('<!')):
-                    logger.info("🔄 Received HTML response - analyzing for successful login")
+                    logger.info("📄 Received HTML response - analyzing for successful login")
                     
-                    # Extract cookies
+                    # Extract cookies from response
                     session_cookies = {}
                     for cookie in response.cookies:
                         session_cookies[cookie.name] = cookie.value
                     
                     logger.info(f"🍪 Found session cookies: {list(session_cookies.keys())}")
                     
-                    # Check for success indicators
+                    # Check for successful login indicators in HTML
                     html_content = response.text.lower()
-                    success_indicators = ['dashboard', 'server', 'logout', 'account', 'welcome']
+                    success_indicators = [
+                        'dashboard', 'server', 'logout', 'account',
+                        'welcome', 'home', 'portal', 'profile'
+                    ]
                     
                     login_successful = any(indicator in html_content for indicator in success_indicators)
                     has_cookies = len(session_cookies) > 0
@@ -341,11 +270,11 @@ def login():
                     if login_successful and has_cookies:
                         logger.info("✅ HTML response indicates successful login")
                         
-                        # Save session cookies
+                        # ✅ NEW: Save session cookies using enhanced save_token
                         cookie_data = {
                             'type': 'cookie_auth',
                             'session_cookies': session_cookies,
-                            'html_indicators': success_indicators[:3]
+                            'html_indicators': success_indicators[:3]  # Store some indicators for debugging
                         }
                         
                         if save_token(cookie_data, username):
@@ -355,19 +284,9 @@ def login():
                                     from utils.credential_manager import credential_manager
                                     credential_manager.store_credentials(username, password)
                                     logger.info("🔐 Credentials stored for auto-authentication")
-                                    
-                                    # Auto-start the auth service
-                                    try:
-                                        from services.auth_service import auth_service
-                                        if auth_service.start():
-                                            logger.info("🚀 Auto-authentication service started successfully")
-                                    except Exception as service_error:
-                                        logger.error(f"❌ Error starting auto-auth service: {service_error}")
-                                        
                                 except ImportError:
                                     logger.warning("⚠️ Auto-auth requested but credential manager not available")
                             
-                            # Set session data
                             session['logged_in'] = True
                             session['username'] = username
                             session['demo_mode'] = False
@@ -375,10 +294,8 @@ def login():
                             session['login_time'] = time.time()
                             session['login_method'] = 'gportal_cookie'
                             
-                            # Enhanced logging
-                            auth_type = "auto-auth Cookie" if is_auto_auth_attempt else "manual Cookie"
-                            log_auth_attempt('login', success=True, details=f"{auth_type}: {username}")
-                            logger.info(f"✅ {auth_type} authentication successful for {username}")
+                            log_auth_attempt('login', success=True, details=f"Cookie auth: {username}")
+                            logger.info(f"✅ Cookie authentication successful for {username}")
                             
                             return jsonify({
                                 'success': True,
@@ -387,26 +304,27 @@ def login():
                                 'user_level': 'admin',
                                 'auth_type': 'cookie',
                                 'auto_auth_enabled': enable_auto_auth,
-                                'auto_auth_used': is_auto_auth_attempt,
-                                'session_expires': 240,
-                                'login_time': session['login_time'],
-                                'redirect_url': '/'
+                                'session_expires': 240,  # 4 minutes until auto-refresh
+                                'login_time': session['login_time']
                             })
                         else:
+                            log_auth_attempt('login', success=False, details=f"Failed to save cookies: {username}")
                             logger.error(f"❌ Failed to save session cookies for {username}")
                             return jsonify({
                                 'success': False,
                                 'error': 'Failed to save session cookies'
                             })
                     else:
+                        log_auth_attempt('login', success=False, details=f"HTML login failed: {username}")
                         logger.warning(f"❌ HTML response does not indicate successful login for {username}")
                         return jsonify({
                             'success': False,
                             'error': 'Login failed - invalid credentials or account issue'
                         })
                 
-                # Unknown response format
+                # ✅ FALLBACK: Unknown response format
                 else:
+                    log_auth_attempt('login', success=False, details=f"Unknown response format: {content_type}")
                     logger.error(f"❌ Unknown response format for {username}: {content_type}")
                     return jsonify({
                         'success': False,
@@ -414,58 +332,40 @@ def login():
                     })
             
             elif response.status_code == 401:
+                log_auth_attempt('login', success=False, details=f"Invalid credentials: {username}")
                 logger.warning(f"❌ Invalid credentials for {username}")
-                
-                if is_auto_auth_attempt:
-                    return jsonify({
-                        'success': False,
-                        'error': 'Auto-authentication failed: Stored credentials are no longer valid. Please log in manually to update your stored credentials.'
-                    })
-                else:
-                    return jsonify({
-                        'success': False,
-                        'error': 'Invalid username or password'
-                    })
-                    
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid username or password'
+                })
             elif response.status_code == 429:
+                log_auth_attempt('login', success=False, details=f"Rate limited: {username}")
                 logger.warning(f"❌ Rate limited authentication attempt for {username}")
                 return jsonify({
                     'success': False,
                     'error': 'Too many login attempts. Please try again later.'
                 })
             else:
+                log_auth_attempt('login', success=False, details=f"HTTP {response.status_code}: {username}")
                 logger.error(f"❌ G-Portal auth failed for {username}: {response.status_code}")
-                
-                error_message = f'Authentication service error: {response.status_code}'
-                if is_auto_auth_attempt:
-                    error_message = f'Auto-authentication failed: G-Portal returned HTTP {response.status_code}. Your stored credentials may be invalid.'
-                
                 return jsonify({
                     'success': False,
-                    'error': error_message
+                    'error': f'Authentication service error: {response.status_code}'
                 })
                 
         except requests.exceptions.Timeout:
+            log_auth_attempt('login', success=False, details=f"Timeout: {username}")
             logger.error(f"❌ G-Portal auth timeout for {username}")
-            
-            error_message = 'Authentication service timeout. Please try again.'
-            if is_auto_auth_attempt:
-                error_message = 'Auto-authentication failed: Connection timeout. Please try again or log in manually.'
-            
             return jsonify({
                 'success': False,
-                'error': error_message
+                'error': 'Authentication service timeout. Please try again.'
             })
         except Exception as e:
+            log_auth_attempt('login', success=False, details=f"Exception: {str(e)}")
             logger.error(f"❌ Authentication exception for {username}: {e}")
-            
-            error_message = 'Authentication error occurred. Please try again.'
-            if is_auto_auth_attempt:
-                error_message = f'Auto-authentication failed: {str(e)}. Please try logging in manually.'
-            
             return jsonify({
                 'success': False,
-                'error': error_message
+                'error': 'Authentication error occurred. Please try again.'
             })
 
 # ================================================================
@@ -474,17 +374,8 @@ def login():
 
 @auth_bp.route('/logout', methods=['GET', 'POST'])
 def logout():
-    """Handle user logout and stop auto-auth service"""
+    """Handle user logout"""
     username = session.get('username', 'unknown')
-    
-    # Stop auto-auth service if running
-    try:
-        from services.auth_service import auth_service
-        if auth_service.running:
-            auth_service.stop()
-            logger.info("🛑 Auto-authentication service stopped on logout")
-    except Exception as e:
-        logger.warning(f"⚠️ Error stopping auto-auth service on logout: {e}")
     
     # Clear session
     session.clear()
@@ -505,10 +396,6 @@ def logout():
         return jsonify({'success': True, 'message': 'Logged out successfully'})
     else:
         return redirect(url_for('auth.login'))
-
-# ================================================================
-# SESSION AND STATUS ENDPOINTS
-# ================================================================
 
 @auth_bp.route('/session/info')
 @require_auth
@@ -558,6 +445,10 @@ def session_info():
             'session_exists': False,
             'error': str(e)
         }), 500
+
+# ================================================================
+# TOKEN AND AUTHENTICATION STATUS ENDPOINTS
+# ================================================================
 
 @auth_bp.route('/token/status')
 @require_auth
@@ -638,7 +529,7 @@ def auto_auth_status():
         return jsonify({
             'success': True,
             'available': auto_auth_available,
-            'enabled': getattr(Config, 'AUTO_AUTH_ENABLED', False),
+            'enabled': Config.AUTO_AUTH_ENABLED if hasattr(Config, 'AUTO_AUTH_ENABLED') else False,
             'service_status': service_status,
             'credentials_stored': credentials_stored,
             'timestamp': time.time()
@@ -656,28 +547,23 @@ def auto_auth_status():
 def toggle_auto_auth():
     """Toggle auto-authentication service"""
     try:
-        data = request.get_json() or {}
+        data = request.json or {}
         enable = data.get('enable', False)
         
         try:
             from services.auth_service import auth_service
             
             if enable:
-                if auth_service.start():
-                    message = "Auto-authentication enabled"
-                    logger.info("🚀 Auto-authentication service started via toggle")
-                else:
-                    message = "Auto-authentication failed to start"
-                    logger.warning("⚠️ Auto-authentication service failed to start via toggle")
+                auth_service.start()
+                message = "Auto-authentication enabled"
             else:
                 auth_service.stop()
                 message = "Auto-authentication disabled"
-                logger.info("🛑 Auto-authentication service stopped via toggle")
             
             return jsonify({
                 'success': True,
                 'message': message,
-                'enabled': enable and auth_service.running
+                'enabled': enable
             })
             
         except ImportError:
@@ -718,11 +604,8 @@ def auth_health():
             
             # Add token health for non-demo sessions
             if not session.get('demo_mode', False):
-                try:
-                    validation = validate_token_file()
-                    health_data['token'] = validation
-                except:
-                    health_data['token'] = {'valid': False, 'error': 'Token validation failed'}
+                validation = validate_token_file()
+                health_data['token'] = validation
         
         return jsonify(health_data)
         
@@ -736,7 +619,7 @@ def auth_health():
 
 @auth_bp.route('/health/system')
 def system_health():
-    """Complete system health check with auto-auth component structure"""
+    """Complete system health check"""
     try:
         health_data = {
             'timestamp': time.time(),
@@ -752,56 +635,18 @@ def system_health():
         }
         
         if 'logged_in' in session and not session.get('demo_mode', False):
-            try:
-                validation = validate_token_file()
-                auth_info['token_valid'] = validation['valid']
-                auth_info['token_time_left'] = validation['time_left']
-            except:
-                auth_info['token_valid'] = False
-                auth_info['token_time_left'] = 0
+            validation = validate_token_file()
+            auth_info['token_valid'] = validation['valid']
+            auth_info['token_time_left'] = validation['time_left']
         
         health_data['authentication'] = auth_info
         
-        # Add auto-auth status in the correct components structure
+        # Add auto-auth status
         try:
             from services.auth_service import auth_service
-            service_status = auth_service.get_status()
-            
-            # Check for missing dependencies
-            if not CRYPTOGRAPHY_AVAILABLE:
-                health_data['components'] = {
-                    'auto_auth': {
-                        'status': 'unavailable',
-                        'enabled': False,
-                        'reason': 'Cryptography package not installed. Run: pip install cryptography'
-                    }
-                }
-            elif not getattr(Config, 'AUTO_AUTH_ENABLED', False):
-                health_data['components'] = {
-                    'auto_auth': {
-                        'status': 'unavailable', 
-                        'enabled': False,
-                        'reason': 'Disabled in configuration'
-                    }
-                }
-            else:
-                # All requirements met - auto-auth available
-                health_data['components'] = {
-                    'auto_auth': {
-                        'status': 'available',
-                        'enabled': True,
-                        'service_status': service_status
-                    }
-                }
-                
-        except ImportError as e:
-            health_data['components'] = {
-                'auto_auth': {
-                    'status': 'unavailable',
-                    'enabled': False,
-                    'reason': f'Auto-auth service not available: {str(e)}'
-                }
-            }
+            health_data['auto_auth'] = auth_service.get_status()
+        except ImportError:
+            health_data['auto_auth'] = {'available': False}
         
         return jsonify(health_data)
         
@@ -810,13 +655,6 @@ def system_health():
         return jsonify({
             'timestamp': time.time(),
             'status': 'error',
-            'components': {
-                'auto_auth': {
-                    'status': 'error',
-                    'enabled': False,
-                    'reason': f'System health check failed: {str(e)}'
-                }
-            },
             'error': str(e)
         }), 500
 
@@ -825,7 +663,12 @@ def system_health():
 # ================================================================
 
 def get_auth_status():
-    """Get current authentication status"""
+    """
+    Get current authentication status (utility function)
+    
+    Returns:
+        dict: Authentication status information
+    """
     return {
         'logged_in': session.get('logged_in', False),
         'username': session.get('username', 'unknown'),
@@ -836,8 +679,24 @@ def get_auth_status():
     }
 
 def log_auth_attempt(action, success=False, details=None):
-    """Log authentication attempts for monitoring"""
+    """
+    Log authentication attempts for monitoring
+    
+    Args:
+        action (str): Action attempted (login, logout, refresh, etc.)
+        success (bool): Whether the action was successful
+        details (str): Additional details about the attempt
+    """
     try:
+        log_entry = {
+            'action': action,
+            'success': success,
+            'timestamp': time.time(),
+            'user_ip': request.remote_addr if request else 'unknown',
+            'user_agent': request.headers.get('User-Agent', 'unknown') if request else 'unknown',
+            'details': details or ''
+        }
+        
         if success:
             logger.info(f"✅ Auth success: {action} - {details or 'No details'}")
         else:
@@ -850,9 +709,10 @@ def log_auth_attempt(action, success=False, details=None):
 # MODULE EXPORTS
 # ================================================================
 
+# Make all functions available for import
 __all__ = [
     'auth_bp', 'require_auth', 'api_auth_required', 'require_live_mode',
     'get_auth_status', 'log_auth_attempt'
 ]
 
-logger.info("✅ Complete authentication routes loaded with correct G-Portal URL")
+logger.info("✅ Enhanced authentication routes loaded with OAuth and cookie support")

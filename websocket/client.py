@@ -1,10 +1,9 @@
+﻿"""
 """
-GUST Bot Enhanced - WebSocket Client (FIXED SENSOR DATA IMPLEMENTATION)
-==============================================================
-✅ FIXED: GraphQL query type mismatch (REGION! instead of String!)
-✅ FIXED: Variable type consistency
-✅ FIXED: Error handling in sensor subscriptions
-✅ FIXED: Message processing logic
+"""
+GUST Bot Enhanced - WebSocket Client
+===================================
+WebSocket client for G-Portal live console monitoring
 """
 
 # Standard library imports
@@ -23,17 +22,20 @@ from config import Config, WEBSOCKETS_AVAILABLE
 # Other imports
 import asyncio
 
+
+
+
 if WEBSOCKETS_AVAILABLE:
     import websockets
 
 logger = logging.getLogger(__name__)
 
 class GPortalWebSocketClient:
-    """✅ FIXED: WebSocket client for G-Portal live console monitoring + sensor data"""
+    """WebSocket client for G-Portal live console monitoring"""
     
     def __init__(self, server_id, region, token, message_callback=None):
         """
-        Initialize WebSocket client with sensor data support
+        Initialize WebSocket client
         
         Args:
             server_id: Server ID (may include test suffix)
@@ -59,15 +61,9 @@ class GPortalWebSocketClient:
         self.max_reconnect_attempts = 5
         self.message_buffer = deque(maxlen=Config.CONSOLE_MESSAGE_BUFFER_SIZE)
         
-        # ✅ NEW: Sensor data storage
-        self.latest_sensor_data = None
-        self.latest_config_data = None
-        self.sensor_data_timestamp = None
-        self.sensor_callbacks = []
-        
     async def connect(self):
         """
-        ✅ FIXED: Establish WebSocket connection to G-Portal with sensor subscriptions
+        Establish WebSocket connection to G-Portal
         
         Returns:
             bool: True if connection successful
@@ -75,7 +71,7 @@ class GPortalWebSocketClient:
         try:
             uri = Config.WEBSOCKET_URI
             
-            logger.info(f"🔌 Connecting to WebSocket for server {self.server_id} ({self.region})")
+            logger.info(f"ðŸ”„ Connecting to WebSocket for server {self.server_id} ({self.region})")
             
             # Try different connection methods for compatibility
             try:
@@ -86,17 +82,17 @@ class GPortalWebSocketClient:
                     ping_interval=Config.WEBSOCKET_PING_INTERVAL,
                     ping_timeout=Config.WEBSOCKET_PING_TIMEOUT
                 )
-                logger.info(f"✅ WebSocket connected using method 1 for server {self.server_id}")
+                logger.info(f"âœ… WebSocket connected using method 1 for server {self.server_id}")
                 
             except Exception as e1:
-                logger.warning(f"⚠️ Method 1 failed: {e1}")
+                logger.warning(f"âš ï¸ Method 1 failed: {e1}")
                 try:
                     # Method 2: Basic connection without extra parameters
                     self.ws = await websockets.connect(uri)
-                    logger.info(f"✅ WebSocket connected using method 2 for server {self.server_id}")
+                    logger.info(f"âœ… WebSocket connected using method 2 for server {self.server_id}")
                     
                 except Exception as e2:
-                    logger.error(f"❌ All connection methods failed: {e1}, {e2}")
+                    logger.error(f"âŒ All connection methods failed: {e1}, {e2}")
                     raise e2
             
             # Initialize connection with authentication
@@ -108,56 +104,48 @@ class GPortalWebSocketClient:
             }
             
             await self.ws.send(json.dumps(init_message))
-            logger.info(f"📤 Sent connection_init for server {self.server_id}")
+            logger.info(f"ðŸ“¤ Sent connection_init for server {self.server_id}")
             
             # Wait for connection acknowledgment
             ack_received = False
             timeout = Config.WEBSOCKET_CONNECTION_TIMEOUT
             start_time = time.time()
             
-            logger.info(f"⏳ Waiting for connection acknowledgment for server {self.server_id}...")
+            logger.info(f"â³ Waiting for connection acknowledgment for server {self.server_id}...")
             
             while not ack_received and (time.time() - start_time) < timeout:
                 try:
                     message = await asyncio.wait_for(self.ws.recv(), timeout=2.0)
                     data = json.loads(message)
-                    logger.info(f"📨 Received message: {data}")
+                    logger.info(f"ðŸ“¨ Received message: {data}")
                     
                     if data.get("type") == "connection_ack":
                         ack_received = True
-                        logger.info(f"✅ WebSocket connection acknowledged for server {self.server_id}")
+                        logger.info(f"âœ… WebSocket connection acknowledged for server {self.server_id}")
+                        
+                        # Subscribe to console messages
+                        await self.subscribe_to_console()
+                        self.connected = True
+                        self.reconnect_attempts = 0
                         break
                         
                 except asyncio.TimeoutError:
-                    logger.debug(f"⏳ Still waiting for ack for server {self.server_id}...")
+                    logger.debug(f"â³ Still waiting for ack for server {self.server_id}...")
                     continue
                 except json.JSONDecodeError as e:
-                    logger.error(f"❌ JSON decode error: {e}")
+                    logger.error(f"âŒ JSON decode error: {e}")
                     continue
                 except Exception as e:
-                    logger.error(f"❌ Error during connection ack: {e}")
+                    logger.error(f"âŒ Error during connection ack: {e}")
                     break
             
-            if ack_received:
-                logger.info(f"✅ WebSocket connection acknowledged for server {self.server_id}")
-                
-                # Subscribe to console messages (existing)
-                await self.subscribe_to_console()
-                
-                # ✅ FIXED: Subscribe to sensor data
-                await self.subscribe_to_sensors()
-                
-                # ✅ FIXED: Subscribe to config data  
-                await self.subscribe_to_server_config()
-                
-                self.connected = True
-                self.reconnect_attempts = 0
-                return True
-            else:
+            if not ack_received:
                 raise Exception(f"Connection acknowledgment timeout after {timeout}s")
                 
+            return True
+            
         except Exception as e:
-            logger.error(f"❌ WebSocket connection failed for server {self.server_id}: {e}")
+            logger.error(f"âŒ WebSocket connection failed for server {self.server_id}: {e}")
             self.connected = False
             return False
     
@@ -186,94 +174,10 @@ class GPortalWebSocketClient:
         
         try:
             await self.ws.send(json.dumps(subscription_payload))
-            logger.info(f"📡 Subscribed to console messages for server {self.server_id}")
+            logger.info(f"ðŸ“¡ Subscribed to console messages for server {self.server_id}")
         except Exception as e:
-            logger.error(f"❌ Failed to subscribe to console for server {self.server_id}: {e}")
+            logger.error(f"âŒ Failed to subscribe to console for server {self.server_id}: {e}")
             raise e
-
-    async def subscribe_to_sensors(self):
-        """✅ FIXED: Subscribe to server sensor data (CPU, memory, uptime)"""
-        try:
-            # Get clean server ID (remove test suffixes)
-            clean_server_id = str(self.server_id).split('_')[0]
-            
-            subscription_payload = {
-                "id": f"sensors_stream_{self.server_id}",
-                "type": "start",
-                "payload": {
-                    "variables": {
-                        "sid": int(clean_server_id),
-                        "region": self.region  # ✅ FIXED: Keep as string, GraphQL will handle conversion
-                    },
-                    "extensions": {},
-                    "operationName": "ServiceSensors",
-                    "query": """subscription ServiceSensors($sid: Int!, $region: REGION!) {
-                        serviceSensors(rsid: {id: $sid, region: $region}) {
-                            cpu
-                            cpuTotal
-                            memory {
-                                percent
-                                used
-                                total
-                            }
-                            uptime
-                            timestamp
-                            __typename
-                        }
-                    }"""
-                }
-            }
-            
-            await self.ws.send(json.dumps(subscription_payload))
-            logger.info(f"📡 Subscribed to sensor data for server {self.server_id}")
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to subscribe to sensors for server {self.server_id}: {e}")
-            # Don't raise - sensor subscription failure shouldn't kill the connection
-            # raise e
-
-    async def subscribe_to_server_config(self):
-        """✅ FIXED: Subscribe to server configuration data"""
-        try:
-            clean_server_id = str(self.server_id).split('_')[0]
-            
-            subscription_payload = {
-                "id": f"config_stream_{self.server_id}",
-                "type": "start",
-                "payload": {
-                    "variables": {
-                        "sid": int(clean_server_id),
-                        "region": self.region  # ✅ FIXED: Keep as string
-                    },
-                    "extensions": {},
-                    "operationName": "ServerConfig",
-                    "query": """subscription ServerConfig($sid: Int!, $region: REGION!) {
-                        cfgContext(rsid: {id: $sid, region: $region}) {
-                            ns {
-                                service {
-                                    currentState {
-                                        state
-                                        fsmState
-                                        fsmIsTransitioning
-                                    }
-                                    config {
-                                        state
-                                        ipAddress
-                                    }
-                                }
-                            }
-                        }
-                    }"""
-                }
-            }
-            
-            await self.ws.send(json.dumps(subscription_payload))
-            logger.info(f"📡 Subscribed to config data for server {self.server_id}")
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to subscribe to config for server {self.server_id}: {e}")
-            # Don't raise - config subscription failure shouldn't kill the connection
-            # raise e
     
     def _is_connection_open(self):
         """Check if WebSocket connection is open"""
@@ -297,7 +201,7 @@ class GPortalWebSocketClient:
     async def listen_for_messages(self):
         """Main message listening loop"""
         self.running = True
-        logger.info(f"👂 Starting message listener for server {self.server_id}")
+        logger.info(f"ðŸ‘‚ Starting message listener for server {self.server_id}")
         
         try:
             while self.running and self.connected:
@@ -311,43 +215,42 @@ class GPortalWebSocketClient:
                     if self.ws and self._is_connection_open():
                         try:
                             await self.ws.ping()
-                            logger.debug(f"📡 Ping sent to server {self.server_id}")
+                            logger.debug(f"ðŸ“¡ Ping sent to server {self.server_id}")
                         except Exception as ping_error:
-                            logger.warning(f"⚠️ Ping failed for server {self.server_id}: {ping_error}")
+                            logger.warning(f"âš ï¸ Ping failed for server {self.server_id}: {ping_error}")
                     continue
                     
                 except websockets.exceptions.ConnectionClosed as e:
-                    logger.warning(f"⚠️ WebSocket connection closed for server {self.server_id}: {e}")
+                    logger.warning(f"âš ï¸ WebSocket connection closed for server {self.server_id}: {e}")
                     self.connected = False
                     break
                 except websockets.exceptions.WebSocketException as e:
-                    logger.error(f"❌ WebSocket error for server {self.server_id}: {e}")
+                    logger.error(f"âŒ WebSocket error for server {self.server_id}: {e}")
                     self.connected = False
                     break
                 except Exception as e:
-                    logger.error(f"❌ Error processing message for server {self.server_id}: {e}")
+                    logger.error(f"âŒ Error processing message for server {self.server_id}: {e}")
                     continue
                     
         except Exception as e:
-            logger.error(f"❌ Fatal error in message listener for server {self.server_id}: {e}")
+            logger.error(f"âŒ Fatal error in message listener for server {self.server_id}: {e}")
         finally:
             self.connected = False
             self.running = False
-            logger.info(f"🔌 Message listener stopped for server {self.server_id}")
+            logger.info(f"ðŸ”Œ Message listener stopped for server {self.server_id}")
     
     async def process_message(self, message):
-        """✅ FIXED: Process incoming WebSocket message including sensor data"""
+        """Process incoming WebSocket message"""
         try:
             data = json.loads(message)
             
             # Handle different message types
             if data.get("type") == "data":
                 stream_id = data.get("id", "")
-                payload = data.get("payload", {})
-                
-                # Existing console message handling
                 if f"console_stream_{self.server_id}" in stream_id:
+                    payload = data.get("payload", {})
                     console_data = payload.get("data", {})
+                    
                     if console_data.get("consoleMessages"):
                         console_msg = console_data["consoleMessages"]
                         message_text = console_msg.get("message", "")
@@ -373,139 +276,43 @@ class GPortalWebSocketClient:
                                 try:
                                     await self.message_callback(processed_message)
                                 except Exception as callback_error:
-                                    logger.error(f"❌ Callback error for server {self.server_id}: {callback_error}")
+                                    logger.error(f"âŒ Callback error for server {self.server_id}: {callback_error}")
                             
-                            logger.info(f"📨 Live console message from {self.server_id}: {message_text[:100]}...")
-                
-                # ✅ FIXED: Sensor data handling
-                elif f"sensors_stream_{self.server_id}" in stream_id:
-                    sensor_data = payload.get("data", {})
-                    if sensor_data.get("serviceSensors"):
-                        await self.process_sensor_data(sensor_data["serviceSensors"])
-                
-                # ✅ FIXED: Config data handling
-                elif f"config_stream_{self.server_id}" in stream_id:
-                    config_data = payload.get("data", {})
-                    if config_data.get("cfgContext"):
-                        await self.process_config_data(config_data["cfgContext"])
+                            logger.info(f"ðŸ“¨ Live console message from {self.server_id}: {message_text[:100]}...")
             
             elif data.get("type") == "error":
-                logger.error(f"❌ WebSocket error for server {self.server_id}: {data}")
+                logger.error(f"âŒ WebSocket error for server {self.server_id}: {data}")
                 
             elif data.get("type") == "complete":
-                logger.info(f"✅ Subscription completed for server {self.server_id}")
+                logger.info(f"âœ… Subscription completed for server {self.server_id}")
                 
         except json.JSONDecodeError:
-            logger.error(f"❌ Invalid JSON message from server {self.server_id}: {message[:100]}...")
+            logger.error(f"âŒ Invalid JSON message from server {self.server_id}: {message[:100]}...")
         except Exception as e:
-            logger.error(f"❌ Error processing message from server {self.server_id}: {e}")
-
-    async def process_sensor_data(self, sensor_data):
-        """✅ FIXED: Process incoming sensor data"""
-        try:
-            # Store the latest sensor data
-            self.latest_sensor_data = {
-                'cpu_usage': sensor_data.get('cpu', 0),
-                'cpu_total': sensor_data.get('cpuTotal', 0),
-                'memory_percent': sensor_data.get('memory', {}).get('percent', 0),
-                'memory_used_mb': sensor_data.get('memory', {}).get('used', 0),
-                'memory_total_mb': sensor_data.get('memory', {}).get('total', 0),
-                'uptime_seconds': sensor_data.get('uptime', 0),
-                'timestamp': sensor_data.get('timestamp'),
-                'data_source': 'graphql_websocket',
-                'server_id': self.server_id
-            }
-            
-            self.sensor_data_timestamp = time.time()
-            
-            logger.info(f"📊 Sensor data updated for server {self.server_id}: "
-                        f"CPU: {self.latest_sensor_data['cpu_total']}%, "
-                        f"Memory: {self.latest_sensor_data['memory_percent']}%")
-            
-            # Call sensor callbacks
-            for callback in self.sensor_callbacks:
-                try:
-                    await callback(self.latest_sensor_data)
-                except Exception as callback_error:
-                    logger.error(f"❌ Sensor callback error: {callback_error}")
-                    
-        except Exception as e:
-            logger.error(f"❌ Error processing sensor data: {e}")
-
-    async def process_config_data(self, config_data):
-        """✅ FIXED: Process incoming config data"""
-        try:
-            ns = config_data.get('ns', {})
-            service = ns.get('service', {})
-            current_state = service.get('currentState', {})
-            config = service.get('config', {})
-            
-            self.latest_config_data = {
-                'server_state': current_state.get('state', 'UNKNOWN'),
-                'fsm_state': current_state.get('fsmState', 'Unknown'),
-                'is_transitioning': current_state.get('fsmIsTransitioning', False),
-                'ip_address': config.get('ipAddress', ''),
-                'timestamp': time.time(),
-                'server_id': self.server_id
-            }
-            
-            logger.debug(f"⚙️ Config data updated for server {self.server_id}: "
-                        f"State: {self.latest_config_data['server_state']}")
-                        
-        except Exception as e:
-            logger.error(f"❌ Error processing config data: {e}")
-
-    def add_sensor_callback(self, callback):
-        """✅ NEW: Add callback for sensor data updates"""
-        self.sensor_callbacks.append(callback)
-
-    def get_latest_sensor_data(self):
-        """✅ NEW: Get the latest sensor data"""
-        return self.latest_sensor_data
-
-    def is_sensor_data_fresh(self, max_age_seconds=30):
-        """✅ NEW: Check if sensor data is fresh"""
-        if not self.sensor_data_timestamp:
-            return False
-        return (time.time() - self.sensor_data_timestamp) < max_age_seconds
-
-    def get_latest_config_data(self):
-        """✅ NEW: Get the latest config data"""
-        return self.latest_config_data
+            logger.error(f"âŒ Error processing message from server {self.server_id}: {e}")
     
     async def disconnect(self):
         """Cleanly disconnect WebSocket"""
-        logger.info(f"🔌 Disconnecting WebSocket for server {self.server_id}")
+        logger.info(f"ðŸ”Œ Disconnecting WebSocket for server {self.server_id}")
         
         self.running = False
         self.connected = False
         
         if self.ws and self._is_connection_open():
             try:
-                # Send stop messages for all subscriptions
-                stop_console = {
+                # Send stop message for subscription
+                stop_message = {
                     "id": f"console_stream_{self.server_id}",
                     "type": "stop"
                 }
-                stop_sensors = {
-                    "id": f"sensors_stream_{self.server_id}",
-                    "type": "stop"
-                }
-                stop_config = {
-                    "id": f"config_stream_{self.server_id}",
-                    "type": "stop"
-                }
-                
-                await self.ws.send(json.dumps(stop_console))
-                await self.ws.send(json.dumps(stop_sensors))
-                await self.ws.send(json.dumps(stop_config))
+                await self.ws.send(json.dumps(stop_message))
                 
                 # Close connection
                 await self.ws.close()
-                logger.info(f"✅ WebSocket disconnected cleanly for server {self.server_id}")
+                logger.info(f"âœ… WebSocket disconnected cleanly for server {self.server_id}")
                 
             except Exception as e:
-                logger.warning(f"⚠️ Error during disconnect for server {self.server_id}: {e}")
+                logger.warning(f"âš ï¸ Error during disconnect for server {self.server_id}: {e}")
     
     def get_recent_messages(self, limit=50, message_type=None):
         """
@@ -532,7 +339,7 @@ class GPortalWebSocketClient:
     
     def get_connection_info(self):
         """
-        ✅ ENHANCED: Get connection information including sensor data status
+        Get connection information
         
         Returns:
             dict: Connection status and info
@@ -545,11 +352,5 @@ class GPortalWebSocketClient:
             "is_test": self.is_test,
             "message_count": len(self.message_buffer),
             "reconnect_attempts": self.reconnect_attempts,
-            "max_reconnect_attempts": self.max_reconnect_attempts,
-            # ✅ NEW: Sensor data status
-            "has_sensor_data": self.latest_sensor_data is not None,
-            "sensor_data_fresh": self.is_sensor_data_fresh(),
-            "sensor_data_timestamp": self.sensor_data_timestamp,
-            "has_config_data": self.latest_config_data is not None,
-            "sensor_callbacks_count": len(self.sensor_callbacks)
+            "max_reconnect_attempts": self.max_reconnect_attempts
         }

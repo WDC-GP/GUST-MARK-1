@@ -1,15 +1,12 @@
-<!-- ============================================================================
+﻿<!-- ============================================================================
      GUST Bot Enhanced - Core JavaScript (COMPLETE FIXED VERSION)
      ============================================================================
-     ✅ CRITICAL FIX: Proper managedServers array initialization with protection
-     ✅ CRITICAL FIX: Emergency recovery functions integrated
-     ✅ CRITICAL FIX: Auto-loading server functionality
-     ✅ FIXED: Request queue timeout increased to 2 minutes (was 90s)
-     ✅ FIXED: Proper timeout clearing when requests start processing
-     ✅ FIXED: Enhanced module loading with availability checks
-     ✅ FIXED: Better error handling and recovery mechanisms
-     ✅ FIXED: Non-blocking queue processing with retry logic
-     ✅ CRITICAL FIX: Removed circular dependency between getStats() and isHealthy()
+     âœ… FIXED: Request queue timeout increased to 2 minutes (was 90s)
+     âœ… FIXED: Proper timeout clearing when requests start processing
+     âœ… FIXED: Enhanced module loading with availability checks
+     âœ… FIXED: Better error handling and recovery mechanisms
+     âœ… FIXED: Non-blocking queue processing with retry logic
+     âœ… CRITICAL FIX: Removed circular dependency between getStats() and isHealthy()
      ============================================================================ -->
 
 <script>
@@ -28,7 +25,7 @@
         REQUEST_THROTTLING: {
             maxConcurrent: 2,        // Reduced concurrency
             minInterval: 1000,       // 1s between requests
-            queueTimeout: 120000     // ✅ CRITICAL: 2 minutes (was 90s)
+            queueTimeout: 120000     // âœ… CRITICAL: 2 minutes (was 90s)
         },
         
         AUTH_RECOVERY: {
@@ -40,167 +37,23 @@
     };
     
     // ============================================================================
-    // ✅ CRITICAL FIX: PROPER GLOBAL VARIABLES WITH ARRAY PROTECTION
+    // GLOBAL VARIABLES
     // ============================================================================
     
     let currentTab = 'dashboard';
-    let servers = [];               // ✅ Initialize as array
-    let managedServers = [];        // ✅ CRITICAL: Initialize as array
-    let selectedServers = new Set(); // ✅ Initialize as Set
+    let managedServers = [];
+    let selectedServers = new Set();
+    let servers = [];
     let wsConnection = null;
     let isDemo = false;
-    let connectionStatus = {};      // ✅ Initialize as object
+    let connectionStatus = {};
     let serverFilter = '';
     let messageTypeFilter = 'all';
     let autoScroll = true;
     let websocketsAvailable = true;
-    
-    // ✅ CRITICAL: Array protection flag
-    let arrayInitialized = false;
 
     // ============================================================================
-    // ✅ CRITICAL: ARRAY VALIDATION AND PROTECTION FUNCTIONS
-    // ============================================================================
-    
-    /**
-     * ✅ CRITICAL: Validate and fix managedServers array state
-     */
-    function validateManagedServers() {
-        let fixed = false;
-        
-        if (!Array.isArray(window.managedServers)) {
-            console.error('❌ CRITICAL: window.managedServers is not an array!');
-            console.log(`🔧 Type detected: ${typeof window.managedServers}`);
-            window.managedServers = [];
-            managedServers = [];
-            fixed = true;
-        }
-        
-        if (!Array.isArray(managedServers)) {
-            console.error('❌ CRITICAL: managedServers is not an array!');
-            managedServers = [];
-            window.managedServers = managedServers;
-            fixed = true;
-        }
-        
-        // Sync both references
-        if (window.managedServers !== managedServers) {
-            console.log('🔧 Syncing managedServers references');
-            window.managedServers = managedServers;
-            fixed = true;
-        }
-        
-        if (fixed) {
-            console.log('✅ managedServers array state fixed');
-        }
-        
-        return !fixed; // Return true if validation passed without fixes
-    }
-    
-    /**
-     * ✅ CRITICAL: Emergency fix for managedServers
-     */
-    function fixManagedServers() {
-        console.log('🚑 Emergency managedServers fix...');
-        
-        // Force reset to empty arrays
-        managedServers = [];
-        window.managedServers = [];
-        
-        // Clean any corrupted data
-        if (window.selectedServers && !(window.selectedServers instanceof Set)) {
-            window.selectedServers = new Set();
-            selectedServers = new Set();
-        }
-        
-        console.log('✅ managedServers emergency fix complete');
-        
-        // Try to reload servers from API
-        setTimeout(() => {
-            if (typeof loadManagedServers === 'function') {
-                console.log('🔄 Attempting to reload servers after fix...');
-                loadManagedServers().catch(error => {
-                    console.warn('⚠️ Server reload failed after fix:', error);
-                });
-            }
-        }, 1000);
-        
-        return true;
-    }
-    
-    /**
-     * ✅ CRITICAL: Safe array operation wrapper
-     */
-    function safeArrayOperation(arrayName, operation, ...args) {
-        const array = window[arrayName];
-        
-        if (!Array.isArray(array)) {
-            console.warn(`⚠️ ${arrayName} is not an array, fixing...`);
-            window[arrayName] = [];
-            
-            if (arrayName === 'managedServers') {
-                managedServers = [];
-            }
-            
-            return operation === 'length' ? 0 : operation === 'find' ? undefined : [];
-        }
-        
-        if (typeof array[operation] === 'function') {
-            return array[operation](...args);
-        } else if (operation === 'length') {
-            return array.length;
-        }
-        
-        return undefined;
-    }
-    
-    /**
-     * ✅ CRITICAL: Enhanced loadManagedServers with protection
-     */
-    async function loadManagedServers() {
-        console.log('📡 Loading managed servers (PROTECTED VERSION)...');
-        
-        try {
-            // Ensure array state first
-            validateManagedServers();
-            
-            const response = await enhancedFetch('/api/servers');
-            
-            if (response && response.success && Array.isArray(response.servers)) {
-                // Safe assignment
-                managedServers = response.servers;
-                window.managedServers = managedServers;
-                
-                console.log(`✅ Loaded ${response.servers.length} managed servers successfully`);
-                
-                // Trigger update events
-                if (typeof updateAllServerDropdowns === 'function') {
-                    updateAllServerDropdowns();
-                }
-                
-                // Dispatch custom event for other modules
-                window.dispatchEvent(new CustomEvent('serversLoaded', {
-                    detail: { servers: response.servers }
-                }));
-                
-                return response.servers;
-            } else {
-                console.warn('⚠️ Invalid server response format');
-                return [];
-            }
-            
-        } catch (error) {
-            console.error('❌ Error loading managed servers:', error);
-            
-            // Ensure arrays are still valid after error
-            validateManagedServers();
-            
-            throw error;
-        }
-    }
-
-    // ============================================================================
-    // ✅ FIXED REQUEST QUEUE CLASS WITH PROPER TIMEOUT HANDLING
+    // âœ… FIXED REQUEST QUEUE CLASS WITH PROPER TIMEOUT HANDLING
     // ============================================================================
     
     class RequestQueue {
@@ -215,11 +68,11 @@
             this.successfulRequests = 0;
             this.queueTimeout = ENHANCED_CONFIG.REQUEST_THROTTLING.queueTimeout;
             
-            console.log(`✅ Fixed RequestQueue initialized: max ${maxConcurrent} concurrent, ${minInterval}ms interval, ${this.queueTimeout/1000}s timeout`);
+            console.log(`âœ… Fixed RequestQueue initialized: max ${maxConcurrent} concurrent, ${minInterval}ms interval, ${this.queueTimeout/1000}s timeout`);
         }
         
         /**
-         * ✅ CRITICAL FIX: Improved enqueue with proper timeout management
+         * âœ… CRITICAL FIX: Improved enqueue with proper timeout management
          */
         async enqueue(requestFunction, priority = 'normal') {
             return new Promise((resolve, reject) => {
@@ -235,15 +88,15 @@
                     maxAttempts: 3
                 };
                 
-                // ✅ FIXED: Set timeout with proper cleanup tracking
+                // âœ… FIXED: Set timeout with proper cleanup tracking
                 queueItem.timeout = setTimeout(() => {
-                    console.warn(`⏰ Request timeout: ${queueItem.id} after ${this.queueTimeout/1000}s`);
+                    console.warn(`â° Request timeout: ${queueItem.id} after ${this.queueTimeout/1000}s`);
                     
                     // Remove from queue if still there
                     const index = this.requestQueue.findIndex(item => item.id === queueItem.id);
                     if (index > -1) {
                         this.requestQueue.splice(index, 1);
-                        console.log(`🗑️ Removed timed-out request from queue: ${queueItem.id}`);
+                        console.log(`ðŸ—‘ï¸ Removed timed-out request from queue: ${queueItem.id}`);
                     }
                     
                     this.failedRequests++;
@@ -257,7 +110,7 @@
                     this.requestQueue.push(queueItem);
                 }
                 
-                console.log(`📝 Queued request ${queueItem.id} (priority: ${priority}, queue: ${this.requestQueue.length})`);
+                console.log(`ðŸ“ Queued request ${queueItem.id} (priority: ${priority}, queue: ${this.requestQueue.length})`);
                 
                 // Start processing (non-blocking)
                 this.processQueueAsync();
@@ -265,7 +118,7 @@
         }
         
         /**
-         * ✅ FIXED: Non-blocking queue processing trigger
+         * âœ… FIXED: Non-blocking queue processing trigger
          */
         processQueueAsync() {
             if (!this.isProcessing && this.requestQueue.length > 0) {
@@ -274,7 +127,7 @@
         }
         
         /**
-         * ✅ CRITICAL FIX: Improved queue processing with proper timeout clearing
+         * âœ… CRITICAL FIX: Improved queue processing with proper timeout clearing
          */
         async processQueue() {
             // Prevent multiple simultaneous processing
@@ -289,7 +142,7 @@
             
             // Too many active requests - wait and retry
             if (this.activeRequests >= this.maxConcurrent) {
-                console.log(`⏸️ Queue paused: ${this.activeRequests}/${this.maxConcurrent} active requests`);
+                console.log(`â¸ï¸ Queue paused: ${this.activeRequests}/${this.maxConcurrent} active requests`);
                 setTimeout(() => this.processQueue(), 1000);
                 return;
             }
@@ -302,7 +155,7 @@
                 const timeSinceLastRequest = now - this.lastRequestTime;
                 if (timeSinceLastRequest < this.minInterval) {
                     const waitTime = this.minInterval - timeSinceLastRequest;
-                    console.log(`⏱️ Waiting ${waitTime}ms before next request (rate limiting)`);
+                    console.log(`â±ï¸ Waiting ${waitTime}ms before next request (rate limiting)`);
                     setTimeout(() => {
                         this.isProcessing = false;
                         this.processQueue();
@@ -317,33 +170,33 @@
                     return;
                 }
                 
-                // ✅ CRITICAL FIX: Clear timeout IMMEDIATELY when processing starts
+                // âœ… CRITICAL FIX: Clear timeout IMMEDIATELY when processing starts
                 if (queueItem.timeout) {
                     clearTimeout(queueItem.timeout);
                     queueItem.timeout = null;
-                    console.log(`✅ Cleared timeout for processing request: ${queueItem.id}`);
+                    console.log(`âœ… Cleared timeout for processing request: ${queueItem.id}`);
                 }
                 
                 this.activeRequests++;
                 this.lastRequestTime = now;
                 
-                console.log(`🔥 Processing request ${queueItem.id} (${this.activeRequests}/${this.maxConcurrent} active, ${this.requestQueue.length} queued)`);
+                console.log(`ðŸ”„ Processing request ${queueItem.id} (${this.activeRequests}/${this.maxConcurrent} active, ${this.requestQueue.length} queued)`);
                 
                 try {
                     // Execute the actual request
                     const result = await queueItem.requestFunction();
                     queueItem.resolve(result);
                     this.successfulRequests++;
-                    console.log(`✅ Request ${queueItem.id} completed successfully`);
+                    console.log(`âœ… Request ${queueItem.id} completed successfully`);
                     
                 } catch (error) {
-                    console.error(`❌ Request ${queueItem.id} failed (attempt ${queueItem.attempts + 1}):`, error);
+                    console.error(`âŒ Request ${queueItem.id} failed (attempt ${queueItem.attempts + 1}):`, error);
                     
-                    // ✅ ENHANCED: Retry logic with exponential backoff
+                    // âœ… ENHANCED: Retry logic with exponential backoff
                     queueItem.attempts++;
                     if (queueItem.attempts < queueItem.maxAttempts && this.shouldRetry(error)) {
                         const retryDelay = 2000 * Math.pow(2, queueItem.attempts - 1); // Exponential backoff
-                        console.log(`🔄 Retrying request ${queueItem.id} in ${retryDelay}ms (attempt ${queueItem.attempts + 1}/${queueItem.maxAttempts})`);
+                        console.log(`ðŸ”„ Retrying request ${queueItem.id} in ${retryDelay}ms (attempt ${queueItem.attempts + 1}/${queueItem.maxAttempts})`);
                         
                         setTimeout(() => {
                             // Reset timeout for retry
@@ -370,7 +223,7 @@
                 this.activeRequests--;
                 this.isProcessing = false;
                 
-                // ✅ FIXED: Continue processing remaining items after small delay
+                // âœ… FIXED: Continue processing remaining items after small delay
                 if (this.requestQueue.length > 0) {
                     setTimeout(() => this.processQueue(), 100);
                 }
@@ -378,7 +231,7 @@
         }
         
         /**
-         * ✅ NEW: Determine if error is retryable
+         * âœ… NEW: Determine if error is retryable
          */
         shouldRetry(error) {
             const retryableErrors = [
@@ -397,7 +250,7 @@
         }
         
         /**
-         * ✅ CRITICAL FIX: getStats() without calling isHealthy() - PREVENTS INFINITE RECURSION
+         * âœ… CRITICAL FIX: getStats() without calling isHealthy() - PREVENTS INFINITE RECURSION
          */
         getStats() {
             return {
@@ -407,6 +260,7 @@
                 successfulRequests: this.successfulRequests,
                 failedRequests: this.failedRequests,
                 successRate: this.successfulRequests / Math.max(1, this.successfulRequests + this.failedRequests),
+                // âœ… REMOVED: isHealthy: this.isHealthy(), // This was causing infinite recursion
                 queueTimeout: this.queueTimeout,
                 maxConcurrent: this.maxConcurrent,
                 minInterval: this.minInterval,
@@ -415,7 +269,7 @@
         }
         
         /**
-         * ✅ CRITICAL FIX: isHealthy() without calling getStats() - PREVENTS INFINITE RECURSION
+         * âœ… CRITICAL FIX: isHealthy() without calling getStats() - PREVENTS INFINITE RECURSION
          */
         isHealthy() {
             // Direct property access - NO METHOD CALLS to avoid recursion
@@ -428,7 +282,7 @@
         }
         
         /**
-         * ✅ NEW: Check for stale requests that might be stuck
+         * âœ… NEW: Check for stale requests that might be stuck
          */
         hasStaleRequests() {
             const now = Date.now();
@@ -440,7 +294,7 @@
         }
         
         /**
-         * ✅ NEW: Calculate average wait time
+         * âœ… NEW: Calculate average wait time
          */
         calculateAverageWaitTime() {
             if (this.requestQueue.length === 0) return 0;
@@ -454,10 +308,10 @@
         }
         
         /**
-         * ✅ ENHANCED: Emergency queue clearing with better cleanup
+         * âœ… ENHANCED: Emergency queue clearing with better cleanup
          */
         clearQueue(reason = 'Manual clear') {
-            console.warn(`🚨 Clearing request queue: ${reason}`);
+            console.warn(`ðŸš¨ Clearing request queue: ${reason}`);
             
             const clearedCount = this.requestQueue.length;
             
@@ -471,11 +325,11 @@
             this.requestQueue = [];
             this.isProcessing = false;
             
-            console.log(`✅ Cleared ${clearedCount} requests, ${this.activeRequests} still active`);
+            console.log(`âœ… Cleared ${clearedCount} requests, ${this.activeRequests} still active`);
         }
         
         /**
-         * ✅ NEW: Health check and auto-recovery
+         * âœ… NEW: Health check and auto-recovery
          */
         performHealthCheck() {
             // Get health status without causing recursion
@@ -485,7 +339,7 @@
             const avgWaitTime = this.calculateAverageWaitTime();
             const activeRequests = this.activeRequests;
             
-            console.log('🩺 Request Queue Health Check:', {
+            console.log('ðŸ¥ Request Queue Health Check:', {
                 healthy: healthy,
                 queueLength: queueLength,
                 successRate: `${(successRate * 100).toFixed(1)}%`,
@@ -494,7 +348,7 @@
             });
             
             if (!healthy) {
-                console.warn('⚠️ Queue unhealthy, attempting recovery...');
+                console.warn('âš ï¸ Queue unhealthy, attempting recovery...');
                 this.performRecovery();
             }
             
@@ -502,7 +356,7 @@
         }
         
         /**
-         * ✅ NEW: Auto-recovery procedures
+         * âœ… NEW: Auto-recovery procedures
          */
         performRecovery() {
             const now = Date.now();
@@ -513,7 +367,7 @@
             );
             
             if (staleRequests.length > 0) {
-                console.log(`🗑️ Removing ${staleRequests.length} stale requests`);
+                console.log(`ðŸ—‘ï¸ Removing ${staleRequests.length} stale requests`);
                 staleRequests.forEach(item => {
                     if (item.timeout) clearTimeout(item.timeout);
                     item.reject(new Error('Request too old, removed during recovery'));
@@ -526,27 +380,27 @@
             
             // Force process queue if stuck
             if (this.requestQueue.length > 0 && !this.isProcessing && this.activeRequests < this.maxConcurrent) {
-                console.log('🔧 Force-starting queue processing during recovery');
+                console.log('ðŸ”§ Force-starting queue processing during recovery');
                 this.processQueueAsync();
             }
         }
         
         /**
-         * ✅ NEW: Emergency reset method
+         * âœ… NEW: Emergency reset method
          */
         forceReset() {
-            console.warn('🚨 Force resetting RequestQueue');
+            console.warn('ðŸš¨ Force resetting RequestQueue');
             this.clearQueue('Force reset');
             this.activeRequests = 0;
             this.failedRequests = 0;
             this.successfulRequests = 0;
             this.lastRequestTime = 0;
-            console.log('✅ RequestQueue force reset complete');
+            console.log('âœ… RequestQueue force reset complete');
         }
     }
     
     // ============================================================================
-    // ✅ INITIALIZE REQUEST QUEUE WITH FIXED CONFIGURATION
+    // âœ… INITIALIZE REQUEST QUEUE WITH FIXED CONFIGURATION
     // ============================================================================
     
     const requestQueue = new RequestQueue(
@@ -555,7 +409,7 @@
     );
     
     // ============================================================================
-    // ✅ ENHANCED FETCH WRAPPER WITH REQUEST QUEUING
+    // âœ… ENHANCED FETCH WRAPPER WITH REQUEST QUEUING
     // ============================================================================
     
     async function enhancedFetch(url, options = {}) {
@@ -563,7 +417,7 @@
         delete options.priority; // Remove custom option before fetch
         
         return requestQueue.enqueue(async () => {
-            console.log(`🌐 Making ${priority} priority request to: ${url}`);
+            console.log(`ðŸŒ Making ${priority} priority request to: ${url}`);
             
             try {
                 const response = await fetch(url, {
@@ -581,28 +435,25 @@
                 }
                 
                 const data = await response.json();
-                console.log(`✅ Request successful: ${url} (${response.status})`);
+                console.log(`âœ… Request successful: ${url} (${response.status})`);
                 return data;
                 
             } catch (error) {
-                console.error(`❌ Request failed: ${url}`, error);
+                console.error(`âŒ Request failed: ${url}`, error);
                 throw error;
             }
         }, priority);
     }
     
     // ============================================================================
-    // ✅ ENHANCED TAB SWITCHING WITH MODULE LOADING
+    // âœ… ENHANCED TAB SWITCHING WITH MODULE LOADING
     // ============================================================================
     
     function showTab(tab) {
-        console.log('🔄 Switching to tab:', tab);
+        console.log('ðŸ”„ Switching to tab:', tab);
         
         try {
             currentTab = tab;
-            
-            // ✅ CRITICAL: Validate arrays before any tab operations
-            validateManagedServers();
             
             // Update navigation
             document.querySelectorAll('.nav-tab').forEach(t => {
@@ -631,71 +482,43 @@
             
             if (targetView && targetView.classList) {
                 targetView.classList.remove('hidden');
-                console.log('✅ Showing view:', targetView.id);
+                console.log('âœ… Showing view:', targetView.id);
             } else {
-                console.error('❌ No view found for tab:', tab);
+                console.error('âŒ No view found for tab:', tab);
                 createPlaceholderView(tab);
                 return;
             }
             
-            // ✅ ENHANCED: Load tab-specific modules with better error handling
+            // âœ… ENHANCED: Load tab-specific modules with better error handling
             loadTabModule(tab);
             
-            console.log('✅ Tab switch complete:', tab);
+            console.log('âœ… Tab switch complete:', tab);
             
         } catch (error) {
-            console.error('❌ showTab error:', error);
-            // Try to fix arrays if tab switching fails
-            fixManagedServers();
+            console.error('âŒ showTab error:', error);
         }
     }
     
     /**
-     * ✅ ENHANCED: Module loading with availability checking and array protection
+     * âœ… ENHANCED: Module loading with availability checking
      */
     async function loadTabModule(tab) {
-        console.log(`📦 Loading module for tab: ${tab}`);
+        console.log(`ðŸ“¦ Loading module for tab: ${tab}`);
         
         try {
-            // ✅ CRITICAL: Ensure arrays are valid before module loading
-            validateManagedServers();
-            
             switch(tab) {
                 case 'dashboard':
                     safeCall('loadDashboard');
                     break;
                     
                 case 'server-manager':
-                    // ✅ CRITICAL: Extra protection for server manager
-                    console.log('🔧 Loading Server Manager with array protection...');
+                    // Ensure server manager functions are available
                     await ensureServerManagerLoaded();
                     safeCall('loadServerManager');
-                    
-                    // Auto-load servers if not loaded
-                    setTimeout(() => {
-                        if (managedServers.length === 0) {
-                            console.log('📡 Auto-loading servers for Server Manager...');
-                            loadManagedServers().catch(error => {
-                                console.warn('⚠️ Auto-load servers failed:', error);
-                            });
-                        }
-                    }, 500);
                     break;
                     
                 case 'console':
                     safeCall('initializeConsole');
-                    break;
-                    
-                case 'logs':
-                    // ✅ CRITICAL: Ensure servers loaded for logs module
-                    validateManagedServers();
-                    safeCall('loadLogs');
-                    break;
-                    
-                case 'server-health':
-                    // ✅ CRITICAL: Ensure servers loaded for health monitoring
-                    validateManagedServers();
-                    safeCall('loadServerHealth');
                     break;
                     
                 case 'events':
@@ -719,70 +542,60 @@
                     safeCall('loadUserManagement');
                     break;
                     
+                case 'logs':
+                    safeCall('loadLogs');
+                    break;
+                    
+                case 'server-health':
+                    safeCall('loadServerHealth');
+                    break;
+                    
                 default:
-                    console.log(`ℹ️ No specific module loader for tab: ${tab}`);
+                    console.log(`â„¹ï¸ No specific module loader for tab: ${tab}`);
             }
         } catch (error) {
-            console.error(`❌ Error loading module for ${tab}:`, error);
-            
-            // Try to recover arrays if module loading fails
-            if (error.message.includes('find is not a function') || 
-                error.message.includes('some is not a function')) {
-                console.log('🔧 Array method error detected - fixing...');
-                fixManagedServers();
-            }
+            console.error(`âŒ Error loading module for ${tab}:`, error);
         }
     }
     
     /**
-     * ✅ NEW: Ensure Server Manager module is loaded
+     * âœ… NEW: Ensure Server Manager module is loaded
      */
     async function ensureServerManagerLoaded() {
         const requiredFunctions = ['addNewServer', 'loadServerManager', 'clearServerForm'];
         const missingFunctions = requiredFunctions.filter(func => typeof window[func] !== 'function');
         
         if (missingFunctions.length > 0) {
-            console.log(`⚠️ Missing server manager functions: ${missingFunctions.join(', ')}`);
-            console.log('🔧 Server manager functions will use template fallbacks');
+            console.log(`âš ï¸ Missing server manager functions: ${missingFunctions.join(', ')}`);
+            console.log('ðŸ”§ Server manager functions will use template fallbacks');
         } else {
-            console.log('✅ All server manager functions available');
+            console.log('âœ… All server manager functions available');
         }
-        
-        // Ensure arrays are ready
-        validateManagedServers();
     }
     
     /**
-     * ✅ ENHANCED: Safe function caller with better error handling
+     * âœ… ENHANCED: Safe function caller with better error handling
      */
     function safeCall(functionName, ...args) {
         try {
             if (typeof window[functionName] === 'function') {
-                console.log(`🔧 Calling ${functionName}`);
+                console.log(`ðŸ”§ Calling ${functionName}`);
                 return window[functionName](...args);
             } else {
-                console.warn(`⚠️ Function ${functionName} not available`);
+                console.warn(`âš ï¸ Function ${functionName} not available`);
                 return null;
             }
         } catch (error) {
-            console.error(`❌ Error calling ${functionName}:`, error);
-            
-            // If it's an array method error, try to fix it
-            if (error.message.includes('is not a function') && 
-                (error.message.includes('find') || error.message.includes('some'))) {
-                console.log('🔧 Array method error in function call - fixing arrays...');
-                fixManagedServers();
-            }
-            
+            console.error(`âŒ Error calling ${functionName}:`, error);
             return null;
         }
     }
     
     /**
-     * ✅ ENHANCED: Status display with better formatting
+     * âœ… ENHANCED: Status display with better formatting
      */
     function showStatus(message, type = 'info') {
-        console.log(`📢 Status (${type}): ${message}`);
+        console.log(`ðŸ“¢ Status (${type}): ${message}`);
         
         // Try to find status display elements
         const statusSelectors = ['#statusDisplay', '#globalStatus', '.status-message'];
@@ -813,7 +626,7 @@
     }
     
     /**
-     * ✅ UTILITY FUNCTIONS
+     * âœ… UTILITY FUNCTIONS
      */
     function escapeHtml(text) {
         if (!text) return '';
@@ -824,20 +637,20 @@
     
     function getMessageTypeIcon(type) {
         const icons = {
-            'info': 'ℹ️',
-            'success': '✅',
-            'error': '❌',
-            'warning': '⚠️',
-            'debug': '🔧'
+            'info': 'â„¹ï¸',
+            'success': 'âœ…',
+            'error': 'âŒ',
+            'warning': 'âš ï¸',
+            'debug': 'ðŸ”§'
         };
-        return icons[type] || 'ℹ️';
+        return icons[type] || 'â„¹ï¸';
     }
     
     /**
-     * ✅ PLACEHOLDER VIEW CREATOR
+     * âœ… PLACEHOLDER VIEW CREATOR
      */
     function createPlaceholderView(tabId) {
-        console.log('🔧 Creating placeholder view for:', tabId);
+        console.log('ðŸ”§ Creating placeholder view for:', tabId);
         
         const container = document.querySelector('.main-content') || document.querySelector('main') || document.body;
         
@@ -848,7 +661,7 @@
         const title = tabId.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
         
         placeholderView.innerHTML = `
-            <h2 class="text-2xl font-bold mb-4">🔧 ${title}</h2>
+            <h2 class="text-2xl font-bold mb-4">ðŸ”§ ${title}</h2>
             <p class="text-gray-400 mb-4">This section is currently being loaded...</p>
             <div class="text-sm text-gray-500">
                 <p>If this message persists, please try refreshing the page.</p>
@@ -859,7 +672,7 @@
     }
     
     /**
-     * ✅ DEBUG AND MONITORING FUNCTIONS - FIXED TO AVOID RECURSION
+     * âœ… DEBUG AND MONITORING FUNCTIONS - FIXED TO AVOID RECURSION
      */
     function getEnhancementStats() {
         // Get stats safely without triggering recursion
@@ -881,19 +694,13 @@
                 queueHealthy: requestQueue.isHealthy(),
                 avgWaitTime: queueStats.avgWaitTime,
                 hasStaleRequests: requestQueue.hasStaleRequests()
-            },
-            arrayStatus: {
-                managedServersType: typeof window.managedServers,
-                managedServersIsArray: Array.isArray(window.managedServers),
-                managedServersLength: window.managedServers ? window.managedServers.length : 0,
-                arrayInitialized: arrayInitialized
             }
         };
     }
     
     function debugEnhancements() {
-        console.log('🔍 ENHANCEMENT DEBUG INFO (COMPLETE FIXED VERSION):');
-        console.log('=================================================');
+        console.log('ðŸ” ENHANCEMENT DEBUG INFO (FIXED VERSION):');
+        console.log('=============================================');
         
         const stats = getEnhancementStats();
         
@@ -911,40 +718,26 @@
         console.log(`  - Avg Wait: ${stats.requestQueue.avgWaitTime}ms`);
         console.log(`  - Healthy: ${stats.performance.queueHealthy}`);
         
-        console.log('Array Status:');
-        console.log(`  - managedServers type: ${stats.arrayStatus.managedServersType}`);
-        console.log(`  - managedServers isArray: ${stats.arrayStatus.managedServersIsArray}`);
-        console.log(`  - managedServers length: ${stats.arrayStatus.managedServersLength}`);
-        console.log(`  - arrayInitialized: ${stats.arrayStatus.arrayInitialized}`);
-        
         console.log('Current State:');
         console.log(`  - Tab: ${stats.currentTab}`);
         console.log(`  - Managed Servers: ${managedServers.length}`);
         
         console.log('Key Improvements:');
-        console.log('  - ✅ CRITICAL: Fixed managedServers array initialization');
-        console.log('  - ✅ CRITICAL: Added array validation and protection');
-        console.log('  - ✅ CRITICAL: Added emergency recovery functions');
-        console.log('  - ✅ FIXED: 2-minute timeout (was 90s)');
-        console.log('  - ✅ FIXED: Proper timeout clearing');
-        console.log('  - ✅ FIXED: Retry logic with exponential backoff');
-        console.log('  - ✅ FIXED: Better health monitoring');
-        console.log('  - ✅ FIXED: Auto-recovery procedures');
-        console.log('  - ✅ CRITICAL: Eliminated infinite recursion');
+        console.log('  - âœ… FIXED: 2-minute timeout (was 90s)');
+        console.log('  - âœ… FIXED: Proper timeout clearing');
+        console.log('  - âœ… FIXED: Retry logic with exponential backoff');
+        console.log('  - âœ… FIXED: Better health monitoring');
+        console.log('  - âœ… FIXED: Auto-recovery procedures');
+        console.log('  - âœ… CRITICAL: Eliminated infinite recursion');
         
         if (!stats.performance.queueHealthy) {
-            console.warn('⚠️ Request queue unhealthy - running recovery...');
+            console.warn('âš ï¸ Request queue unhealthy - running recovery...');
             requestQueue.performRecovery();
-        }
-        
-        if (!stats.arrayStatus.managedServersIsArray) {
-            console.error('❌ CRITICAL: managedServers array corrupted - fixing...');
-            fixManagedServers();
         }
     }
     
     // ============================================================================
-    // ✅ CRITICAL: GLOBAL FUNCTION EXPOSURE WITH ARRAY PROTECTION
+    // âœ… GLOBAL FUNCTION EXPOSURE
     // ============================================================================
     
     // Core functions
@@ -963,29 +756,16 @@
     window.debugEnhancements = debugEnhancements;
     window.ENHANCED_CONFIG = ENHANCED_CONFIG;
     
-    // ✅ CRITICAL: Array protection functions
-    window.validateManagedServers = validateManagedServers;
-    window.fixManagedServers = fixManagedServers;
-    window.safeArrayOperation = safeArrayOperation;
-    window.loadManagedServers = loadManagedServers;
-    
-    // ✅ Emergency functions
+    // âœ… NEW: Emergency functions
     window.fixRequestQueue = () => {
         requestQueue.forceReset();
-        console.log('✅ RequestQueue manually reset');
+        console.log('âœ… RequestQueue manually reset');
     };
     
-    window.emergencyFix = () => {
-        console.log('🚑 Running emergency fix...');
-        fixManagedServers();
-        requestQueue.forceReset();
-        console.log('✅ Emergency fix complete');
-    };
-    
-    // ✅ CRITICAL: Global variables with proper initialization
+    // Global variables
     window.currentTab = currentTab;
     window.servers = servers;
-    window.managedServers = managedServers;    // ✅ CRITICAL: Properly initialized array
+    window.managedServers = managedServers;
     window.selectedServers = selectedServers;
     window.wsConnection = wsConnection;
     window.isDemo = isDemo;
@@ -996,31 +776,11 @@
     window.websocketsAvailable = websocketsAvailable;
     
     // ============================================================================
-    // ✅ INITIALIZATION WITH COMPREHENSIVE PROTECTION
+    // âœ… INITIALIZATION WITH HEALTH MONITORING
     // ============================================================================
     
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('🚀 GUST Bot Enhanced - Core Module Initializing (COMPLETE FIXED VERSION)');
-        
-        // ✅ CRITICAL: Mark arrays as initialized
-        arrayInitialized = true;
-        
-        // ✅ CRITICAL: Initial array validation
-        console.log('🔧 Running initial array validation...');
-        validateManagedServers();
-        
-        // ✅ CRITICAL: Set up global error handler for array issues
-        window.addEventListener('error', function(event) {
-            if (event.error && event.error.message) {
-                const errorMsg = event.error.message;
-                if (errorMsg.includes('.find is not a function') || 
-                    errorMsg.includes('.some is not a function') ||
-                    errorMsg.includes('.filter is not a function')) {
-                    console.error('🚨 Array method error caught - auto-fixing:', errorMsg);
-                    fixManagedServers();
-                }
-            }
-        });
+        console.log('ðŸš€ GUST Bot Enhanced - Core Module Initializing (FIXED VERSION)');
         
         // Initialize with default tab
         setTimeout(() => {
@@ -1040,85 +800,55 @@
             }
         });
         
-        // ✅ ENHANCED: Health monitoring with auto-recovery - SAFE FROM RECURSION
+        // âœ… ENHANCED: Health monitoring with auto-recovery - SAFE FROM RECURSION
         setInterval(() => {
             try {
-                // Validate arrays periodically
-                if (!validateManagedServers()) {
-                    console.warn('⚠️ Array validation failed during health check');
-                }
-                
-                // Check request queue health
                 if (!requestQueue.performHealthCheck()) {
-                    console.warn('⚠️ Request queue health check failed, recovery attempted');
+                    console.warn('âš ï¸ Request queue health check failed, recovery attempted');
                 }
             } catch (error) {
-                console.error('❌ Health check error:', error);
+                console.error('âŒ Health check error:', error);
                 // Emergency reset if health check fails
-                fixManagedServers();
                 requestQueue.forceReset();
             }
         }, 60000); // Check every minute
         
-        // ✅ NEW: Performance monitoring - SAFE FROM RECURSION
+        // âœ… NEW: Performance monitoring - SAFE FROM RECURSION
         setInterval(() => {
             try {
                 const queueLength = requestQueue.requestQueue.length;
                 const avgWaitTime = requestQueue.calculateAverageWaitTime();
                 
                 if (queueLength > 10) {
-                    console.warn(`⚠️ Request queue getting long: ${queueLength} items`);
+                    console.warn(`âš ï¸ Request queue getting long: ${queueLength} items`);
                 }
                 if (avgWaitTime > 10000) {
-                    console.warn(`⚠️ High average wait time: ${avgWaitTime}ms`);
-                }
-                
-                // Periodic array validation
-                if (!Array.isArray(window.managedServers)) {
-                    console.warn('⚠️ managedServers corrupted - auto-fixing');
-                    fixManagedServers();
+                    console.warn(`âš ï¸ High average wait time: ${avgWaitTime}ms`);
                 }
             } catch (error) {
-                console.error('❌ Performance monitoring error:', error);
+                console.error('âŒ Performance monitoring error:', error);
             }
         }, 30000); // Check every 30 seconds
         
-        // ✅ CRITICAL: Auto-load servers after initialization
-        setTimeout(() => {
-            console.log('📡 Auto-loading servers after initialization...');
-            loadManagedServers().then(servers => {
-                console.log(`✅ Auto-loaded ${servers.length} servers successfully`);
-            }).catch(error => {
-                console.warn('⚠️ Auto-load servers failed (this is normal for new installations):', error);
-                // Ensure arrays are still valid even if loading fails
-                validateManagedServers();
-            });
-        }, 2000);
-        
-        console.log('✅ Core initialization complete with CRITICAL array protection fixes');
-        console.log('🔧 Key improvements active:');
-        console.log('  - ✅ CRITICAL: managedServers properly initialized as array');
-        console.log('  - ✅ CRITICAL: Array validation and protection functions');
-        console.log('  - ✅ CRITICAL: Emergency recovery functions available');
+        console.log('âœ… Core initialization complete with critical fixes applied');
+        console.log('ðŸ”§ Key improvements active:');
         console.log('  - 2-minute request timeout (eliminates 90s timeouts)');
         console.log('  - Proper timeout clearing prevents false timeouts');
         console.log('  - Retry logic with exponential backoff');
         console.log('  - Auto health monitoring and recovery');
         console.log('  - Enhanced error handling and logging');
-        console.log('  - ✅ CRITICAL: Eliminated infinite recursion bug');
+        console.log('  - âœ… CRITICAL: Eliminated infinite recursion bug');
         
         // Show debug info after 3 seconds
         setTimeout(() => {
             debugEnhancements();
         }, 3000);
         
-        console.log('🎯 Expected result: No more "TypeError: .find/.some is not a function" errors');
-        console.log('🎯 Expected result: No more "Request queue timeout after 90s" errors');
-        console.log('🎯 Expected result: No more "Maximum call stack size exceeded" errors');
-        console.log('🎯 Expected result: managedServers always working as proper array');
+        console.log('ðŸŽ¯ Expected result: No more "Request queue timeout after 90s" errors');
+        console.log('ðŸŽ¯ Expected result: No more "Maximum call stack size exceeded" errors');
     });
     
-    console.log('✅ Enhanced Main.js Loaded with COMPLETE Array Protection and Request Queue Fixes');
-    console.log('🚀 Ready for tab switching and server operations with ZERO array errors');
+    console.log('âœ… Enhanced Main.js Loaded with Request Queue Fixes');
+    console.log('ðŸš€ Ready for tab switching and server operations');
 
 </script>

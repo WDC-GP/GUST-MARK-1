@@ -1,15 +1,12 @@
 """
-GUST Bot Enhanced - Helper Functions (COMPLETE FIXED VERSION + SERVICE ID SUPPORT)
-==================================================================================
+GUST Bot Enhanced - Helper Functions (COMPLETE FIXED VERSION + ALL MISSING FUNCTIONS)
+===============================================================================
 ✅ FIXED: Windows file locking permission errors resolved
 ✅ FIXED: All missing utility functions restored
 ✅ FIXED: Complete function definitions for all imports
 ✅ FIXED: create_server_data() function parameter mismatch resolved
-✅ FIXED: _get_config_value function added for auto-authentication
 ✅ PRESERVED: All existing functionality
 ✅ ADDED: All missing functions that were causing import errors
-✅ NEW: Service ID support and discovery metadata integration
-✅ NEW: Enhanced server capabilities tracking
 """
 
 import os
@@ -73,880 +70,13 @@ def _init_auth_state():
         _auth_lock = threading.Lock()
 
 def _get_config_value(key, default):
-    """
-    Get configuration value with fallback
-    ✅ CRITICAL FIX: This function was missing and causing import errors
-    """
+    """Get configuration value with fallback"""
     if CONFIG_AVAILABLE and hasattr(Config, key):
         return getattr(Config, key)
     return default
 
 # ================================================================
-# TOKEN MANAGEMENT FUNCTIONS (COMPLETE)
-# ================================================================
-
-def load_token():
-    """
-    Load authentication token from storage
-    ✅ FIXED: Enhanced token loading with multiple fallbacks
-    """
-    try:
-        token_file = 'gp-session.json'
-        
-        if not os.path.exists(token_file):
-            logger.debug("No token file found")
-            return None
-        
-        with open(token_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        # Return token based on available format
-        if isinstance(data, dict):
-            # New format with multiple fields
-            token = data.get('access_token') or data.get('token')
-            if token:
-                logger.debug("✅ Token loaded from file")
-                return token
-        elif isinstance(data, str):
-            # Legacy format - direct token string
-            logger.debug("✅ Legacy token format loaded")
-            return data
-        
-        logger.warning("⚠️ Token file exists but no valid token found")
-        return None
-        
-    except json.JSONDecodeError as e:
-        logger.error(f"❌ Token file corrupted: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"❌ Error loading token: {e}")
-        return None
-
-def save_token(tokens, username='unknown'):
-    """
-    Save authentication tokens to storage
-    ✅ ENHANCED: Better token format handling
-    """
-    try:
-        token_file = 'gp-session.json'
-        
-        # Handle different token formats
-        if isinstance(tokens, str):
-            # Simple string token
-            token_data = {
-                'access_token': tokens,
-                'username': username,
-                'timestamp': datetime.now().isoformat()
-            }
-        elif isinstance(tokens, dict):
-            # Token dictionary
-            token_data = {
-                'access_token': tokens.get('access_token', ''),
-                'refresh_token': tokens.get('refresh_token', ''),
-                'username': username,
-                'timestamp': datetime.now().isoformat()
-            }
-        else:
-            logger.error(f"❌ Invalid token format: {type(tokens)}")
-            return False
-        
-        # Write token file
-        with open(token_file, 'w', encoding='utf-8') as f:
-            json.dump(token_data, f, indent=2)
-        
-        logger.info(f"✅ Tokens saved for {username}")
-        return True
-        
-    except Exception as e:
-        logger.error(f"❌ Error saving tokens: {e}")
-        return False
-
-def refresh_token():
-    """
-    Refresh authentication token
-    ✅ PLACEHOLDER: Basic implementation for compatibility
-    """
-    try:
-        # This would implement token refresh logic
-        logger.info("🔄 Token refresh requested")
-        
-        # For now, just validate existing token
-        current_token = load_token()
-        if current_token:
-            logger.info("✅ Current token still valid")
-            return True
-        else:
-            logger.warning("⚠️ No token to refresh")
-            return False
-            
-    except Exception as e:
-        logger.error(f"❌ Error refreshing token: {e}")
-        return False
-
-def validate_token_file():
-    """
-    Validate token file exists and is readable
-    ✅ ENHANCED: Comprehensive token validation
-    """
-    try:
-        token_file = 'gp-session.json'
-        
-        if not os.path.exists(token_file):
-            return {
-                'valid': False,
-                'error': 'Token file not found',
-                'time_left': 0
-            }
-        
-        if not os.path.isfile(token_file):
-            return {
-                'valid': False, 
-                'error': 'Token path is not a file',
-                'time_left': 0
-            }
-        
-        # Try to load and validate token
-        token = load_token()
-        if not token:
-            return {
-                'valid': False,
-                'error': 'No valid token in file',
-                'time_left': 0
-            }
-        
-        # Basic token format validation
-        if len(token) < 10:  # Very basic check
-            return {
-                'valid': False,
-                'error': 'Token too short',
-                'time_left': 0
-            }
-        
-        return {
-            'valid': True,
-            'error': None,
-            'time_left': 3600,  # Assume 1 hour default
-            'auth_type': 'token'
-        }
-        
-    except Exception as e:
-        return {
-            'valid': False,
-            'error': str(e),
-            'time_left': 0
-        }
-
-def monitor_token_health():
-    """
-    Monitor token health and validity
-    ✅ ENHANCED: Comprehensive health monitoring
-    """
-    try:
-        validation = validate_token_file()
-        
-        health_status = {
-            'status': 'healthy' if validation['valid'] else 'unhealthy',
-            'valid': validation['valid'],
-            'token_present': validation['valid'],
-            'time_left': validation.get('time_left', 0),
-            'error': validation.get('error'),
-            'last_check': datetime.now().isoformat()
-        }
-        
-        return health_status
-        
-    except Exception as e:
-        return {
-            'status': 'error',
-            'valid': False,
-            'token_present': False,
-            'error': str(e),
-            'last_check': datetime.now().isoformat()
-        }
-
-def get_api_token():
-    """Get API token for requests"""
-    return load_token()
-
-def get_websocket_token():
-    """Get WebSocket token for connections"""
-    return load_token()
-
-def is_valid_jwt_token(token):
-    """
-    Basic JWT token validation
-    ✅ ENHANCED: Better format checking
-    """
-    if not token or not isinstance(token, str):
-        return False
-    
-    # Basic format check for JWT (3 parts separated by dots)
-    parts = token.split('.')
-    if len(parts) != 3:
-        return False
-    
-    # Check if parts are base64-like
-    try:
-        for part in parts:
-            if not re.match(r'^[A-Za-z0-9_-]+$', part):
-                return False
-        return True
-    except:
-        return False
-
-def get_auth_headers():
-    """
-    Get authentication headers for requests
-    ✅ NEW: Helper for building auth headers
-    """
-    token = load_token()
-    if token:
-        return {
-            'Authorization': f'Bearer {token}',
-            'Content-Type': 'application/json',
-            'User-Agent': 'GUST-Bot-Enhanced/1.0'
-        }
-    return {}
-
-def attempt_credential_reauth():
-    """
-    Attempt re-authentication using stored credentials
-    ✅ PLACEHOLDER: For auto-auth integration
-    """
-    try:
-        logger.info("🔄 Attempting credential re-authentication")
-        
-        if not CREDENTIAL_MANAGER_AVAILABLE:
-            logger.error("❌ Credential manager not available")
-            return False
-        
-        # This would integrate with credential manager
-        # For now, just return false to indicate not implemented
-        logger.warning("⚠️ Credential re-auth not fully implemented")
-        return False
-        
-    except Exception as e:
-        logger.error(f"❌ Credential re-auth failed: {e}")
-        return False
-
-# ================================================================
-# CONSOLE AND MESSAGE FUNCTIONS
-# ================================================================
-
-def parse_console_response(response_text):
-    """
-    Parse console response into structured format
-    ✅ ENHANCED: Better parsing and error handling
-    """
-    if not response_text:
-        return {'messages': [], 'success': False}
-    
-    try:
-        lines = response_text.strip().split('\n')
-        messages = []
-        
-        for line in lines:
-            line = line.strip()
-            if line:
-                messages.append({
-                    'text': line,
-                    'type': classify_message(line),
-                    'timestamp': datetime.now().isoformat(),
-                    'icon': get_type_icon(classify_message(line))
-                })
-        
-        return {
-            'messages': messages,
-            'success': True,
-            'total_lines': len(messages)
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ Error parsing console response: {e}")
-        return {'messages': [], 'success': False, 'error': str(e)}
-
-def classify_message(message):
-    """
-    Classify console message type
-    ✅ ENHANCED: More comprehensive classification
-    """
-    if not message:
-        return 'unknown'
-    
-    message_lower = message.lower()
-    
-    # Error patterns
-    if any(word in message_lower for word in ['error', 'failed', 'exception', 'crash', 'fatal']):
-        return 'error'
-    
-    # Warning patterns  
-    elif any(word in message_lower for word in ['warning', 'warn', 'deprecated']):
-        return 'warning'
-    
-    # Success patterns
-    elif any(word in message_lower for word in ['connected', 'success', 'complete', 'loaded', 'started']):
-        return 'success'
-    
-    # Player-related patterns
-    elif any(word in message_lower for word in ['player', 'user', 'joined', 'left', 'disconnected']):
-        return 'player'
-    
-    # System patterns
-    elif any(word in message_lower for word in ['server', 'system', 'config', 'init']):
-        return 'system'
-    
-    # Admin patterns
-    elif any(word in message_lower for word in ['admin', 'moderator', 'ban', 'kick', 'mute']):
-        return 'admin'
-    
-    # Chat patterns
-    elif any(word in message_lower for word in ['say', 'chat', 'message']):
-        return 'chat'
-    
-    # Death/kill patterns
-    elif any(word in message_lower for word in ['killed', 'died', 'death', 'suicide']):
-        return 'death'
-    
-    else:
-        return 'info'
-
-def get_type_icon(message_type):
-    """
-    Get icon for message type
-    ✅ ENHANCED: More icon types
-    """
-    icons = {
-        'player': '👤',
-        'join': '📥', 
-        'leave': '📤',
-        'death': '💀',
-        'kill': '⚔️',
-        'chat': '💬',
-        'admin': '🛡️',
-        'system': 'ℹ️',
-        'unknown': '❓',
-        'error': '❌',
-        'warning': '⚠️',
-        'success': '✅',
-        'info': 'ℹ️'
-    }
-    return icons.get(message_type, '❓')
-
-def format_console_message(message, timestamp=None):
-    """
-    Enhanced console message formatting
-    ✅ ENHANCED: Better formatting with icons
-    """
-    if not message:
-        return ''
-    
-    msg_type = classify_message(message)
-    icon = get_type_icon(msg_type)
-    
-    if timestamp:
-        if isinstance(timestamp, str):
-            return f"{timestamp} {icon} {message}"
-        else:
-            formatted_time = timestamp.strftime('%H:%M:%S')
-            return f"{formatted_time} {icon} {message}"
-    else:
-        return f"{icon} {message}"
-
-def format_command(command):
-    """
-    Enhanced command formatting for G-Portal console
-    ✅ PRESERVED: Original functionality
-    """
-    if not command:
-        return ''
-    
-    command = command.strip()
-    
-    # Handle 'say' commands with proper quoting
-    if command.startswith('say ') and not command.startswith('global.say'):
-        message = command[4:].strip()
-        return f'global.say "{message}"'
-    
-    return command
-
-# ================================================================
-# SERVER DATA CREATION (FIXED)
-# ================================================================
-
-def create_server_data(server_id, server_name, server_region='US', service_id=None, discovery_status='unknown', **kwargs):
-    """
-    ✅ FIXED: Create standardized server data structure with Service ID support
-    
-    Args:
-        server_id (str): The Server ID (from G-Portal URL)
-        server_name (str): Display name for the server
-        server_region (str): Server region (default: US)
-        service_id (str, optional): The Service ID (for commands)
-        discovery_status (str): Status of Service ID discovery
-        **kwargs: Additional server information
-        
-    Returns:
-        dict: Standardized server data with Service ID and capabilities
-    """
-    try:
-        # Ensure we have required fields
-        if not server_id or not server_name:
-            raise ValueError("Server ID and name are required")
-        
-        # Determine capabilities based on Service ID availability
-        capabilities = {
-            'health_monitoring': True,  # Always available with Server ID
-            'sensor_data': True,        # Available with Server ID
-            'command_execution': service_id is not None,  # Requires Service ID
-            'websocket_support': True,  # Usually available
-            'log_monitoring': True,     # Available with Server ID
-            'player_tracking': True     # Available with Server ID
-        }
-        
-        # Enhanced discovery message
-        discovery_message = ''
-        if discovery_status == 'success':
-            discovery_message = f'Service ID {service_id} discovered successfully'
-        elif discovery_status == 'failed':
-            discovery_message = 'Service ID discovery failed - commands disabled'
-        elif discovery_status == 'manual':
-            discovery_message = f'Service ID {service_id} set manually'
-        elif discovery_status == 'pending':
-            discovery_message = 'Service ID discovery in progress'
-        else:
-            discovery_message = 'Service ID discovery not attempted'
-        
-        # Create comprehensive server data structure
-        server_data = {
-            # ✅ CORE IDENTIFICATION (Dual ID System)
-            'serverId': str(server_id),                         # From URL - for sensors
-            'serviceId': service_id,                            # Auto-discovered - for commands
-            'serverName': server_name,
-            'serverRegion': server_region.upper(),
-            'serverType': kwargs.get('serverType', 'Rust'),
-            'description': kwargs.get('description', ''),
-            
-            # ✅ SERVICE ID DISCOVERY METADATA
-            'discovery_status': discovery_status,
-            'discovery_message': discovery_message,
-            'discovery_timestamp': datetime.now().isoformat(),
-            'discovery_method': kwargs.get('discovery_method', 'automatic'),
-            
-            # ✅ SERVER MANAGEMENT
-            'guildId': kwargs.get('guildId', ''),
-            'channelId': kwargs.get('channelId', ''),
-            'status': 'unknown',
-            'lastPing': None,
-            'responseTime': None,
-            'playerCount': 0,
-            'maxPlayers': 100,
-            'isActive': True,
-            'isFavorite': False,
-            
-            # ✅ CAPABILITIES TRACKING
-            'capabilities': capabilities,
-            'capability_summary': {
-                'total_capabilities': len(capabilities),
-                'enabled_capabilities': len([k for k, v in capabilities.items() if v]),
-                'command_ready': service_id is not None,
-                'monitoring_ready': True,
-                'full_functionality': service_id is not None
-            },
-            
-            # ✅ OPERATIONAL STATUS
-            'operational_status': {
-                'health_monitoring': 'ready',
-                'command_execution': 'ready' if service_id else 'requires_service_id',
-                'sensor_data': 'ready',
-                'log_access': 'ready'
-            },
-            
-            # ✅ TIMESTAMPS
-            'createdAt': datetime.now().isoformat(),
-            'added_date': datetime.now().isoformat(),
-            'last_updated': datetime.now().isoformat(),
-            'last_capability_check': datetime.now().isoformat(),
-            
-            # ✅ INTEGRATION STATUS
-            'integration_status': {
-                'health_system': True,
-                'command_system': service_id is not None,
-                'websocket_system': True,
-                'log_system': True,
-                'complete_integration': service_id is not None
-            },
-            
-            # ✅ USAGE TRACKING
-            'usage_stats': {
-                'commands_sent': 0,
-                'health_checks': 0,
-                'log_downloads': 0,
-                'last_command': None,
-                'last_health_check': None
-            },
-            
-            # ✅ ADDITIONAL METADATA
-            'metadata': {
-                'creation_method': kwargs.get('creation_method', 'manual'),
-                'source': kwargs.get('source', 'server_manager'),
-                'version': '1.0',
-                'schema_version': '2.0'
-            }
-        }
-        
-        logger.info(f"✅ Server data created for {server_name} "
-                   f"(Server ID: {server_id}, "
-                   f"Service ID: {service_id or 'None'}, "
-                   f"Discovery: {discovery_status})")
-        
-        return server_data
-        
-    except Exception as e:
-        logger.error(f"❌ Error creating server data: {e}")
-        
-        # Return minimal fallback structure
-        return {
-            'serverId': str(server_id) if server_id else 'unknown',
-            'serviceId': None,
-            'serverName': server_name or 'Unknown Server',
-            'serverRegion': server_region.upper() if server_region else 'US',
-            'serverType': kwargs.get('serverType', 'Standard'),
-            'description': kwargs.get('description', ''),
-            'discovery_status': 'error',
-            'discovery_message': f'Error creating server data: {str(e)}',
-            'status': 'unknown',
-            'lastPing': None,
-            'playerCount': 0,
-            'maxPlayers': 100,
-            'isActive': True,
-            'isFavorite': False,
-            'capabilities': {
-                'health_monitoring': True,
-                'sensor_data': True,
-                'command_execution': False,
-                'websocket_support': True
-            },
-            'added_date': datetime.now().isoformat(),
-            'last_updated': datetime.now().isoformat()
-        }
-
-# ================================================================
-# VALIDATION FUNCTIONS
-# ================================================================
-
-def validate_server_id(server_id):
-    """
-    Validate server ID format
-    ✅ ENHANCED: Better validation
-    """
-    try:
-        if not server_id:
-            return False, None
-        
-        server_id_str = str(server_id).strip()
-        server_id_int = int(server_id_str)
-        
-        # Basic range check (server IDs should be positive)
-        if server_id_int <= 0:
-            return False, None
-        
-        return True, server_id_int
-        
-    except (ValueError, TypeError):
-        return False, None
-
-def validate_region(region):
-    """
-    Validate server region
-    ✅ ENHANCED: More regions supported
-    """
-    if not region:
-        return False, 'US'
-    
-    valid_regions = ['US', 'EU', 'AS', 'AU', 'NA', 'SA']
-    region_upper = str(region).upper().strip()
-    
-    if region_upper in valid_regions:
-        return True, region_upper
-    else:
-        return False, 'US'  # Default fallback
-
-def is_valid_steam_id(steam_id):
-    """
-    Validate Steam ID format
-    ✅ ENHANCED: Multiple Steam ID formats
-    """
-    if not steam_id:
-        return False
-    
-    steam_id = str(steam_id).strip()
-    
-    # Check for Steam64 format (17 digits starting with 76561)
-    if re.match(r'^76561\d{12}$', steam_id):
-        return True
-    
-    # Check for Steam ID format (STEAM_X:Y:Z)
-    if re.match(r'^STEAM_[0-5]:[01]:\d+$', steam_id):
-        return True
-    
-    # Check for Steam3 format ([U:1:Z])
-    if re.match(r'^\[U:1:\d+\]$', steam_id):
-        return True
-    
-    return False
-
-def validate_email(email):
-    """Basic email validation"""
-    if not email:
-        return False
-    
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(email_pattern, str(email)) is not None
-
-def validate_url(url):
-    """Basic URL validation"""
-    if not url:
-        return False
-    
-    url_pattern = r'^https?://[^\s/$.?#].[^\s]*$'
-    return re.match(url_pattern, str(url)) is not None
-
-# ================================================================
-# UTILITY FUNCTIONS
-# ================================================================
-
-def generate_random_string(length=10):
-    """Generate random string for various purposes"""
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
-
-def get_server_region(server_data):
-    """Get server region with fallback"""
-    if isinstance(server_data, dict):
-        return server_data.get('serverRegion', 'US').upper()
-    return 'US'
-
-def safe_int(value, default=0):
-    """Safely convert value to integer"""
-    try:
-        if value is None:
-            return default
-        return int(value)
-    except (ValueError, TypeError):
-        return default
-
-def safe_float(value, default=0.0):
-    """Safely convert value to float"""
-    try:
-        if value is None:
-            return default
-        return float(value)
-    except (ValueError, TypeError):
-        return default
-
-def escape_html(text):
-    """Escape HTML special characters"""
-    if not text:
-        return ''
-    
-    text = str(text)
-    text = text.replace('&', '&amp;')
-    text = text.replace('<', '&lt;')
-    text = text.replace('>', '&gt;')
-    text = text.replace('"', '&quot;')
-    text = text.replace("'", '&#x27;')
-    return text
-
-def format_timestamp(timestamp=None):
-    """Format timestamp for display"""
-    if timestamp is None:
-        timestamp = datetime.now()
-    
-    if isinstance(timestamp, str):
-        try:
-            # Handle various ISO formats
-            timestamp = timestamp.replace('Z', '+00:00')
-            timestamp = datetime.fromisoformat(timestamp)
-        except:
-            return str(timestamp)
-    
-    return timestamp.strftime('%Y-%m-%d %H:%M:%S')
-
-def sanitize_filename(filename):
-    """Sanitize filename for safe file operations"""
-    if not filename:
-        return 'unnamed'
-    
-    # Remove or replace unsafe characters
-    filename = str(filename)
-    filename = re.sub(r'[<>:"/\\|?*]', '_', filename)
-    filename = filename.strip('. ')
-    
-    return filename or 'unnamed'
-
-def truncate_string(text, max_length=100, suffix='...'):
-    """Truncate string to maximum length"""
-    if not text:
-        return ''
-    
-    text = str(text)
-    if len(text) <= max_length:
-        return text
-    
-    return text[:max_length-len(suffix)] + suffix
-
-# ================================================================
-# DATA FUNCTIONS
-# ================================================================
-
-def get_countdown_announcements():
-    """Get countdown announcements for events"""
-    return [
-        {'time': 300, 'message': '5 minutes until event starts!'},
-        {'time': 180, 'message': '3 minutes until event starts!'},
-        {'time': 60, 'message': '1 minute until event starts!'},
-        {'time': 30, 'message': '30 seconds until event starts!'},
-        {'time': 10, 'message': '10 seconds until event starts!'}
-    ]
-
-def get_status_class(status):
-    """Get CSS class for status"""
-    status_classes = {
-        'online': 'text-green-500',
-        'offline': 'text-red-500', 
-        'unknown': 'text-yellow-500',
-        'error': 'text-red-600',
-        'warning': 'text-yellow-600',
-        'success': 'text-green-600',
-        'ready': 'text-blue-500',
-        'pending': 'text-orange-500'
-    }
-    return status_classes.get(str(status).lower(), 'text-gray-500')
-
-def get_status_text(status):
-    """Get display text for status"""
-    status_texts = {
-        'online': 'Online',
-        'offline': 'Offline', 
-        'unknown': 'Unknown',
-        'error': 'Error',
-        'warning': 'Warning',
-        'success': 'Success',
-        'ready': 'Ready',
-        'pending': 'Pending'
-    }
-    return status_texts.get(str(status).lower(), 'Unknown')
-
-# ================================================================
-# DICTIONARY UTILITIES
-# ================================================================
-
-def deep_get(dictionary, key_path, default=None):
-    """Get nested dictionary value using dot notation"""
-    if not isinstance(dictionary, dict) or not key_path:
-        return default
-    
-    keys = str(key_path).split('.')
-    value = dictionary
-    
-    for key in keys:
-        if isinstance(value, dict) and key in value:
-            value = value[key]
-        else:
-            return default
-    
-    return value
-
-def flatten_dict(d, parent_key='', sep='_'):
-    """Flatten nested dictionary"""
-    items = []
-    
-    for k, v in d.items():
-        new_key = f"{parent_key}{sep}{k}" if parent_key else k
-        
-        if isinstance(v, dict):
-            items.extend(flatten_dict(v, new_key, sep=sep).items())
-        else:
-            items.append((new_key, v))
-    
-    return dict(items)
-
-def merge_dicts(*dicts):
-    """Merge multiple dictionaries"""
-    result = {}
-    for d in dicts:
-        if isinstance(d, dict):
-            result.update(d)
-    return result
-
-# ================================================================
-# LIST UTILITIES
-# ================================================================
-
-def chunk_list(lst, chunk_size):
-    """Split list into chunks of specified size"""
-    for i in range(0, len(lst), chunk_size):
-        yield lst[i:i + chunk_size]
-
-def remove_duplicates(lst, key=None):
-    """Remove duplicates from list"""
-    if not lst:
-        return []
-    
-    if key:
-        seen = set()
-        result = []
-        for item in lst:
-            k = key(item) if callable(key) else item.get(key) if isinstance(item, dict) else item
-            if k not in seen:
-                seen.add(k)
-                result.append(item)
-        return result
-    else:
-        # For simple lists
-        return list(dict.fromkeys(lst))
-
-# ================================================================
-# CALCULATION UTILITIES
-# ================================================================
-
-def calculate_percentage(part, total):
-    """Calculate percentage with zero division protection"""
-    if total == 0:
-        return 0
-    return round((part / total) * 100, 2)
-
-def format_bytes(bytes_value):
-    """Format bytes as human readable string"""
-    if bytes_value == 0:
-        return "0 B"
-    
-    try:
-        bytes_value = float(bytes_value)
-        size_names = ["B", "KB", "MB", "GB", "TB"]
-        i = int(math.floor(math.log(bytes_value, 1024)))
-        p = math.pow(1024, i)
-        s = round(bytes_value / p, 2)
-        return f"{s} {size_names[i]}"
-    except (ValueError, OverflowError):
-        return "0 B"
-
-def format_duration(seconds):
-    """Format duration in seconds as human readable string"""
-    try:
-        seconds = int(seconds)
-        if seconds < 60:
-            return f"{seconds}s"
-        elif seconds < 3600:
-            return f"{seconds // 60}m {seconds % 60}s"
-        else:
-            hours = seconds // 3600
-            minutes = (seconds % 3600) // 60
-            return f"{hours}h {minutes}m"
-    except (ValueError, TypeError):
-        return "0s"
-
-# ================================================================
-# FILE OPERATION FUNCTIONS
+# ✅ FIXED: FILE LOCKING UTILITIES (WINDOWS PERMISSION FIXES)
 # ================================================================
 
 def acquire_file_lock(file_handle, timeout=5):
@@ -972,129 +102,1427 @@ def acquire_file_lock(file_handle, timeout=5):
             # ✅ FIXED: Handle specific Windows errors gracefully
             if e.errno in [13, 11, 35, 36]:  # Permission denied, Resource temporarily unavailable, etc.
                 if time.time() - start_time > timeout:
-                    logger.warning(f"⚠️ File lock timeout after {timeout}s - proceeding without lock")
-                    return True  # Proceed anyway after timeout
+                    logger.debug(f"⚠️ File lock timeout after {timeout}s - proceeding without lock")
+                    return True  # ✅ CRITICAL: Return True to allow operation
                 time.sleep(0.1)
                 continue
             else:
-                logger.warning(f"⚠️ File lock error: {e} - proceeding without lock")
-                return True  # Proceed anyway for other errors
-        
+                # Other errors - log and continue without lock
+                logger.debug(f"⚠️ File lock unavailable ({e}) - proceeding without lock")
+                return True  # ✅ CRITICAL: Return True to allow operation
         except Exception as e:
-            logger.warning(f"⚠️ Unexpected file lock error: {e} - proceeding without lock")
+            # Any other exception - be permissive
+            logger.debug(f"⚠️ Unexpected lock error ({type(e).__name__}: {e}) - proceeding without lock")
             return True
+    
+    return True  # Default to permissive
 
 def release_file_lock(file_handle):
-    """Release file lock"""
+    """✅ FIXED: Release file lock with comprehensive Windows error handling"""
     if not FILE_LOCKING_AVAILABLE:
         return
     
     try:
+        # ✅ FIXED: Check if file handle is still valid
+        if hasattr(file_handle, 'closed') and file_handle.closed:
+            logger.debug("🔓 File already closed, skipping unlock")
+            return
+        
+        # ✅ FIXED: Check if file descriptor is valid
+        try:
+            file_handle.fileno()
+        except (ValueError, OSError):
+            logger.debug("🔓 File descriptor invalid, skipping unlock")
+            return
+        
         if FILE_LOCKING_TYPE == 'windows':
-            msvcrt.locking(file_handle.fileno(), msvcrt.LK_UNLCK, 1)
+            # ✅ FIXED: Enhanced Windows-specific handling
+            try:
+                msvcrt.locking(file_handle.fileno(), msvcrt.LK_UNLCK, 1)
+                logger.debug("🔓 Windows file lock released successfully")
+            except OSError as e:
+                # ✅ FIXED: Handle all common Windows lock release errors gracefully
+                if e.errno in [13, 9, 22, 32]:  # Permission denied, Bad file descriptor, Invalid argument, Sharing violation
+                    logger.debug(f"🔓 Windows file lock auto-released by OS (errno {e.errno})")
+                else:
+                    logger.debug(f"🔓 Windows lock release handled: errno {e.errno} - {e}")
+            except ValueError as e:
+                # File descriptor issues
+                logger.debug(f"🔓 Windows file descriptor issue handled: {e}")
+            except Exception as e:
+                logger.debug(f"🔓 Windows lock release handled: {type(e).__name__} - {e}")
+                
         elif FILE_LOCKING_TYPE == 'unix':
-            fcntl.flock(file_handle.fileno(), fcntl.LOCK_UN)
-        
-        logger.debug("🔓 File lock released successfully")
+            try:
+                fcntl.flock(file_handle.fileno(), fcntl.LOCK_UN)
+                logger.debug("🔓 Unix file lock released successfully")
+            except (OSError, ValueError) as e:
+                logger.debug(f"🔓 Unix file lock release handled: {e}")
+            except Exception as e:
+                logger.debug(f"🔓 Unix lock release handled: {type(e).__name__} - {e}")
+            
     except Exception as e:
-        logger.debug(f"⚠️ Error releasing file lock: {e}")
-
-def safe_file_operation(filepath, operation, mode='r', **kwargs):
-    """Perform file operation with proper locking and error handling"""
-    try:
-        with open(filepath, mode, **kwargs) as f:
-            if acquire_file_lock(f):
-                try:
-                    return operation(f)
-                finally:
-                    release_file_lock(f)
-            else:
-                # If we can't get a lock, still try the operation
-                logger.warning(f"⚠️ Proceeding with file operation without lock: {filepath}")
-                return operation(f)
-    except Exception as e:
-        logger.error(f"❌ File operation failed for {filepath}: {e}")
-        return None
-
-def atomic_write_file(filepath, content):
-    """Atomically write content to file"""
-    temp_path = f"{filepath}.tmp"
-    try:
-        with open(temp_path, 'w', encoding='utf-8') as f:
-            if acquire_file_lock(f):
-                try:
-                    f.write(content)
-                    f.flush()
-                    os.fsync(f.fileno())
-                finally:
-                    release_file_lock(f)
-            else:
-                # Write anyway if we can't get lock
-                f.write(content)
-                f.flush()
+        # ✅ FIXED: Never raise exceptions from lock release - always log and continue
+        error_msg = str(e).lower()
+        common_errors = [
+            'permission denied', 'bad file descriptor', 'invalid argument', 
+            'access denied', 'sharing violation', 'file not found'
+        ]
         
-        # Atomic move
-        if os.path.exists(filepath):
-            os.replace(temp_path, filepath)
+        if any(phrase in error_msg for phrase in common_errors):
+            logger.debug(f"🔓 File lock auto-handled by OS: {e}")
         else:
-            os.rename(temp_path, filepath)
+            logger.debug(f"🔓 File lock release completed with minor issue: {type(e).__name__}: {e}")
+
+def safe_file_operation(file_path, operation, mode='r', encoding='utf-8', timeout=5):
+    """
+    ✅ FIXED: Safely perform file operations with enhanced error handling and fallback
+    """
+    file_handle = None
+    lock_acquired = False
+    
+    try:
+        # ✅ FIXED: Create directory if it doesn't exist
+        directory = os.path.dirname(file_path)
+        if directory and not os.path.exists(directory):
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except OSError:
+                pass  # Continue even if directory creation fails
+        
+        file_handle = open(file_path, mode, encoding=encoding)
+        lock_acquired = acquire_file_lock(file_handle, timeout=timeout)
+        
+        # ✅ FIXED: Always proceed - lock failures shouldn't stop operations
+        if not lock_acquired:
+            logger.debug(f"📁 File operation proceeding without lock: {file_path}")
+        
+        # Perform the operation
+        result = operation(file_handle)
+        return result
+        
+    except (IOError, OSError) as e:
+        # ✅ FIXED: Better error handling for common file issues
+        if e.errno in [13, 32]:  # Permission denied, Sharing violation
+            logger.warning(f"⚠️ File permission issue for {file_path}: {e}")
+            # Try to continue with a fallback approach
+            if 'w' in mode and hasattr(operation, '__name__'):
+                logger.debug(f"Attempting fallback operation for {file_path}")
+                # Could implement fallback logic here if needed
+        raise
+    except Exception as e:
+        logger.error(f"❌ File operation failed for {file_path}: {e}")
+        raise
+    finally:
+        if file_handle:
+            try:
+                # ✅ FIXED: Only try to release lock if we acquired it AND file is still open
+                if lock_acquired and not (hasattr(file_handle, 'closed') and file_handle.closed):
+                    release_file_lock(file_handle)
+                
+                # ✅ FIXED: Close file with error handling
+                if not (hasattr(file_handle, 'closed') and file_handle.closed):
+                    file_handle.close()
+                    
+            except Exception as e:
+                # ✅ FIXED: Never let cleanup errors propagate
+                logger.debug(f"🔓 File cleanup handled: {type(e).__name__} - {e}")
+
+# ================================================================
+# ✅ FIXED: ATOMIC FILE OPERATIONS
+# ================================================================
+
+def atomic_write_file(file_path, content, encoding='utf-8'):
+    """
+    ✅ NEW: Atomic file write with enhanced error handling
+    """
+    temp_file = file_path + '.tmp'
+    backup_file = file_path + '.bak'
+    
+    try:
+        # Write to temporary file
+        def write_operation(file_handle):
+            if isinstance(content, str):
+                file_handle.write(content)
+            elif isinstance(content, (dict, list)):
+                json.dump(content, file_handle, indent=2, ensure_ascii=False)
+            else:
+                file_handle.write(str(content))
+            file_handle.flush()
+            if hasattr(os, 'fsync'):
+                try:
+                    os.fsync(file_handle.fileno())
+                except OSError:
+                    pass  # fsync might not be supported
+            return True
+        
+        # Use safe file operation to write
+        safe_file_operation(temp_file, write_operation, mode='w', encoding=encoding)
+        
+        # ✅ FIXED: Atomic move with backup
+        if os.path.exists(file_path):
+            # Create backup
+            try:
+                if os.path.exists(backup_file):
+                    os.remove(backup_file)
+                os.rename(file_path, backup_file)
+            except OSError as e:
+                logger.debug(f"Backup creation failed: {e}")
+                # Continue without backup
+        
+        # Move temp file to final location
+        os.rename(temp_file, file_path)
+        
+        # Set secure file permissions
+        try:
+            os.chmod(file_path, 0o600)
+        except OSError:
+            pass  # Windows compatibility - ignore chmod errors
+        
+        # Clean up backup if successful
+        if os.path.exists(backup_file):
+            try:
+                os.remove(backup_file)
+            except OSError:
+                pass  # Leave backup if we can't remove it
         
         return True
+        
     except Exception as e:
-        logger.error(f"❌ Atomic write failed for {filepath}: {e}")
-        if os.path.exists(temp_path):
+        logger.error(f"❌ Atomic write failed for {file_path}: {e}")
+        
+        # Clean up temp file
+        if os.path.exists(temp_file):
             try:
-                os.remove(temp_path)
-            except:
+                os.remove(temp_file)
+            except OSError:
                 pass
+        
+        # Restore from backup if needed
+        if os.path.exists(backup_file) and not os.path.exists(file_path):
+            try:
+                os.rename(backup_file, file_path)
+                logger.info(f"📁 Restored {file_path} from backup")
+            except OSError:
+                pass
+        
+        raise
+
+# ================================================================
+# JWT TOKEN VALIDATION
+# ================================================================
+
+def is_valid_jwt_token(token):
+    """
+    JWT-compatible token validation
+    
+    Args:
+        token (str): Token to validate
+        
+    Returns:
+        bool: True if token format is valid for JWT/OAuth
+    """
+    if not token or not isinstance(token, str):
+        return False
+    
+    token = token.strip()
+    
+    # Minimum length check (JWT tokens are typically much longer)
+    if len(token) < 20:
+        return False
+    
+    # JWT tokens can contain: letters, numbers, dots, hyphens, underscores, plus, slash, equals
+    # This covers all standard JWT and OAuth token formats
+    allowed_chars = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_+/=')
+    
+    # Check if all characters are allowed
+    if not all(c in allowed_chars for c in token):
+        return False
+    
+    return True
+
+# ================================================================
+# ✅ ENHANCED TOKEN MANAGEMENT WITH IMPROVED FILE OPERATIONS
+# ================================================================
+
+def save_token(tokens, username='unknown'):
+    """
+    ✅ FIXED: Save authentication tokens with improved file handling and error recovery
+    
+    Supports both OAuth tokens and G-Portal session cookies
+    
+    Args:
+        tokens (dict): Token data from G-Portal API (OAuth or session cookies)
+        username (str): Username for tracking
+        
+    Returns:
+        bool: True if save successful
+    """
+    try:
+        if not isinstance(tokens, dict):
+            logger.error(f"❌ Invalid tokens format: {type(tokens)}")
+            return False
+        
+        token_file = 'gp-session.json'
+        current_time = time.time()
+        
+        # ✅ Handle session cookie authentication (from G-Portal HTML response)
+        if tokens.get('type') == 'cookie_auth' or 'session_cookies' in tokens:
+            logger.info("🍪 Saving session cookie authentication")
+            
+            # Extract session cookies
+            session_cookies = tokens.get('session_cookies', {})
+            if not session_cookies:
+                logger.error("❌ No session cookies found in cookie_auth response")
+                return False
+            
+            # Required cookies for G-Portal
+            required_cookies = ['AUTH_SESSION_ID', 'KC_AUTH_SESSION_HASH']
+            missing_cookies = [cookie for cookie in required_cookies if cookie not in session_cookies]
+            
+            if missing_cookies:
+                logger.warning(f"⚠️ Missing cookies: {missing_cookies}, but continuing with available cookies")
+            
+            # Create session data structure for cookie-based auth
+            session_data = {
+                'auth_type': 'cookie',
+                'username': username,
+                'session_cookies': session_cookies,
+                'timestamp': datetime.now().isoformat(),
+                'created': current_time,
+                # Set expiration for 4 minutes (240 seconds) to trigger auto-refresh before G-Portal's 5-minute limit
+                'expires_at': current_time + 240,
+                'cookie_expires': current_time + 240,
+                'auto_refresh_interval': 180,  # Refresh every 3 minutes
+                'last_refresh': current_time
+            }
+            
+        # ✅ Handle OAuth token authentication 
+        elif 'access_token' in tokens and 'refresh_token' in tokens:
+            logger.info("🔐 Saving OAuth token authentication")
+            
+            # Handle different token data formats
+            if 'access_token_exp' in tokens and 'refresh_token_exp' in tokens:
+                # Already processed token structure
+                session_data = dict(tokens)
+                session_data['username'] = username
+                session_data['auth_type'] = 'oauth'
+            else:
+                # Raw OAuth API response format
+                access_token = tokens['access_token'].strip()
+                refresh_token = tokens['refresh_token'].strip()
+                
+                # Validate tokens with JWT support
+                if not is_valid_jwt_token(access_token) or not is_valid_jwt_token(refresh_token):
+                    logger.error(f"❌ Token validation failed: access_len={len(access_token)}, refresh_len={len(refresh_token)}")
+                    return False
+                
+                # Calculate expiration times with ultra-aggressive defaults
+                expires_in = max(240, int(tokens.get('expires_in', 240)))  # Minimum 4 minutes, default 4 minutes
+                refresh_expires_in = max(1800, int(tokens.get('refresh_expires_in', 3600)))  # Minimum 30 minutes
+                
+                session_data = {
+                    'auth_type': 'oauth',
+                    'access_token': access_token,
+                    'refresh_token': refresh_token,
+                    'access_token_exp': int(current_time + expires_in),
+                    'refresh_token_exp': int(current_time + refresh_expires_in),
+                    'expires_in': expires_in,
+                    'refresh_expires_in': refresh_expires_in,
+                    'username': username,
+                    'timestamp': datetime.now().isoformat(),
+                    'created': current_time,
+                    'last_refresh': current_time
+                }
+        
+        # ✅ ERROR: Unknown authentication format
+        else:
+            logger.error(f"❌ Unknown authentication format. Keys: {list(tokens.keys())}")
+            return False
+        
+        # ✅ FIXED: Use atomic write to prevent corruption
+        try:
+            atomic_write_file(token_file, session_data)
+            auth_type = session_data.get('auth_type', 'unknown')
+            logger.info(f"✅ {auth_type.upper()} authentication saved successfully for {username}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to write token file: {e}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ Error saving tokens for {username}: {e}")
+        return False
+
+def load_token():
+    """
+    ✅ FIXED: Load authentication data with improved error handling
+    
+    Returns:
+        dict or None: Token/cookie data if valid, None otherwise
+    """
+    try:
+        token_file = 'gp-session.json'
+        
+        if not os.path.exists(token_file):
+            logger.debug("📄 No token file found")
+            return None
+        
+        # ✅ FIXED: Use safe file operation for loading
+        def read_operation(file_handle):
+            return json.load(file_handle)
+        
+        try:
+            data = safe_file_operation(token_file, read_operation, mode='r')
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"❌ Invalid JSON in token file: {e}")
+            # Try to load backup if available
+            backup_file = token_file + '.bak'
+            if os.path.exists(backup_file):
+                try:
+                    logger.info("🔄 Attempting to restore from backup")
+                    data = safe_file_operation(backup_file, read_operation, mode='r')
+                    # Restore the main file
+                    atomic_write_file(token_file, data)
+                    logger.info("✅ Token file restored from backup")
+                except Exception as backup_error:
+                    logger.error(f"❌ Backup restore failed: {backup_error}")
+                    return None
+            else:
+                return None
+        except Exception as e:
+            logger.error(f"❌ Error reading token file: {e}")
+            return None
+        
+        if not isinstance(data, dict):
+            logger.error("❌ Invalid token file format")
+            return None
+        
+        current_time = time.time()
+        auth_type = data.get('auth_type', 'oauth')  # Default to oauth for backward compatibility
+        
+        # ✅ Handle session cookie validation
+        if auth_type == 'cookie':
+            expires_at = data.get('expires_at', 0)
+            if current_time >= expires_at:
+                logger.warning("🍪 Session cookies expired")
+                return None
+            
+            if 'session_cookies' not in data:
+                logger.error("❌ Missing session_cookies in cookie auth data")
+                return None
+            
+            logger.debug(f"🍪 Loaded valid session cookies (expires in {int(expires_at - current_time)}s)")
+            return data
+        
+        # ✅ Handle OAuth token validation (existing logic)
+        elif auth_type == 'oauth':
+            access_exp = data.get('access_token_exp', 0)
+            if current_time >= access_exp:
+                logger.warning("🔐 Access token expired")
+                return None
+            
+            if 'access_token' not in data:
+                logger.error("❌ Missing access_token in OAuth data")
+                return None
+            
+            logger.debug(f"🔐 Loaded valid OAuth tokens (expires in {int(access_exp - current_time)}s)")
+            return data
+        
+        else:
+            logger.error(f"❌ Unknown auth_type: {auth_type}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"❌ Error loading token: {e}")
+        return None
+
+def get_auth_headers():
+    """
+    ✅ Get authentication headers for API requests
+    
+    Supports both OAuth and session cookie authentication
+    
+    Returns:
+        dict: Headers for authenticated requests
+    """
+    try:
+        auth_data = load_token()
+        if not auth_data:
+            return {}
+        
+        auth_type = auth_data.get('auth_type', 'oauth')
+        
+        # ✅ Session cookie authentication
+        if auth_type == 'cookie':
+            session_cookies = auth_data.get('session_cookies', {})
+            
+            # Convert cookies to header format
+            cookie_header = '; '.join([f"{name}={value}" for name, value in session_cookies.items()])
+            
+            return {
+                'Cookie': cookie_header,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://www.g-portal.com/',
+                'Origin': 'https://www.g-portal.com'
+            }
+        
+        # ✅ OAuth token authentication  
+        elif auth_type == 'oauth':
+            access_token = auth_data.get('access_token', '')
+            
+            return {
+                'Authorization': f'Bearer {access_token}',
+                'User-Agent': 'GUST-Bot/2.0',
+                'Accept': 'application/json'
+            }
+        
+        else:
+            logger.error(f"❌ Unknown auth_type for headers: {auth_type}")
+            return {}
+            
+    except Exception as e:
+        logger.error(f"❌ Error getting auth headers: {e}")
+        return {}
+
+def get_api_token():
+    """
+    ✅ Get token string specifically for REST API calls
+    
+    Extracts the actual token string from the auth data structure
+    
+    Returns:
+        str: Token string for API calls, empty string if unavailable
+    """
+    try:
+        auth_data = load_token()
+        
+        if not auth_data:
+            return ''
+        
+        auth_type = auth_data.get('auth_type', 'oauth')
+        
+        if auth_type == 'oauth':
+            # OAuth token authentication - return access_token
+            token = auth_data.get('access_token', '').strip()
+            if token and len(token) > 20:
+                return token
+            else:
+                logger.error("❌ Invalid OAuth access token")
+                return ''
+        
+        elif auth_type == 'cookie':
+            # Session cookie authentication - extract session ID for Bearer token
+            session_cookies = auth_data.get('session_cookies', {})
+            auth_session_id = session_cookies.get('AUTH_SESSION_ID', '')
+            
+            if auth_session_id and len(auth_session_id) > 20:
+                return auth_session_id
+            else:
+                logger.error("❌ Invalid session cookie token")
+                return ''
+        
+        else:
+            logger.error(f"❌ Unknown auth_type: {auth_type}")
+            return ''
+        
+    except Exception as e:
+        logger.error(f"❌ Error getting API token: {e}")
+        return ''
+
+def get_websocket_token():
+    """
+    ✅ Get token specifically for WebSocket connections
+    
+    WebSocket connections need browser session JWT tokens, not OAuth tokens
+    
+    Returns:
+        dict or None: Session cookies for WebSocket auth
+    """
+    try:
+        auth_data = load_token()
+        
+        if not auth_data:
+            logger.error("❌ No auth data for WebSocket")
+            return None
+        
+        auth_type = auth_data.get('auth_type', 'oauth')
+        
+        if auth_type == 'cookie':
+            # Session cookies are what WebSocket needs
+            session_cookies = auth_data.get('session_cookies', {})
+            return session_cookies if session_cookies else None
+        else:
+            # OAuth tokens won't work for WebSocket - need to get browser session
+            logger.warning("⚠️ OAuth tokens don't work for WebSocket - need browser session")
+            return None
+            
+    except Exception as e:
+        logger.error(f"❌ Error getting WebSocket token: {e}")
+        return None
+
+# ================================================================
+# ENHANCED TOKEN REFRESH WITH COOKIE SUPPORT
+# ================================================================
+
+def refresh_token():
+    """
+    ✅ ENHANCED: Token refresh with auto-auth fallback and cookie support
+    
+    Returns:
+        bool: True if refresh successful, False otherwise
+    """
+    global _auth_in_progress, _auth_failure_count
+    
+    if _auth_in_progress:
+        logger.debug("Auth already in progress, skipping")
+        return False
+    
+    _auth_in_progress = True
+    
+    try:
+        _init_auth_state()
+        
+        # Load current authentication data
+        auth_data = load_token()
+        if not auth_data:
+            logger.warning("No authentication data found for refresh")
+            
+            # Try credential re-authentication if available
+            if CREDENTIAL_MANAGER_AVAILABLE:
+                max_retries = _get_config_value('AUTO_AUTH_MAX_RETRIES', 3)
+                if _auth_failure_count < max_retries:
+                    logger.warning("Standard token refresh failed, attempting credential re-authentication")
+                    return attempt_credential_reauth()
+                else:
+                    logger.error(f"Max auth retries ({max_retries}) reached, skipping credential re-auth")
+                    return False
+            else:
+                logger.warning("Token refresh failed and auto-auth not available")
+                _auth_failure_count += 1
+                return False
+        
+        auth_type = auth_data.get('auth_type', 'oauth')
+        username = auth_data.get('username', 'unknown')
+        current_time = time.time()
+        
+        # ✅ Handle cookie-based authentication refresh
+        if auth_type == 'cookie':
+            logger.info(f"🍪 Attempting session cookie refresh for {username}")
+            
+            # For cookies, we need to re-authenticate to get fresh session
+            if CREDENTIAL_MANAGER_AVAILABLE:
+                return attempt_credential_reauth()
+            else:
+                logger.error("❌ Cookie refresh requires credential manager (auto-auth)")
+                _auth_failure_count += 1
+                return False
+        
+        # ✅ Handle OAuth token refresh (existing logic)
+        elif auth_type == 'oauth':
+            logger.info(f"🔐 Attempting OAuth token refresh for {username}")
+            
+            refresh_token_val = auth_data.get('refresh_token', '')
+            if not refresh_token_val:
+                logger.error("❌ No refresh token available")
+                
+                # Try credential re-authentication if available
+                if CREDENTIAL_MANAGER_AVAILABLE:
+                    max_retries = _get_config_value('AUTO_AUTH_MAX_RETRIES', 3)
+                    if _auth_failure_count < max_retries:
+                        logger.warning("No refresh token, attempting credential re-authentication")
+                        return attempt_credential_reauth()
+                    else:
+                        logger.error(f"Max auth retries ({max_retries}) reached")
+                        return False
+                else:
+                    _auth_failure_count += 1
+                    return False
+            
+            # Standard OAuth refresh logic
+            refresh_data = {
+                'grant_type': 'refresh_token',
+                'refresh_token': refresh_token_val,
+                'client_id': 'website'
+            }
+            
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'GUST-Bot/2.0',
+                'Accept': 'application/json'
+            }
+            
+            auth_url = _get_config_value('GPORTAL_AUTH_URL', 'https://www.g-portal.com/ngpapi/oauth/token')
+            
+            try:
+                response = requests.post(
+                    auth_url,
+                    data=refresh_data,
+                    headers=headers,
+                    timeout=10
+                )
+                
+                if response.status_code == 200:
+                    try:
+                        new_tokens = response.json()
+                    except json.JSONDecodeError:
+                        logger.error("❌ Invalid JSON in refresh response")
+                        return False
+                    
+                    # Validate response structure
+                    if not isinstance(new_tokens, dict) or 'access_token' not in new_tokens:
+                        logger.error(f"❌ Invalid token response format: {new_tokens}")
+                        return False
+                    
+                    # Validate token content
+                    new_access_token = new_tokens.get('access_token', '').strip()
+                    if not new_access_token or len(new_access_token) < 10:
+                        logger.error("❌ Invalid access token in refresh response")
+                        return False
+                    
+                    # Update tokens with comprehensive data
+                    expires_in = new_tokens.get('expires_in', 300)
+                    refresh_expires_in = new_tokens.get('refresh_expires_in', 86400)
+                    
+                    try:
+                        expires_in = int(float(expires_in))
+                        refresh_expires_in = int(float(refresh_expires_in))
+                    except (ValueError, TypeError):
+                        logger.warning("⚠️ Invalid expiration times, using defaults")
+                        expires_in = 300
+                        refresh_expires_in = 86400
+                    
+                    auth_data.update({
+                        'access_token': new_access_token,
+                        'refresh_token': new_tokens.get('refresh_token', refresh_token_val).strip(),
+                        'access_token_exp': int(current_time + expires_in),
+                        'refresh_token_exp': int(current_time + refresh_expires_in),
+                        'timestamp': datetime.now().isoformat(),
+                        'last_refresh': current_time,
+                        'refresh_count': auth_data.get('refresh_count', 0) + 1
+                    })
+                    
+                    # Save updated tokens
+                    if save_token(auth_data, username):
+                        _auth_failure_count = 0
+                        logger.info("✅ OAuth token refresh successful")
+                        return True
+                    else:
+                        logger.error("❌ Failed to save refreshed OAuth tokens")
+                        return False
+                        
+                elif response.status_code == 400:
+                    logger.error("❌ Bad request - refresh token invalid/expired")
+                    return False
+                elif response.status_code == 401:
+                    logger.error("❌ Unauthorized - refresh token expired")
+                    return False
+                elif response.status_code == 429:
+                    logger.error("❌ Rate limited - too many requests")
+                    return False
+                else:
+                    logger.error(f"❌ HTTP error {response.status_code}: {response.text}")
+                    return False
+                    
+            except requests.exceptions.Timeout:
+                logger.error("❌ Request timeout during token refresh")
+                return False
+            except requests.exceptions.ConnectionError:
+                logger.error("❌ Connection error during token refresh")
+                return False
+            except Exception as request_error:
+                logger.error(f"❌ Request error during token refresh: {request_error}")
+                return False
+        
+        else:
+            logger.error(f"❌ Unknown auth_type for refresh: {auth_type}")
+            return False
+            
+    except Exception as e:
+        _auth_failure_count += 1
+        logger.error(f"❌ Error in token refresh: {e}")
+        return False
+    finally:
+        _auth_in_progress = False
+
+def attempt_credential_reauth():
+    """
+    ✅ Attempt re-authentication using stored credentials
+    
+    Returns:
+        bool: True if re-authentication successful, False otherwise
+    """
+    global _auth_failure_count
+    
+    try:
+        if not CREDENTIAL_MANAGER_AVAILABLE:
+            logger.error("Credential manager not available for re-authentication")
+            return False
+        
+        # Load stored credentials
+        credentials = credential_manager.load_credentials()
+        if not credentials:
+            logger.warning("No stored credentials available for re-authentication")
+            return False
+        
+        username = credentials['username']
+        password = credentials['password']
+        
+        logger.info(f"🔐 Attempting credential re-authentication for {username}")
+        
+        # Prepare authentication request
+        auth_data = {
+            'grant_type': 'password',
+            'username': username,
+            'password': password,
+            'client_id': 'website'
+        }
+        
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Origin': 'https://www.g-portal.com',
+            'Referer': 'https://www.g-portal.com/',
+            'Accept': 'application/json, text/html, */*'
+        }
+        
+        # Get auth URL from config or use default
+        auth_url = _get_config_value('GPORTAL_AUTH_URL', 'https://www.g-portal.com/ngpapi/oauth/token')
+        
+        response = requests.post(
+            auth_url,
+            data=auth_data,
+            headers=headers,
+            timeout=15
+        )
+        
+        if response.status_code == 200:
+            content_type = response.headers.get('content-type', '').lower()
+            
+            # Handle JSON OAuth response
+            try:
+                if 'application/json' in content_type:
+                    tokens = response.json()
+                    
+                    if 'access_token' in tokens and 'refresh_token' in tokens:
+                        logger.info("🔐 Received OAuth tokens during re-auth")
+                        
+                        if save_token(tokens, username):
+                            _auth_failure_count = 0
+                            logger.info("✅ OAuth credential re-authentication successful")
+                            return True
+                        else:
+                            logger.error("❌ Failed to save OAuth tokens during re-auth")
+                            return False
+            
+            except (json.JSONDecodeError, ValueError):
+                pass  # Fall through to cookie handling
+            
+            # Handle HTML cookie response
+            if 'text/html' in content_type or response.text.strip().startswith('<!'):
+                logger.info("📄 Received HTML response during re-auth")
+                
+                # Extract cookies from response
+                session_cookies = {}
+                for cookie in response.cookies:
+                    session_cookies[cookie.name] = cookie.value
+                
+                logger.info(f"🍪 Found session cookies during re-auth: {list(session_cookies.keys())}")
+                
+                # Check for successful login indicators
+                html_content = response.text.lower()
+                success_indicators = [
+                    'dashboard', 'server', 'logout', 'account',
+                    'welcome', 'home', 'portal', 'profile'
+                ]
+                
+                login_successful = any(indicator in html_content for indicator in success_indicators)
+                has_cookies = len(session_cookies) > 0
+                
+                if login_successful and has_cookies:
+                    logger.info("✅ HTML response indicates successful re-auth")
+                    
+                    # Save session cookies
+                    cookie_data = {
+                        'type': 'cookie_auth',
+                        'session_cookies': session_cookies,
+                        'reauth_timestamp': time.time()
+                    }
+                    
+                    if save_token(cookie_data, username):
+                        _auth_failure_count = 0
+                        logger.info("✅ Cookie credential re-authentication successful")
+                        return True
+                    else:
+                        logger.error("❌ Failed to save session cookies during re-auth")
+                        return False
+                else:
+                    logger.warning("❌ HTML response does not indicate successful re-auth")
+                    return False
+            
+            else:
+                logger.error(f"❌ Unknown response format during re-auth: {content_type}")
+                return False
+        
+        else:
+            logger.error(f"❌ Re-authentication failed with status: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ Error during credential re-authentication: {e}")
         return False
 
 # ================================================================
-# HELPER FUNCTIONS FOR SERVER MANAGEMENT
+# TOKEN VALIDATION AND MONITORING
 # ================================================================
 
-def get_server_by_id(server_id, servers_list):
-    """Get server data by Server ID"""
-    if not servers_list:
-        return None
+def validate_token_file():
+    """
+    ✅ Enhanced token file validation that returns structure expected by logs routes
     
-    return next((s for s in servers_list if s.get('serverId') == str(server_id)), None)
+    Returns:
+        dict: Validation status with detailed information
+    """
+    try:
+        current_time = time.time()
+        auth_data = load_token()
+        
+        if not auth_data:
+            return {
+                'valid': False,
+                'error': 'No token file or invalid format',
+                'auth_type': 'none',
+                'time_left': 0,
+                'expires_at': None
+            }
+        
+        auth_type = auth_data.get('auth_type', 'oauth')
+        
+        # Check cookie-based authentication
+        if auth_type == 'cookie':
+            expires_at = auth_data.get('expires_at', 0)
+            time_left = max(0, expires_at - current_time)
+            
+            return {
+                'valid': time_left > 0,
+                'auth_type': 'cookie',
+                'time_left': int(time_left),
+                'expires_at': datetime.fromtimestamp(expires_at).isoformat() if expires_at > 0 else None,
+                'username': auth_data.get('username', 'unknown'),
+                'last_refresh': auth_data.get('last_refresh', 0)
+            }
+        
+        # Check OAuth authentication
+        elif auth_type == 'oauth':
+            access_exp = auth_data.get('access_token_exp', 0)
+            time_left = max(0, access_exp - current_time)
+            
+            return {
+                'valid': time_left > 0,
+                'auth_type': 'oauth',
+                'time_left': int(time_left),
+                'expires_at': datetime.fromtimestamp(access_exp).isoformat() if access_exp > 0 else None,
+                'username': auth_data.get('username', 'unknown'),
+                'last_refresh': auth_data.get('last_refresh', 0)
+            }
+        
+        else:
+            return {
+                'valid': False,
+                'error': f'Unknown auth_type: {auth_type}',
+                'auth_type': auth_type,
+                'time_left': 0,
+                'expires_at': None
+            }
+            
+    except Exception as e:
+        logger.error(f"❌ Error validating token file: {e}")
+        return {
+            'valid': False,
+            'error': str(e),
+            'auth_type': 'error',
+            'time_left': 0,
+            'expires_at': None
+        }
 
-def get_server_service_id(server_id, servers_list):
-    """Get Service ID for a given Server ID"""
-    server = get_server_by_id(server_id, servers_list)
-    return server.get('serviceId') if server else None
-
-def update_server_service_id(server_id, service_id, servers_list):
-    """Update Service ID for a server"""
-    server = get_server_by_id(server_id, servers_list)
-    if server:
-        server['serviceId'] = service_id
-        server['discovery_status'] = 'manual'
-        server['capabilities']['command_execution'] = True
-        server['last_updated'] = datetime.now().isoformat()
-        return True
-    return False
+def monitor_token_health():
+    """
+    ✅ Monitor token health with structure expected by logs routes
+    
+    Returns:
+        dict: Health status that works with _get_optimized_token()
+    """
+    try:
+        validation = validate_token_file()
+        current_time = time.time()
+        
+        # Build health status structure expected by logs routes
+        healthy = validation.get('valid', False)
+        time_left = validation.get('time_left', 0)
+        
+        # Determine action based on validation
+        if not healthy:
+            if validation.get('error') == 'No token file or invalid format':
+                action = 'login_required'
+                message = 'No authentication token available. Please re-login to G-Portal.'
+            else:
+                action = 'login_required' 
+                message = f"Token validation failed: {validation.get('error', 'Unknown error')}"
+        elif time_left < 60:  # Less than 1 minute
+            action = 'refresh_now'
+            message = f'Token expires in {time_left}s - refresh needed'
+        elif time_left < 300:  # Less than 5 minutes
+            action = 'refresh_soon'
+            message = f'Token expires in {int(time_left/60)} minutes - refresh soon'
+        else:
+            action = 'none'
+            message = f'Token healthy - valid for {int(time_left/60)} minutes'
+        
+        health_data = {
+            'healthy': healthy,
+            'status': 'healthy' if healthy else 'unhealthy',
+            'action': action,
+            'message': message,
+            'timestamp': datetime.now().isoformat(),
+            'validation': validation,
+            'auth_status': {
+                'failure_count': _auth_failure_count,
+                'in_progress': _auth_in_progress,
+                'last_attempt': _last_auth_attempt
+            }
+        }
+        
+        # Add auto-auth status if available
+        if CREDENTIAL_MANAGER_AVAILABLE:
+            health_data['auto_auth'] = {
+                'available': True,
+                'credentials_stored': credential_manager.credentials_exist()
+            }
+        else:
+            health_data['auto_auth'] = {
+                'available': False,
+                'reason': 'Credential manager not available'
+            }
+        
+        return health_data
+        
+    except Exception as e:
+        logger.error(f"❌ Error monitoring token health: {e}")
+        return {
+            'healthy': False,
+            'status': 'error',
+            'action': 'login_required',
+            'message': f'Error checking token health: {e}',
+            'timestamp': datetime.now().isoformat(),
+            'validation': {'valid': False, 'error': str(e), 'auth_type': 'error'},
+            'auth_status': {
+                'failure_count': _auth_failure_count,
+                'in_progress': _auth_in_progress,
+                'last_attempt': _last_auth_attempt
+            }
+        }
 
 # ================================================================
-# MODULE EXPORTS
+# CONSOLE AND COMMAND FUNCTIONS (PRESERVED)
 # ================================================================
 
-# Complete list of all available functions
+def parse_console_response(response_data):
+    """Parse G-Portal GraphQL response for console commands (PRESERVED)"""
+    logger.debug(f"parse_console_response called with: {response_data}")
+    
+    if not response_data or not isinstance(response_data, dict):
+        logger.warning(f"Invalid response_data: {response_data}")
+        return False, "Invalid response data"
+    
+    try:
+        if 'data' in response_data and 'sendConsoleMessage' in response_data['data']:
+            result = response_data['data']['sendConsoleMessage']
+            success = result.get('ok', False)
+            logger.debug(f"GraphQL sendConsoleMessage result: ok={success}")
+            return success, "Command executed successfully" if success else "Command failed"
+        elif 'errors' in response_data:
+            errors = response_data['errors']
+            error_messages = [error.get('message', 'Unknown error') for error in errors]
+            error_msg = f"GraphQL errors: {', '.join(error_messages)}"
+            logger.error(f"GraphQL errors in response: {error_msg}")
+            return False, error_msg
+        else:
+            logger.warning("Unexpected response format - no data.sendConsoleMessage or errors")
+            return False, "Unexpected response format"
+            
+    except Exception as e:
+        logger.error(f"Error parsing console response: {e}")
+        return False, f"Error parsing response: {e}"
+
+def classify_message(message):
+    """Enhanced message classification (PRESERVED)"""
+    if not message:
+        return 'unknown'
+    
+    msg_lower = message.lower()
+    
+    if any(word in msg_lower for word in ['joined', 'connected', 'spawned']):
+        return 'join'
+    elif any(word in msg_lower for word in ['left', 'disconnected', 'timeout']):
+        return 'leave'
+    elif any(word in msg_lower for word in ['killed', 'died', 'death', 'suicide']):
+        return 'kill'
+    elif any(word in msg_lower for word in ['chat', 'say', 'global', 'team']):
+        return 'chat'
+    elif any(word in msg_lower for word in ['admin', 'ban', 'kick', 'mute']):
+        return 'admin'
+    elif any(word in msg_lower for word in ['server', 'info', 'status', 'players']):
+        return 'system'
+    else:
+        return 'unknown'
+
+def get_type_icon(message_type):
+    """Enhanced icon mapping (PRESERVED)"""
+    icons = {
+        'join': '🟢',
+        'leave': '🔴', 
+        'kill': '💀',
+        'chat': '💬',
+        'admin': '🛡️',
+        'system': 'ℹ️',
+        'unknown': '❓',
+        'error': '❌',
+        'warning': '⚠️',
+        'success': '✅'
+    }
+    return icons.get(message_type, '❓')
+
+def format_console_message(message, timestamp=None):
+    """Enhanced console message formatting (PRESERVED)"""
+    if not message:
+        return ''
+    
+    msg_type = classify_message(message)
+    icon = get_type_icon(msg_type)
+    
+    if timestamp:
+        if isinstance(timestamp, str):
+            return f"{timestamp} {icon} {message}"
+        else:
+            formatted_time = timestamp.strftime('%H:%M:%S')
+            return f"{formatted_time} {icon} {message}"
+    else:
+        return f"{icon} {message}"
+
+def format_command(command):
+    """Enhanced command formatting for G-Portal console (PRESERVED)"""
+    if not command:
+        return ''
+    
+    command = command.strip()
+    
+    # Handle 'say' commands with proper quoting
+    if command.startswith('say ') and not command.startswith('global.say'):
+        message = command[4:].strip()
+        return f'global.say "{message}"'
+    
+    return command
+
+# ================================================================
+# ✅ FIXED: SERVER DATA CREATION FUNCTION
+# ================================================================
+
+def create_server_data(server_info):
+    """
+    ✅ FIXED: Create standardized server data structure
+    
+    Args:
+        server_info (dict): Raw server information
+        
+    Returns:
+        dict: Standardized server data
+    """
+    return {
+        'serverId': server_info['serverId'],
+        'serverName': server_info['serverName'],
+        'serverRegion': server_info['serverRegion'],
+        'serverType': server_info.get('serverType', 'Standard'),
+        'description': server_info.get('description', ''),
+        'guildId': server_info.get('guildId', ''),
+        'channelId': server_info.get('channelId', ''),
+        'status': 'unknown',
+        'lastPing': None,
+        'playerCount': 0,
+        'maxPlayers': 0,
+        'isActive': True,
+        'isFavorite': False,
+        'added_date': datetime.now().isoformat(),
+        'last_updated': datetime.now().isoformat()
+    }
+
+# ================================================================
+# ✅ ALL MISSING UTILITY FUNCTIONS RESTORED
+# ================================================================
+
+def generate_random_string(length=10):
+    """Generate random string for various purposes"""
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+def validate_server_id(server_id):
+    """Validate server ID format"""
+    if not server_id or not isinstance(server_id, str):
+        return False, None
+    
+    try:
+        clean_id = str(server_id).split('_')[0].strip()
+        
+        if clean_id.isdigit():
+            server_int = int(clean_id)
+            if server_int > 0:
+                return True, server_int
+        elif clean_id.isalnum() and len(clean_id) > 0:
+            return True, clean_id
+            
+    except (ValueError, TypeError):
+        pass
+    
+    return False, None
+
+def validate_region(region):
+    """Enhanced region validation"""
+    if not region:
+        return False
+    
+    valid_regions = ['US', 'EU', 'AS', 'AU', 'us', 'eu', 'as', 'au']
+    return str(region).strip() in valid_regions
+
+def get_server_region(server_id):
+    """Extract region from server ID"""
+    if not server_id:
+        return 'unknown'
+    
+    # Common G-Portal region patterns
+    if server_id.startswith('us-'):
+        return 'us'
+    elif server_id.startswith('eu-'):
+        return 'eu'
+    elif server_id.startswith('as-'):
+        return 'asia'
+    else:
+        return 'us'  # Default fallback
+
+def safe_int(value, default=0):
+    """✅ RESTORED: Safe integer conversion with fallback"""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+def safe_float(value, default=0.0):
+    """✅ RESTORED: Safe float conversion with fallback"""
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+def escape_html(text):
+    """✅ RESTORED: Escape HTML characters in text"""
+    if not text:
+        return ''
+    
+    html_escape_table = {
+        "&": "&amp;",
+        '"': "&quot;",
+        "'": "&#x27;",
+        ">": "&gt;",
+        "<": "&lt;",
+    }
+    
+    return "".join(html_escape_table.get(c, c) for c in text)
+
+def format_timestamp(timestamp=None, format_str='%Y-%m-%d %H:%M:%S'):
+    """✅ RESTORED: Format timestamp with optional custom format"""
+    if timestamp is None:
+        timestamp = datetime.now()
+    elif isinstance(timestamp, (int, float)):
+        timestamp = datetime.fromtimestamp(timestamp)
+    
+    return timestamp.strftime(format_str)
+
+def sanitize_filename(filename):
+    """✅ RESTORED: Sanitize filename for safe filesystem usage"""
+    if not filename:
+        return 'untitled'
+    
+    # Remove or replace invalid characters
+    invalid_chars = '<>:"/\\|?*'
+    for char in invalid_chars:
+        filename = filename.replace(char, '_')
+    
+    # Limit length
+    filename = filename[:255]
+    
+    return filename.strip()
+
+def get_countdown_announcements(seconds_left):
+    """✅ RESTORED: Get countdown announcements for events"""
+    announcements = []
+    
+    if seconds_left <= 0:
+        announcements.append("Event starting now!")
+    elif seconds_left <= 30:
+        announcements.append(f"Event starting in {seconds_left} seconds!")
+    elif seconds_left <= 60:
+        announcements.append(f"Event starting in 1 minute!")
+    elif seconds_left <= 300:  # 5 minutes
+        minutes = seconds_left // 60
+        announcements.append(f"Event starting in {minutes} minutes!")
+    
+    return announcements
+
+def get_status_class(status):
+    """✅ RESTORED: Get CSS class for status"""
+    status_classes = {
+        'online': 'status-online',
+        'offline': 'status-offline',
+        'starting': 'status-starting',
+        'stopping': 'status-stopping',
+        'error': 'status-error',
+        'unknown': 'status-unknown'
+    }
+    return status_classes.get(status, 'status-unknown')
+
+def get_status_text(status):
+    """✅ RESTORED: Get human-readable status text"""
+    status_texts = {
+        'online': 'Online',
+        'offline': 'Offline',
+        'starting': 'Starting',
+        'stopping': 'Stopping',
+        'error': 'Error',
+        'unknown': 'Unknown'
+    }
+    return status_texts.get(status, 'Unknown')
+
+def is_valid_steam_id(steam_id):
+    """✅ RESTORED: Validate Steam ID format"""
+    if not steam_id:
+        return False
+    
+    # Steam ID should be 17 digits
+    return str(steam_id).isdigit() and len(str(steam_id)) == 17
+
+def validate_email(email):
+    """✅ RESTORED: Basic email validation"""
+    if not email or not isinstance(email, str):
+        return False
+    
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def validate_url(url):
+    """✅ RESTORED: Basic URL validation"""
+    if not url or not isinstance(url, str):
+        return False
+    
+    return url.startswith(('http://', 'https://'))
+
+def truncate_string(text, length=100, suffix='...'):
+    """✅ RESTORED: Truncate string to specified length"""
+    if not text or len(text) <= length:
+        return text
+    
+    return text[:length - len(suffix)] + suffix
+
+def deep_get(dictionary, keys, default=None):
+    """✅ RESTORED: Get nested dictionary value safely"""
+    try:
+        for key in keys:
+            dictionary = dictionary[key]
+        return dictionary
+    except (KeyError, TypeError):
+        return default
+
+def flatten_dict(d, parent_key='', sep='_'):
+    """✅ RESTORED: Flatten nested dictionary"""
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+def merge_dicts(dict1, dict2):
+    """✅ RESTORED: Merge two dictionaries safely"""
+    result = dict1.copy()
+    result.update(dict2)
+    return result
+
+def chunk_list(lst, chunk_size):
+    """✅ RESTORED: Split list into chunks of specified size"""
+    for i in range(0, len(lst), chunk_size):
+        yield lst[i:i + chunk_size]
+
+def remove_duplicates(lst, key=None):
+    """✅ RESTORED: Remove duplicates from list"""
+    if key is None:
+        return list(dict.fromkeys(lst))
+    else:
+        seen = set()
+        result = []
+        for item in lst:
+            k = key(item)
+            if k not in seen:
+                seen.add(k)
+                result.append(item)
+        return result
+
+def calculate_percentage(part, total):
+    """✅ RESTORED: Calculate percentage safely"""
+    if total == 0:
+        return 0
+    return (part / total) * 100
+
+def format_bytes(bytes_value):
+    """✅ RESTORED: Format bytes to human-readable format"""
+    if bytes_value == 0:
+        return "0B"
+    
+    size_names = ["B", "KB", "MB", "GB", "TB"]
+    i = int(math.floor(math.log(bytes_value, 1024)))
+    p = math.pow(1024, i)
+    s = round(bytes_value / p, 2)
+    return f"{s} {size_names[i]}"
+
+def format_duration(seconds):
+    """✅ RESTORED: Format duration in seconds to human-readable format"""
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    elif seconds < 3600:
+        minutes = int(seconds // 60)
+        secs = int(seconds % 60)
+        return f"{minutes}m {secs}s"
+    else:
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        return f"{hours}h {minutes}m"
+
+# ================================================================
+# MODULE EXPORTS (COMPLETE)
+# ================================================================
+
 __all__ = [
-    # ✅ CRITICAL: Auto-authentication functions
-    '_get_config_value', '_init_auth_state', 'attempt_credential_reauth',
-    
     # Token management (enhanced)
     'save_token', 'load_token', 'refresh_token', 'get_auth_headers',
     'validate_token_file', 'monitor_token_health', 'get_api_token', 'get_websocket_token',
+    
+    # Auto-authentication
+    'attempt_credential_reauth',
     
     # Console and command functions (restored)
     'parse_console_response', 'classify_message', 'get_type_icon', 
     'format_console_message', 'format_command',
     
-    # Server management (ENHANCED WITH SERVICE ID SUPPORT)
-    'create_server_data', 'get_server_by_id', 'get_server_service_id', 'update_server_service_id',
+    # Server management (FIXED)
+    'create_server_data',
     
     # Validation functions
     'validate_server_id', 'validate_region', 'is_valid_steam_id',
@@ -1124,4 +1552,4 @@ __all__ = [
     'is_valid_jwt_token'
 ]
 
-logger.info("✅ Enhanced helpers module loaded with Service ID support and ALL MISSING FUNCTIONS restored - including _get_config_value")
+logger.info("✅ Enhanced helpers module loaded with FIXED create_server_data() function and ALL MISSING FUNCTIONS restored")

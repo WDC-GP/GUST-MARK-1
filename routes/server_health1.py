@@ -1,21 +1,20 @@
 """
-Server Health API Routes for WDC-GP/GUST-MARK-1 (COMPLETE FIXED VERSION WITH GRAPHQL)
-=====================================================================================
-✅ FIXED: GraphQL ServiceSensors integration for real CPU and memory data
-✅ FIXED: Enhanced comprehensive endpoint with better error handling
-✅ FIXED: Improved test endpoints with detailed diagnostics
-✅ FIXED: Multi-source health data endpoints with intelligent fallbacks
-✅ FIXED: Chart data with fallback strategies
-✅ FIXED: Trend data with synthesis capabilities
-✅ FIXED: Command history with fallback generation
-✅ FIXED: Data source priority system implementation
-✅ FIXED: Graceful degradation when data sources fail
+Server Health API Routes for WDC-GP/GUST-MARK-1 (ENHANCED VERSION WITH GRAPHQL)
+===============================================================================
+✅ ENHANCED: GraphQL ServiceSensors integration for real CPU and memory data
+✅ ENHANCED: Multi-source health data endpoints with intelligent fallbacks
+✅ ENHANCED: Chart data with fallback strategies
+✅ ENHANCED: Trend data with synthesis capabilities
+✅ ENHANCED: Command history with fallback generation
+✅ ENHANCED: Data source priority system implementation
+✅ ENHANCED: Graceful degradation when data sources fail
 ✅ PRESERVED: All existing functionality
+✅ FIXED: Added List import to resolve NameError
 """
 
 from flask import Blueprint, jsonify, request
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List  # ✅ FIXED: Added List import
 import logging
 import random
 import time
@@ -49,106 +48,140 @@ def init_server_health_routes(app, db, server_health_storage):
     _server_health_storage = server_health_storage
     
     logger.info("[Enhanced Server Health Routes] ✅ Initialized with GraphQL Sensors + intelligent fallback systems")
-    print("✅ Server Health routes initialized with GraphQL Sensors support")
     return server_health_bp
 
-# ===== ✅ FIXED: GRAPHQL SENSORS COMPREHENSIVE ENDPOINTS =====
+# ===== ✅ NEW: GRAPHQL SENSORS COMPREHENSIVE ENDPOINTS =====
 
 @server_health_bp.route('/api/server_health/comprehensive/<server_id>')
 @require_auth
 def get_comprehensive_health(server_id):
     """
-    ✅ FIXED: Comprehensive health endpoint with enhanced error handling and debugging
+    ✅ NEW: Comprehensive health endpoint with GraphQL Sensors + Logs integration
     
     This endpoint provides the highest quality data by combining:
     - GraphQL ServiceSensors: Real CPU, memory%, uptime
     - Server Logs: Real player count, FPS, events
     - Intelligent fallbacks: When any source fails
+    
+    Returns:
+    {
+        'success': bool,
+        'server_id': str,
+        'data': {
+            'health_percentage': float,
+            'status': str,
+            'metrics': {
+                'cpu_usage': float,        # REAL from GraphQL
+                'memory_percent': float,   # REAL from GraphQL  
+                'player_count': int,       # REAL from logs
+                'fps': int,                # REAL from logs
+                'response_time': int,      # Calculated from real metrics
+                ...
+            },
+            'data_sources': [str],        # List of actual data sources used
+            'timestamp': str
+        },
+        'data_quality': str,              # 'highest', 'high', 'medium', 'low'
+        'real_cpu_data': bool,            # True if using GraphQL Sensors
+        'real_player_data': bool,         # True if using server logs
+        'source_info': {
+            'primary_sources': [str],
+            'real_cpu_data': bool,
+            'real_player_data': bool,
+            'last_updated': str
+        }
+    }
     """
     try:
         logger.info(f"[Comprehensive API] Getting comprehensive health for {server_id}")
-        print(f"🔍 Comprehensive health request for server: {server_id}")
         
-        # ✅ FIX 1: Enhanced storage check with detailed logging
-        if not _server_health_storage:
-            logger.error("[Comprehensive API] No server health storage available")
-            print("❌ No server health storage available")
-            return jsonify({
-                'success': False,
-                'server_id': server_id,
-                'error': 'Server health storage not initialized',
-                'timestamp': datetime.utcnow().isoformat()
-            }), 503
+        # Get comprehensive data from enhanced storage
+        if _server_health_storage:
+            try:
+                # Check if storage has comprehensive capability
+                if hasattr(_server_health_storage, 'get_comprehensive_health_data'):
+                    health_data = _server_health_storage.get_comprehensive_health_data(server_id)
+                    
+                    if health_data and health_data.get('success'):
+                        # Extract source information for response
+                        source_info = health_data.get('source_info', {})
+                        data_sources = source_info.get('primary_sources', [])
+                        
+                        response = {
+                            'success': True,
+                            'server_id': server_id,
+                            'data': {
+                                'health_percentage': health_data.get('health_percentage', 0),
+                                'status': health_data.get('status', 'unknown'),
+                                'metrics': health_data.get('metrics', {}),
+                                'data_sources': data_sources,
+                                'timestamp': health_data.get('timestamp')
+                            },
+                            'data_quality': health_data.get('data_quality', 'unknown'),
+                            'real_cpu_data': 'graphql_sensors' in data_sources,
+                            'real_player_data': 'server_logs' in data_sources,
+                            'source_info': source_info
+                        }
+                        
+                        # Log the success with data source details
+                        cpu_source = "GraphQL" if response['real_cpu_data'] else "Estimated"
+                        player_source = "Logs" if response['real_player_data'] else "Estimated"
+                        
+                        logger.info(f"[Comprehensive API] ✅ SUCCESS for {server_id}: "
+                                   f"{health_data.get('health_percentage', 0):.1f}% health, "
+                                   f"CPU: {cpu_source}, Players: {player_source}")
+                        
+                        return jsonify(response)
+                    else:
+                        logger.warning(f"[Comprehensive API] No comprehensive data for {server_id}")
+                        
+            except Exception as storage_error:
+                logger.error(f"[Comprehensive API] Storage error: {storage_error}")
         
-        # ✅ FIX 2: Check for comprehensive capability
-        if not hasattr(_server_health_storage, 'get_comprehensive_health_data'):
-            logger.error("[Comprehensive API] Storage missing comprehensive capability")
-            print("❌ Storage missing comprehensive capability")
-            return _fallback_to_standard_health(server_id)
+        # Fallback to existing enhanced health endpoint
+        logger.warning(f"[Comprehensive API] Using enhanced fallback for {server_id}")
         
-        try:
-            # ✅ FIX 3: Enhanced comprehensive data call with detailed error handling
-            logger.debug(f"[Comprehensive API] Calling get_comprehensive_health_data for {server_id}")
-            print(f"🔧 Calling get_comprehensive_health_data for {server_id}")
-            health_data = _server_health_storage.get_comprehensive_health_data(server_id)
-            
-            if not health_data:
-                logger.warning(f"[Comprehensive API] No health data returned for {server_id}")
-                print(f"⚠️ No health data returned for {server_id}")
-                return _fallback_to_standard_health(server_id)
-            
-            if not health_data.get('success'):
-                error_msg = health_data.get('error', 'Unknown error')
-                logger.warning(f"[Comprehensive API] Health data failed for {server_id}: {error_msg}")
-                print(f"⚠️ Health data failed for {server_id}: {error_msg}")
-                return _fallback_to_standard_health(server_id)
-            
-            # ✅ FIX 4: Enhanced response construction
-            source_info = health_data.get('source_info', {})
-            data_sources = source_info.get('primary_sources', [])
-            real_cpu_data = 'graphql_sensors' in data_sources
-            real_player_data = 'server_logs' in data_sources
-            
+        # Get fallback data using existing enhanced system
+        fallback_result = get_advanced_fallback_health(server_id)
+        
+        if fallback_result:
             response = {
                 'success': True,
                 'server_id': server_id,
                 'data': {
-                    'health_percentage': health_data.get('health_percentage', 0),
-                    'status': health_data.get('status', 'unknown'),
-                    'metrics': health_data.get('metrics', {}),
-                    'data_sources': data_sources,
-                    'timestamp': health_data.get('timestamp')
+                    'health_percentage': fallback_result.get('health_percentage', 0),
+                    'status': fallback_result.get('status', 'unknown'),
+                    'metrics': fallback_result.get('metrics', {}),
+                    'data_sources': [fallback_result.get('data_source', 'unknown')],
+                    'timestamp': fallback_result.get('timestamp')
                 },
-                'data_quality': health_data.get('data_quality', 'unknown'),
-                'real_cpu_data': real_cpu_data,
-                'real_player_data': real_player_data,
-                'source_info': source_info
+                'data_quality': fallback_result.get('data_quality', 'low'),
+                'real_cpu_data': False,
+                'real_player_data': fallback_result.get('data_source') == 'real_player_data_integration',
+                'source_info': {
+                    'primary_sources': [fallback_result.get('data_source', 'unknown')],
+                    'real_cpu_data': False,
+                    'real_player_data': fallback_result.get('data_source') == 'real_player_data_integration',
+                    'last_updated': fallback_result.get('timestamp'),
+                    'fallback_reason': 'storage_system_unavailable'
+                }
             }
             
-            # ✅ FIX 5: Enhanced success logging
-            cpu_source = "GraphQL" if real_cpu_data else "Estimated"
-            player_source = "Logs" if real_player_data else "Estimated"
-            
-            logger.info(f"[Comprehensive API] ✅ SUCCESS for {server_id}: "
-                       f"{health_data.get('health_percentage', 0):.1f}% health, "
-                       f"CPU: {cpu_source}, Players: {player_source}, "
-                       f"Sources: {', '.join(data_sources)}")
-            
-            print(f"✅ Comprehensive health SUCCESS for {server_id}")
-            print(f"📊 Health: {health_data.get('health_percentage', 0):.1f}%, CPU: {cpu_source}, Players: {player_source}")
-            
+            logger.info(f"[Comprehensive API] ✅ Fallback SUCCESS for {server_id}")
             return jsonify(response)
+        
+        # Last resort fallback
+        return jsonify({
+            'success': False,
+            'server_id': server_id,
+            'error': 'Failed to get comprehensive health data',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
             
-        except Exception as storage_error:
-            logger.error(f"[Comprehensive API] Storage error for {server_id}: {storage_error}")
-            print(f"❌ Storage error for {server_id}: {storage_error}")
-            return _fallback_to_standard_health(server_id)
-        
     except Exception as e:
-        logger.error(f"[Comprehensive API] Critical error for {server_id}: {e}")
-        print(f"❌ Critical error in comprehensive health for {server_id}: {e}")
+        logger.error(f"[Comprehensive API] Critical error: {e}")
         
-        # ✅ FIX 6: Enhanced emergency response
+        # Emergency response
         emergency_health = get_emergency_health_fallback(server_id)
         
         return jsonify({
@@ -174,79 +207,46 @@ def get_comprehensive_health(server_id):
             }
         })
 
-def _fallback_to_standard_health(server_id: str):
-    """✅ FIXED: Enhanced fallback to standard health endpoint"""
-    try:
-        logger.warning(f"[Comprehensive API] Using standard health fallback for {server_id}")
-        print(f"⚠️ Using standard health fallback for {server_id}")
-        
-        # Get fallback data using existing enhanced system
-        fallback_result = get_advanced_fallback_health(server_id)
-        
-        if fallback_result:
-            response = {
-                'success': True,
-                'server_id': server_id,
-                'data': {
-                    'health_percentage': fallback_result.get('health_percentage', 0),
-                    'status': fallback_result.get('status', 'unknown'),
-                    'metrics': fallback_result.get('metrics', {}),
-                    'data_sources': [fallback_result.get('data_source', 'unknown')],
-                    'timestamp': fallback_result.get('timestamp')
-                },
-                'data_quality': fallback_result.get('data_quality', 'low'),
-                'real_cpu_data': False,
-                'real_player_data': fallback_result.get('data_source') == 'real_player_data_integration',
-                'source_info': {
-                    'primary_sources': [fallback_result.get('data_source', 'unknown')],
-                    'real_cpu_data': False,
-                    'real_player_data': fallback_result.get('data_source') == 'real_player_data_integration',
-                    'last_updated': fallback_result.get('timestamp'),
-                    'fallback_reason': 'comprehensive_system_unavailable'
-                }
-            }
-            
-            logger.info(f"[Comprehensive API] ✅ Fallback SUCCESS for {server_id}")
-            print(f"✅ Fallback SUCCESS for {server_id}")
-            return jsonify(response)
-        
-        # Last resort
-        return jsonify({
-            'success': False,
-            'server_id': server_id,
-            'error': 'Failed to get any health data',
-            'timestamp': datetime.utcnow().isoformat()
-        }), 500
-            
-    except Exception as fallback_error:
-        logger.error(f"[Comprehensive API] Fallback error for {server_id}: {fallback_error}")
-        print(f"❌ Fallback error for {server_id}: {fallback_error}")
-        return jsonify({
-            'success': False,
-            'server_id': server_id,
-            'error': f'Fallback error: {fallback_error}',
-            'timestamp': datetime.utcnow().isoformat()
-        }), 500
-
 @server_health_bp.route('/api/server_health/test/graphql/<server_id>')
 @require_auth
 def test_graphql_sensors(server_id):
-    """✅ FIXED: Test GraphQL ServiceSensors with detailed diagnostics"""
+    """
+    ✅ NEW: Test GraphQL ServiceSensors connection for a specific server
+    
+    This endpoint allows testing the GraphQL Sensors integration independently.
+    """
     try:
         logger.info(f"[GraphQL Test] Testing GraphQL Sensors for {server_id}")
-        print(f"🧪 Testing GraphQL Sensors for {server_id}")
         
-        if not _server_health_storage:
-            print("❌ Server health storage not available")
-            return jsonify({
-                'success': False,
-                'server_id': server_id,
-                'error': 'Server health storage not available',
-                'test_timestamp': datetime.utcnow().isoformat()
-            }), 503
+        if _server_health_storage and hasattr(_server_health_storage, 'sensors_client') and _server_health_storage.sensors_client:
+            
+            # Test the GraphQL connection
+            test_result = _server_health_storage.sensors_client.test_connection(server_id)
+            
+            if test_result['success']:
+                logger.info(f"[GraphQL Test] ✅ SUCCESS for {server_id}")
+                return jsonify({
+                    'success': True,
+                    'server_id': server_id,
+                    'message': 'GraphQL ServiceSensors connection successful',
+                    'data': test_result['data'],
+                    'test_timestamp': datetime.utcnow().isoformat(),
+                    'sensor_data': {
+                        'cpu_usage': test_result['data'].get('cpu_total', 0),
+                        'memory_percent': test_result['data'].get('memory_percent', 0),
+                        'uptime': test_result['data'].get('uptime', 0)
+                    }
+                })
+            else:
+                logger.warning(f"[GraphQL Test] ❌ FAILED for {server_id}: {test_result['message']}")
+                return jsonify({
+                    'success': False,
+                    'server_id': server_id,
+                    'error': test_result['message'],
+                    'test_timestamp': datetime.utcnow().isoformat()
+                }), 400
         
-        if not hasattr(_server_health_storage, 'sensors_client') or not _server_health_storage.sensors_client:
-            print("❌ GraphQL Sensors client not available")
+        else:
             return jsonify({
                 'success': False,
                 'server_id': server_id,
@@ -254,231 +254,18 @@ def test_graphql_sensors(server_id):
                 'test_timestamp': datetime.utcnow().isoformat(),
                 'available_systems': {
                     'storage': _server_health_storage is not None,
-                    'sensors_client': False,
-                    'client_initialized': False
+                    'sensors_client': _server_health_storage and hasattr(_server_health_storage, 'sensors_client'),
+                    'client_initialized': _server_health_storage and hasattr(_server_health_storage, 'sensors_client') and _server_health_storage.sensors_client is not None
                 }
             }), 503
-        
-        print("🔧 Running GraphQL Sensors connection test...")
-        
-        # ✅ ENHANCED: Detailed connection test
-        test_result = _server_health_storage.sensors_client.test_connection(server_id)
-        
-        if test_result['success']:
-            logger.info(f"[GraphQL Test] ✅ SUCCESS for {server_id}")
-            print(f"✅ GraphQL Test SUCCESS for {server_id}")
-            
-            # Extract detailed sensor data for diagnostics
-            sensor_data = test_result.get('data', {})
-            
-            print(f"📊 Sensor data received:")
-            print(f"  - CPU: {sensor_data.get('cpu_total', 0)}%")
-            print(f"  - Memory: {sensor_data.get('memory_percent', 0)}%")
-            print(f"  - Uptime: {sensor_data.get('uptime', 0)}s")
-            
-            return jsonify({
-                'success': True,
-                'server_id': server_id,
-                'message': 'GraphQL ServiceSensors connection successful',
-                'data': sensor_data,
-                'test_timestamp': datetime.utcnow().isoformat(),
-                'sensor_data': {
-                    'cpu_usage': sensor_data.get('cpu_total', 0),
-                    'memory_percent': sensor_data.get('memory_percent', 0),
-                    'memory_used_mb': sensor_data.get('memory_used_mb', 0),
-                    'memory_total_mb': sensor_data.get('memory_total_mb', 0),
-                    'uptime': sensor_data.get('uptime', 0),
-                    'data_source': sensor_data.get('data_source', 'unknown')
-                },
-                'diagnostics': test_result.get('diagnostics', {})
-            })
-        else:
-            logger.warning(f"[GraphQL Test] ❌ FAILED for {server_id}: {test_result['message']}")
-            print(f"❌ GraphQL Test FAILED for {server_id}: {test_result['message']}")
-            
-            return jsonify({
-                'success': False,
-                'server_id': server_id,
-                'error': test_result['message'],
-                'test_timestamp': datetime.utcnow().isoformat(),
-                'diagnostics': test_result.get('diagnostics', {})
-            }), 400
             
     except Exception as e:
         logger.error(f"[GraphQL Test] Error testing GraphQL Sensors: {e}")
-        print(f"❌ GraphQL Test error: {e}")
         return jsonify({
             'success': False,
             'server_id': server_id,
             'error': f'Test error: {e}',
             'test_timestamp': datetime.utcnow().isoformat()
-        }), 500
-
-@server_health_bp.route('/api/server_health/debug/graphql/<server_id>')
-@require_auth
-def debug_graphql_sensors(server_id):
-    """Debug endpoint to test GraphQL ServiceSensors directly"""
-    try:
-        logger.info(f"[GraphQL DEBUG] Testing GraphQL Sensors for {server_id}")
-        
-        # Test if storage exists
-        if not _server_health_storage:
-            return jsonify({
-                'success': False,
-                'error': 'Server health storage not available',
-                'debug_info': {
-                    'storage_available': False,
-                    'sensors_client_available': False
-                }
-            })
-        
-        # Test if sensors client exists
-        if not hasattr(_server_health_storage, 'sensors_client') or not _server_health_storage.sensors_client:
-            return jsonify({
-                'success': False,
-                'error': 'GraphQL Sensors client not initialized',
-                'debug_info': {
-                    'storage_available': True,
-                    'sensors_client_available': False,
-                    'has_sensors_attribute': hasattr(_server_health_storage, 'sensors_client'),
-                    'sensors_client_value': getattr(_server_health_storage, 'sensors_client', None)
-                }
-            })
-        
-        # Test token loading
-        try:
-            from utils.helpers import load_token
-            token_data = load_token()
-            token_info = {
-                'token_loaded': token_data is not None,
-                'token_type': type(token_data).__name__,
-                'token_length': len(str(token_data)) if token_data else 0
-            }
-            
-            if isinstance(token_data, dict):
-                token = token_data.get('access_token')
-                token_info['has_access_token'] = token is not None
-                token_info['access_token_length'] = len(token) if token else 0
-            elif isinstance(token_data, str):
-                token = token_data
-                token_info['token_is_string'] = True
-            else:
-                token = None
-                token_info['token_format_error'] = 'Unexpected token format'
-                
-        except Exception as token_error:
-            token_info = {
-                'token_error': str(token_error),
-                'token_loaded': False
-            }
-            token = None
-        
-        if not token:
-            return jsonify({
-                'success': False,
-                'error': 'No valid authentication token',
-                'debug_info': {
-                    'storage_available': True,
-                    'sensors_client_available': True,
-                    'token_info': token_info
-                }
-            })
-        
-        # Test GraphQL request directly
-        logger.info(f"[GraphQL DEBUG] Making direct GraphQL request for {server_id}")
-        
-        import requests
-        import json
-        
-        query = """
-        query GetServiceSensors($serviceId: String!) {
-            serviceSensors(serviceId: $serviceId) {
-                cpu
-                cpuTotal
-                memory {
-                    percent
-                    used
-                    total
-                }
-                uptime
-                timestamp
-            }
-        }
-        """
-        
-        payload = {
-            'query': query,
-            'variables': {
-                'serviceId': str(server_id)
-            }
-        }
-        
-        headers = {
-            'Authorization': f'Bearer {token}',
-            'Content-Type': 'application/json',
-            'User-Agent': 'GUST-Bot-Enhanced/1.0',
-            'Accept': 'application/json',
-            'Origin': 'https://www.g-portal.com',
-            'Referer': 'https://www.g-portal.com/'
-        }
-        
-        response = requests.post(
-            "https://www.g-portal.com/ngpapi",
-            json=payload,
-            headers=headers,
-            timeout=15
-        )
-        
-        # Parse response
-        try:
-            response_data = response.json()
-        except:
-            response_data = {'raw_text': response.text[:500]}
-        
-        debug_result = {
-            'success': True,
-            'server_id': server_id,
-            'debug_info': {
-                'storage_available': True,
-                'sensors_client_available': True,
-                'token_info': token_info,
-                'graphql_request': {
-                    'url': "https://www.g-portal.com/ngpapi",
-                    'status_code': response.status_code,
-                    'headers': dict(response.headers),
-                    'response_data': response_data,
-                    'query_variables': {'serviceId': str(server_id)}
-                }
-            }
-        }
-        
-        # Check for specific issues
-        if response.status_code != 200:
-            debug_result['error'] = f'HTTP {response.status_code}'
-        elif 'errors' in response_data:
-            debug_result['error'] = f'GraphQL errors: {response_data["errors"]}'
-        elif 'data' not in response_data:
-            debug_result['error'] = 'No data field in response'
-        elif 'serviceSensors' not in response_data.get('data', {}):
-            debug_result['error'] = 'No serviceSensors in response'
-        elif response_data['data']['serviceSensors'] is None:
-            debug_result['error'] = 'serviceSensors returned null (permissions or server access issue)'
-        else:
-            debug_result['success'] = True
-            debug_result['message'] = 'GraphQL ServiceSensors working!'
-            debug_result['sensor_data'] = response_data['data']['serviceSensors']
-        
-        return jsonify(debug_result)
-        
-    except Exception as e:
-        logger.error(f"[GraphQL DEBUG] Error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'debug_info': {
-                'exception_type': type(e).__name__,
-                'exception_message': str(e)
-            }
         }), 500
 
 # ===== ✅ ENHANCED: EXISTING ENDPOINTS WITH GRAPHQL PRIORITY =====

@@ -1,14 +1,12 @@
-"""
-GUST Bot Enhanced - Enhanced WebSocket Manager (EXTENDED FOR SENSOR BRIDGE)
-==========================================================================
+﻿"""
+GUST Bot Enhanced - Enhanced WebSocket Manager (STABILITY FIX)
+=============================================================
 ✅ ENHANCED: Pre-connection token validation and timeout handling
 ✅ ENHANCED: Exponential backoff reconnection with maximum attempts
 ✅ ENHANCED: Connection health monitoring and status tracking
 ✅ ENHANCED: Automatic cleanup of disconnected connections
 ✅ ENHANCED: Enhanced message handling with proper JSON parsing
 ✅ ENHANCED: Comprehensive error handling and logging
-✅ EXTENDED: Sensor bridge integration for real-time health monitoring
-✅ EXTENDED: Sensor data retrieval and management methods
 ✅ FIXED: Removed missing client import dependency
 """
 
@@ -30,7 +28,7 @@ if WEBSOCKETS_AVAILABLE:
 logger = logging.getLogger(__name__)
 
 class EnhancedWebSocketManager:
-    """Enhanced WebSocket manager with stability improvements and sensor bridge integration"""
+    """Enhanced WebSocket manager with stability improvements"""
     
     def __init__(self, gust_bot):
         """
@@ -51,57 +49,7 @@ class EnhancedWebSocketManager:
         self.connection_timeout = 30  # seconds
         self.health_check_interval = 120  # 2 minutes
         
-        # ✅ NEW: Sensor bridge integration
-        self.sensor_bridge = None
-        
-        logger.info("✅ Enhanced WebSocket Manager initialized with sensor bridge support")
-    
-    def initialize_sensor_bridge(self, server_health_storage=None):
-        """✅ NEW: Initialize the sensor data bridge"""
-        try:
-            from websocket.sensor_bridge import WebSocketSensorBridge
-            self.sensor_bridge = WebSocketSensorBridge(self, server_health_storage)
-            logger.info("✅ Sensor bridge initialized and integrated")
-            return self.sensor_bridge
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize sensor bridge: {e}")
-            return None
-
-    def get_sensor_data(self, server_id: str):
-        """✅ NEW: Get sensor data for a server"""
-        if self.sensor_bridge:
-            return self.sensor_bridge.get_real_sensor_data(server_id)
-        return None
-
-    def get_comprehensive_health_data(self, server_id: str):
-        """✅ NEW: Get comprehensive health data for a server"""
-        if self.sensor_bridge:
-            return self.sensor_bridge.get_comprehensive_health_data(server_id)
-        return None
-
-    def get_sensor_statistics(self):
-        """✅ NEW: Get sensor bridge statistics"""
-        if self.sensor_bridge:
-            return self.sensor_bridge.get_sensor_statistics()
-        return {'error': 'Sensor bridge not initialized'}
-
-    def test_sensor_connectivity(self, server_id: str):
-        """✅ NEW: Test sensor connectivity for a server"""
-        if self.sensor_bridge:
-            return self.sensor_bridge.test_sensor_connectivity(server_id)
-        return {'error': 'Sensor bridge not initialized'}
-
-    def get_all_sensor_data(self):
-        """✅ NEW: Get sensor data for all servers"""
-        if self.sensor_bridge:
-            return self.sensor_bridge.get_all_sensor_data()
-        return {'error': 'Sensor bridge not initialized'}
-
-    def get_health_summary(self):
-        """✅ NEW: Get overall health summary"""
-        if self.sensor_bridge:
-            return self.sensor_bridge.get_health_summary()
-        return {'error': 'Sensor bridge not initialized'}
+        logger.info("✅ Enhanced WebSocket Manager initialized")
     
     def start(self):
         """Start the enhanced WebSocket manager in a separate thread"""
@@ -131,17 +79,12 @@ class EnhancedWebSocketManager:
             self.loop.close()
     
     def _health_monitor_loop(self):
-        """✅ ENHANCED: Background health monitoring loop with sensor bridge cleanup"""
+        """✅ NEW: Background health monitoring loop"""
         while self.running:
             try:
                 time.sleep(self.health_check_interval)
                 if self.running:
                     self._check_connection_health()
-                    
-                    # ✅ NEW: Clean up stale sensor cache
-                    if self.sensor_bridge:
-                        self.sensor_bridge.cleanup_stale_cache()
-                        
             except Exception as health_error:
                 logger.error(f"❌ Health monitor error: {health_error}")
                 time.sleep(30)  # Shorter retry for health monitor
@@ -225,14 +168,14 @@ class EnhancedWebSocketManager:
         
         # ✅ ENHANCED: Create new connection with enhanced client
         try:
-            # Import the extended client class
-            from websocket.client import GPortalWebSocketClient
-            
-            client = GPortalWebSocketClient(
+            client = EnhancedGPortalWebSocketClient(
                 server_id,  # Pass original server_id (may include _test)
                 region, 
                 token, 
-                self._enhanced_message_callback
+                self._enhanced_message_callback,
+                max_reconnect_attempts=self.max_reconnect_attempts,
+                reconnect_delays=self.reconnect_delays,
+                connection_timeout=self.connection_timeout
             )
             
             self.connections[storage_key] = client
@@ -264,7 +207,7 @@ class EnhancedWebSocketManager:
         ✅ ENHANCED: Connect and start listening for a client with enhanced error handling
         
         Args:
-            client: GPortalWebSocketClient instance
+            client: EnhancedGPortalWebSocketClient instance
             storage_key: Storage key for tracking
         """
         try:
@@ -418,11 +361,7 @@ class EnhancedWebSocketManager:
                 "connected_at": health_info.get('connected_at', 0),
                 "last_message_time": health_info.get('last_message_time', 0),
                 "total_messages": health_info.get('message_count', 0),
-                "reconnect_count": health_info.get('reconnect_count', 0),
-                # ✅ NEW: Sensor data status
-                "has_sensor_data": getattr(client, 'latest_sensor_data', None) is not None,
-                "sensor_data_fresh": getattr(client, 'is_sensor_data_fresh', lambda: False)(),
-                "has_config_data": getattr(client, 'latest_config_data', None) is not None
+                "reconnect_count": health_info.get('reconnect_count', 0)
             }
         return status
     
@@ -473,7 +412,7 @@ class EnhancedWebSocketManager:
             server_id: Server ID
             
         Returns:
-            GPortalWebSocketClient or None: Connection client
+            EnhancedGPortalWebSocketClient or None: Connection client
         """
         storage_key = str(server_id).split('_')[0] if '_' in str(server_id) else str(server_id)
         return self.connections.get(storage_key)
@@ -510,15 +449,8 @@ class EnhancedWebSocketManager:
             'total_reconnects': 0
         }
         
-        # ✅ NEW: Sensor statistics
-        sensor_stats = {
-            'servers_with_sensor_data': 0,
-            'servers_with_fresh_data': 0,
-            'servers_with_config_data': 0
-        }
-        
         current_time = time.time()
-        for server_id, health_info in self.connection_health.items():
+        for health_info in self.connection_health.values():
             status = health_info.get('status', 'unknown')
             last_message_time = health_info.get('last_message_time', 0)
             
@@ -531,18 +463,6 @@ class EnhancedWebSocketManager:
                 health_stats['error'] += 1
             
             health_stats['total_reconnects'] += health_info.get('reconnect_count', 0)
-            
-            # Check sensor data availability
-            client = self.connections.get(server_id)
-            if client:
-                if getattr(client, 'latest_sensor_data', None):
-                    sensor_stats['servers_with_sensor_data'] += 1
-                    
-                if getattr(client, 'is_sensor_data_fresh', lambda: False)():
-                    sensor_stats['servers_with_fresh_data'] += 1
-                    
-                if getattr(client, 'latest_config_data', None):
-                    sensor_stats['servers_with_config_data'] += 1
         
         return {
             "websockets_available": WEBSOCKETS_AVAILABLE,
@@ -551,11 +471,8 @@ class EnhancedWebSocketManager:
             "active_connections": active_connections,
             "total_messages": total_messages,
             "connection_details": self.get_connection_status(),
-            # ✅ ENHANCED: Health statistics
+            # ✅ NEW: Enhanced statistics
             "health_statistics": health_stats,
-            # ✅ NEW: Sensor statistics
-            "sensor_statistics": sensor_stats,
-            "sensor_bridge_available": self.sensor_bridge is not None,
             "max_reconnect_attempts": self.max_reconnect_attempts,
             "connection_timeout": self.connection_timeout,
             "health_check_interval": self.health_check_interval
@@ -591,6 +508,198 @@ class EnhancedWebSocketManager:
             logger.info("🛑 Enhanced WebSocket manager stopped")
 
 # ================================================================
+# ENHANCED WEBSOCKET CLIENT
+# ================================================================
+
+if WEBSOCKETS_AVAILABLE:
+    class EnhancedGPortalWebSocketClient:
+        """✅ NEW: Enhanced G-Portal WebSocket client with stability improvements"""
+        
+        def __init__(self, server_id, region, token, message_callback, 
+                     max_reconnect_attempts=5, reconnect_delays=None, connection_timeout=30):
+            """
+            Initialize enhanced WebSocket client
+            
+            Args:
+                server_id: Server ID
+                region: Server region  
+                token: G-Portal authentication token
+                message_callback: Callback function for messages
+                max_reconnect_attempts: Maximum reconnection attempts
+                reconnect_delays: List of delays between reconnection attempts
+                connection_timeout: Connection timeout in seconds
+            """
+            self.server_id = server_id
+            self.region = region
+            self.token = str(token).strip() if token else ""
+            self.message_callback = message_callback
+            self.max_reconnect_attempts = max_reconnect_attempts
+            self.reconnect_delays = reconnect_delays or [2, 4, 8, 16, 32, 60]
+            self.connection_timeout = connection_timeout
+            
+            self.websocket = None
+            self.connected = False
+            self.running = False
+            self.reconnect_attempts = 0
+            self.message_buffer = []
+            self.is_test = '_test' in str(server_id)
+            
+            logger.debug(f"✅ Enhanced WebSocket client initialized for server {server_id}")
+        
+        async def connect(self):
+            """✅ ENHANCED: Connect to G-Portal WebSocket with timeout and validation"""
+            try:
+                # ✅ ENHANCED: Pre-connection validation
+                if not self.token or len(self.token) < 10:
+                    logger.error(f"❌ Invalid token for server {self.server_id}")
+                    return False
+                
+                uri = f"wss://www.g-portal.com/ngpapi/graphql"
+                headers = {
+                    "Authorization": f"Bearer {self.token}",
+                    "Origin": "https://www.g-portal.com",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                }
+                
+                logger.info(f"🔌 Enhanced connecting to WebSocket for server {self.server_id}")
+                
+                # ✅ ENHANCED: Connection with timeout
+                self.websocket = await asyncio.wait_for(
+                    websockets.connect(uri, extra_headers=headers),
+                    timeout=self.connection_timeout
+                )
+                
+                self.connected = True
+                self.running = True
+                self.reconnect_attempts = 0
+                
+                logger.info(f"✅ Enhanced WebSocket connected for server {self.server_id}")
+                
+                # Send subscription
+                clean_server_id = str(self.server_id).split('_')[0]
+                subscription = {
+                    "type": "start",
+                    "payload": {
+                        "query": f"""
+                        subscription {{
+                          consoleMessage(rsid: {{id: {clean_server_id}, region: {self.region}}}) {{
+                            message
+                            timestamp
+                          }}
+                        }}
+                        """
+                    }
+                }
+                
+                await self.websocket.send(json.dumps(subscription))
+                logger.debug(f"📡 Enhanced subscription sent for server {self.server_id}")
+                
+                return True
+                
+            except asyncio.TimeoutError:
+                logger.error(f"❌ Enhanced WebSocket connection timeout for server {self.server_id}")
+                return False
+            except Exception as e:
+                logger.error(f"❌ Enhanced WebSocket connection error for server {self.server_id}: {e}")
+                return False
+        
+        async def listen_for_messages(self):
+            """✅ ENHANCED: Listen for messages with automatic reconnection"""
+            while self.running:
+                try:
+                    if not self.connected or not self.websocket:
+                        await self._attempt_reconnection()
+                        continue
+                    
+                    # Listen for messages
+                    message = await self.websocket.recv()
+                    await self._process_message(message)
+                    
+                except websockets.exceptions.ConnectionClosed:
+                    logger.warning(f"⚠️ Enhanced WebSocket connection closed for server {self.server_id}")
+                    self.connected = False
+                    await self._attempt_reconnection()
+                    
+                except Exception as e:
+                    logger.error(f"❌ Enhanced WebSocket listen error for server {self.server_id}: {e}")
+                    self.connected = False
+                    await asyncio.sleep(5)  # Short delay before retry
+        
+        async def _attempt_reconnection(self):
+            """✅ NEW: Attempt reconnection with exponential backoff"""
+            if self.reconnect_attempts >= self.max_reconnect_attempts:
+                logger.error(f"❌ Max reconnection attempts reached for server {self.server_id}")
+                self.running = False
+                return
+            
+            delay_index = min(self.reconnect_attempts, len(self.reconnect_delays) - 1)
+            delay = self.reconnect_delays[delay_index]
+            
+            logger.info(f"🔄 Enhanced reconnection attempt {self.reconnect_attempts + 1}/{self.max_reconnect_attempts} for server {self.server_id} in {delay}s")
+            
+            await asyncio.sleep(delay)
+            
+            self.reconnect_attempts += 1
+            success = await self.connect()
+            
+            if success:
+                logger.info(f"✅ Enhanced reconnection successful for server {self.server_id}")
+            else:
+                logger.warning(f"❌ Enhanced reconnection failed for server {self.server_id}")
+        
+        async def _process_message(self, message):
+            """✅ ENHANCED: Process incoming message with proper parsing"""
+            try:
+                data = json.loads(message)
+                
+                if 'payload' in data and 'data' in data['payload']:
+                    console_data = data['payload']['data'].get('consoleMessage', {})
+                    
+                    processed_message = {
+                        'server_id': self.server_id,
+                        'message': console_data.get('message', ''),
+                        'timestamp': console_data.get('timestamp', datetime.now().isoformat()),
+                        'source': 'enhanced_websocket_live',
+                        'type': 'system'  # Will be classified by callback
+                    }
+                    
+                    # Add to buffer
+                    self.message_buffer.append(processed_message)
+                    if len(self.message_buffer) > 1000:  # Keep last 1000 messages
+                        self.message_buffer = self.message_buffer[-1000:]
+                    
+                    # Call callback
+                    if self.message_callback:
+                        await self.message_callback(processed_message)
+                        
+            except json.JSONDecodeError:
+                logger.warning(f"⚠️ Invalid JSON message from server {self.server_id}")
+            except Exception as e:
+                logger.error(f"❌ Error processing message from server {self.server_id}: {e}")
+        
+        def get_recent_messages(self, limit=50, message_type=None):
+            """Get recent messages with filtering"""
+            messages = self.message_buffer
+            
+            if message_type and message_type != 'all':
+                messages = [msg for msg in messages if msg.get('type') == message_type]
+            
+            return messages[-limit:] if limit else messages
+        
+        async def disconnect(self):
+            """✅ ENHANCED: Disconnect with proper cleanup"""
+            self.running = False
+            self.connected = False
+            
+            if self.websocket:
+                try:
+                    await self.websocket.close()
+                except Exception as e:
+                    logger.debug(f"Error closing WebSocket for server {self.server_id}: {e}")
+                
+            logger.info(f"🔌 Enhanced WebSocket disconnected for server {self.server_id}")
+
+# ================================================================
 # COMPATIBILITY LAYER
 # ================================================================
 
@@ -603,12 +712,5 @@ WebSocketManager = EnhancedWebSocketManager if WEBSOCKETS_AVAILABLE else type('D
     'get_connection_status': lambda self: {},
     'get_messages': lambda self, *args, **kwargs: [],
     'disconnect_all': lambda self: None,
-    'stop': lambda self: None,
-    'initialize_sensor_bridge': lambda self, *args: None,
-    'get_sensor_data': lambda self, *args: None,
-    'get_comprehensive_health_data': lambda self, *args: None,
-    'get_sensor_statistics': lambda self: {},
-    'test_sensor_connectivity': lambda self, *args: {},
-    'get_all_sensor_data': lambda self: {},
-    'get_health_summary': lambda self: {}
+    'stop': lambda self: None
 })
