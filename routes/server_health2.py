@@ -1918,8 +1918,6 @@ def get_emergency_command_fallback(server_id: str) -> List[Dict[str, Any]]:
             'command': 'save',
             'type': 'auto',
             'timestamp': (now - timedelta(minutes=30)).strftime('%H:%M:%S'),
-            'user': 'Auto System',
-            'server_id': server_id,
-            'status': 'completed'
+            'user': 'Auto system'
         }
     ]

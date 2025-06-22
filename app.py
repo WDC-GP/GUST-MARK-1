@@ -5,6 +5,7 @@ GUST Bot Enhanced - Main Flask Application (COMPLETE FIXED VERSION)
 ✅ FIXED: Service ID discovery properly integrated without breaking existing functionality
 ✅ FIXED: Safe GraphQL command execution with comprehensive error handling
 ✅ FIXED: WebSocket manager properly initialized
+✅ FIXED: Request context error - removed session access during startup
 ✅ INCLUDES: All ~1900 lines with complete functionality
 """
 
@@ -407,6 +408,9 @@ class GustBotEnhanced:
         
         # Initialize WebSocket manager
         self.init_websocket_manager()
+        
+        # Demo mode flag (to track without needing session)
+        self.demo_mode_active = True  # Default to demo mode for safety
         
         # Store references in app for route access
         self.app.gust_bot = self
@@ -1339,13 +1343,15 @@ class GustBotEnhanced:
     def update_demo_data(self):
         """Update demo mode data for realistic simulation"""
         try:
-            if not session.get('demo_mode', False):
+            # Check if we're in demo mode without accessing session
+            # This method is called from a background thread
+            if not self.demo_mode_active:
                 return
             
             # Update demo server stats
             import random
             for server in self.managed_servers:
-                if server.get('serverId', '').startswith('demo_'):
+                if server.get('serverId', '').startswith('demo_') or server.get('serverId') in ['1234567', '7654321']:
                     # Simulate player count changes
                     current_players = server.get('playerCount', 50)
                     change = random.randint(-5, 5)
@@ -1720,8 +1726,9 @@ class GustBotEnhanced:
             schedule.every(1).hours.do(self.perform_database_maintenance)
             schedule.every(6).hours.do(self.export_system_report)
             
-            if session.get('demo_mode', False):
-                schedule.every(10).seconds.do(self.update_demo_data)
+            # ✅ FIXED: Always schedule demo data updates - the method will check if it should run
+            # Don't check session here as we're outside request context
+            schedule.every(10).seconds.do(self.update_demo_data)
             
             # Run the Flask application
             self.app.run(
