@@ -184,7 +184,7 @@ try:
         calculate_percentage, format_bytes, format_duration,
         # String utilities
         generate_random_string, safe_int, safe_float, escape_html,
-        truncate_string, sanitize_filename,
+        truncate_string, sanitize_filename, safe_str, safe_strip,
         # Time and date utilities
         format_timestamp,
         # Validation utilities
@@ -344,6 +344,14 @@ except ImportError as e:
     def get_server_region(server_data):
         """Fallback server region getter"""
         return server_data.get('region', 'US') if isinstance(server_data, dict) else 'US'
+    
+    def safe_str(value):
+        """Fallback safe string converter"""
+        return str(value) if value is not None else ''
+    
+    def safe_strip(value):
+        """Fallback safe strip"""
+        return str(value).strip() if value is not None else ''
 
 # ================================================================
 # SHARED UTILITY FUNCTIONS (NEEDED BY MULTIPLE MODULES)
@@ -532,6 +540,7 @@ __all__ = [
     'validate_server_id', 'validate_region', 'is_valid_steam_id',
     'validate_email', 'validate_url', 'get_server_region', 'create_server_data',
     'get_countdown_announcements', 'get_status_class', 'get_status_text',
+    'safe_str', 'safe_strip',
     
     # Shared utility functions
     '_get_config_value',
