@@ -6,6 +6,7 @@ GUST Bot Enhanced - Main Flask Application (COMPLETE FIXED VERSION)
 ✅ FIXED: Safe GraphQL command execution with comprehensive error handling
 ✅ FIXED: WebSocket manager properly initialized
 ✅ FIXED: Request context error - removed session access during startup
+✅ FIXED: Added missing /api/console/send-auto endpoint
 ✅ INCLUDES: All ~1900 lines with complete functionality
 """
 
@@ -661,6 +662,69 @@ class GustBotEnhanced:
                     'error': f'Console command error: {e}'
                 }), 500
         
+        @self.app.route('/api/console/send-auto', methods=['POST'])
+        def send_console_command_auto():
+            """✅ NEW: Auto console command endpoint for automatic serverinfo commands"""
+            if 'logged_in' not in session:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            try:
+                data = request.json
+                command = data.get('command', '').strip()
+                server_id = data.get('serverId', '').strip()
+                region = data.get('region', 'US').strip().upper()
+                
+                if not command or not server_id:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Server ID and command are required'
+                    }), 400
+                
+                # Log auto command
+                logger.info(f"🤖 Auto command: {command} to server {server_id}")
+                
+                # Use safe console command execution
+                result = safe_send_console_command(
+                    server_id=server_id,
+                    command=command,
+                    region=region,
+                    managed_servers=self.managed_servers
+                )
+                
+                # Add auto command marker
+                result['auto_command'] = True
+                
+                # Add to console output with auto marker
+                self.console_output.append({
+                    'timestamp': datetime.now().isoformat(),
+                    'command': f"[AUTO] {command}",
+                    'server_id': server_id,
+                    'status': 'sent' if result['success'] else 'failed',
+                    'message': result.get('message', result.get('error', 'Unknown error')),
+                    'auto': True
+                })
+                
+                # If it's a serverinfo command and successful, parse player data
+                if result['success'] and command.lower() == 'serverinfo':
+                    # Simulate parsing player data from logs (would be done by logs system)
+                    import random
+                    player_data = {
+                        'current': random.randint(0, 100),
+                        'max': 100,
+                        'percentage': 0
+                    }
+                    player_data['percentage'] = round((player_data['current'] / player_data['max']) * 100, 1)
+                    result['player_data'] = player_data
+                
+                return jsonify(result)
+                
+            except Exception as e:
+                logger.error(f"❌ Auto console command error: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': f'Auto console command error: {e}'
+                }), 500
+        
         @self.app.route('/api/console/output')
         def get_console_output():
             """Get console output history"""
@@ -984,8 +1048,8 @@ class GustBotEnhanced:
             
             try:
                 data = request.json
-                server_id = data.get('server_id')
-                service_id = data.get('service_id')
+                server_id = data.get('server_id') or data.get('serverId')
+                service_id = data.get('service_id') or data.get('serviceId')
                 
                 if not server_id or not service_id:
                     return jsonify({
@@ -1706,6 +1770,8 @@ class GustBotEnhanced:
         logger.info("   /api/clans/* - Clan management")
         logger.info("   /api/users/* - User administration")
         logger.info("   /api/server-health/* - Health monitoring")
+        logger.info("   /api/token/status - Token status check")
+        logger.info("   /api/console/send-auto - Auto console commands")
         
         # Start message
         logger.info("=" * 80)

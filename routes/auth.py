@@ -1,7 +1,8 @@
 """
-GUST Bot Enhanced - Authentication Routes (COMPLETE WORKING VERSION WITH FIXED URL)
-===================================================================================
+GUST Bot Enhanced - Authentication Routes (COMPLETE WORKING VERSION WITH FIXED URLS)
+====================================================================================
 ✅ FIXED: Correct G-Portal authentication URL (ngpapi/oauth/token)
+✅ FIXED: Changed /token/status to /api/token/status to match frontend
 ✅ COMPLETE: OAuth and session cookie authentication support
 ✅ COMPLETE: Auto-auth with empty credentials support
 ✅ COMPLETE: Enhanced error handling and logging
@@ -559,26 +560,54 @@ def session_info():
             'error': str(e)
         }), 500
 
-@auth_bp.route('/token/status')
+@auth_bp.route('/api/token/status')
 @require_auth
 def token_status():
-    """Get detailed token status"""
+    """✅ FIXED: Get detailed token status with /api/ prefix"""
     try:
+        # Get demo mode status
+        demo_mode = session.get('demo_mode', False)
+        
+        if demo_mode:
+            # Demo mode response
+            return jsonify({
+                'success': True,
+                'valid': True,
+                'demo_mode': True,
+                'message': 'Demo mode active',
+                'time_left': 86400,  # 24 hours
+                'expires_at': 'N/A',
+                'status': 'healthy',
+                'health': {
+                    'status': 'healthy',
+                    'message': 'Demo mode - no real token'
+                }
+            })
+        
+        # Live mode - check actual token
         validation = validate_token_file()
         health = monitor_token_health()
         
         return jsonify({
             'success': True,
+            'valid': validation['valid'],
+            'demo_mode': False,
             'validation': validation,
             'health': health,
-            'timestamp': time.time()
+            'timestamp': time.time(),
+            'time_left': int(validation.get('time_left', 0)),
+            'expires_at': validation.get('expires_at', 'Unknown'),
+            'status': health.get('status', 'unknown'),
+            'message': health.get('message', 'Token status retrieved')
         })
         
     except Exception as e:
         logger.error(f"❌ Error in token status endpoint: {e}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'valid': False,
+            'error': str(e),
+            'message': 'Failed to get token status'
         }), 500
 
 @auth_bp.route('/token/refresh', methods=['POST'])
@@ -855,4 +884,4 @@ __all__ = [
     'get_auth_status', 'log_auth_attempt'
 ]
 
-logger.info("✅ Complete authentication routes loaded with correct G-Portal URL")
+logger.info("✅ Complete authentication routes loaded with correct G-Portal URL and /api/token/status")
