@@ -180,6 +180,7 @@ class Config:
     
     # G-Portal API settings
     GPORTAL_AUTH_URL = 'https://auth.g-portal.com/auth/realms/master/protocol/openid-connect/token'
+    GPORTAL_CLIENT_ID = 'website'
     GPORTAL_API_ENDPOINT = "https://www.g-portal.com/ngpapi/"
     
     # Server settings
