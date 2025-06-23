@@ -416,7 +416,7 @@
     <!-- ============================================================================ -->
     <script>
         // ============================================================================
-        // MODULAR ARCHITECTURE INITIALIZATION (ENHANCED)
+        // MODULAR ARCHITECTURE INITIALIZATION (ENHANCED WITH AUTO COMMAND COORDINATION)
         // ============================================================================
         
         console.log('🚀 GUST-MARK-1 Enhanced Dashboard - Modular Architecture Initialization');
@@ -425,6 +425,10 @@
         console.log('📁 Logs modules organized in /scripts/logs/ folder');
         console.log('🔧 Frontend fixes for optimized storage system applied');
         console.log('🎯 Logs Coordinator loaded to restore lost functionality');
+        console.log('⏱️ Auto commands coordinated: Logs Coordinator (5min) + Player Count (disabled)');
+        
+        // ✅ ENHANCED: Coordination flag to prevent multiple auto command systems
+        window.autoCommandCoordinationActive = false;
         
         // Verify module loading completion
         function verifyModularArchitecture() {
@@ -502,6 +506,55 @@
             console.groupEnd();
             
             return completionRate;
+        }
+        
+        // ✅ ENHANCED: Auto command coordination verification
+        function verifyAutoCommandCoordination() {
+            console.group('🤖 Auto Command Coordination Verification');
+            
+            try {
+                // Check logs coordinator config
+                if (typeof window.autoConsoleConfig !== 'undefined') {
+                    const logsConfig = window.autoConsoleConfig;
+                    console.log(`📡 Logs Coordinator Config:`, {
+                        enabled: logsConfig.enabled,
+                        interval: `${logsConfig.interval/1000}s`,
+                        note: logsConfig.note || 'Main auto command system'
+                    });
+                }
+                
+                // Check player count config
+                if (typeof window.logsBasedPlayerCountSystem !== 'undefined') {
+                    const playerConfig = window.logsBasedPlayerCountSystem;
+                    console.log(`👥 Player Count System:`, {
+                        enabled: playerConfig.enabled,
+                        polling: playerConfig.polling,
+                        interval: `${playerConfig.config.interval/1000}s`,
+                        purpose: 'Data extraction only'
+                    });
+                }
+                
+                // Verify coordination
+                const coordinationStatus = {
+                    logsCoordinatorEnabled: window.autoConsoleConfig?.enabled || false,
+                    playerCountAutoDisabled: window.autoConsoleConfig?.note?.includes('DISABLED') || false,
+                    coordination: window.autoCommandCoordinationActive,
+                    interval: window.autoConsoleConfig?.interval || 'unknown'
+                };
+                
+                console.log(`🎯 Auto Command Coordination Status:`, coordinationStatus);
+                
+                if (coordinationStatus.logsCoordinatorEnabled && coordinationStatus.interval === 300000) {
+                    console.log('✅ Auto commands properly coordinated: 5-minute intervals via logs coordinator');
+                } else {
+                    console.warn('⚠️ Auto command coordination may need adjustment');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error verifying auto command coordination:', error);
+            }
+            
+            console.groupEnd();
         }
         
         // Enhanced integration testing
@@ -587,6 +640,9 @@
                     console.warn('⚠️ Logs coordinator functions not available');
                 }
                 
+                // ✅ NEW: Test auto command coordination
+                verifyAutoCommandCoordination();
+                
                 console.log('✅ Enhanced integration testing completed');
                 
             } catch (error) {
@@ -616,9 +672,12 @@
             }
         }
         
-        // Initialize modular architecture
+        // ✅ ENHANCED: Initialize modular architecture with auto command coordination
         function initializeModularArchitecture() {
-            console.log('🚀 Initializing enhanced modular architecture with logs coordinator...');
+            console.log('🚀 Initializing enhanced modular architecture with coordinated auto commands...');
+            
+            // Set coordination flag
+            window.autoCommandCoordinationActive = true;
             
             // Wait for all modules to load
             setTimeout(() => {
@@ -634,26 +693,34 @@
                         // initializeApp() is called automatically by core module
                     }
                     
-                    // Start player count system
+                    // Start player count system (data extraction only)
                     if (typeof initializePlayerCountSystem === 'function') {
-                        console.log('👥 Player count system will initialize automatically...');
+                        console.log('👥 Player count system will initialize (data extraction only)...');
                         // initializePlayerCountSystem() is called automatically by player count module
                     }
                     
-                    // Start logs coordinator auto commands functionality
+                    // ✅ ENHANCED: Coordinated auto command initialization
                     if (typeof initializeAutoConsoleCommands === 'function') {
-                        console.log('🎯 Starting logs coordinator auto command functionality...');
-                        setTimeout(initializeAutoConsoleCommands, 1000);
+                        console.log('🎯 Starting coordinated auto command functionality (5-minute intervals)...');
+                        setTimeout(() => {
+                            // Only start if coordination is active and not already initialized
+                            if (window.autoCommandCoordinationActive) {
+                                initializeAutoConsoleCommands();
+                                console.log('✅ Auto commands coordinated: Logs Coordinator (5min) handles serverinfo commands');
+                                console.log('ℹ️ Player Count system handles data extraction triggered by commands');
+                            }
+                        }, 1000);
                     }
                     
                     console.log('✅ Enhanced modular architecture initialization complete!');
                     console.log('📁 Architecture: Main modules in /scripts/Main/, Logs modules in /scripts/logs/');
                     console.log('🔧 Optimized storage system fixes applied and tested');
                     console.log('🎯 Logs coordinator loaded to restore sophisticated functionality');
+                    console.log('⏱️ FIXED: Auto commands coordinated to run every 5 minutes instead of every 10-60 seconds');
                     
                     // Show success message
                     if (typeof showStatus === 'function') {
-                        showStatus('🎉 GUST-MARK-1 Enhanced Dashboard loaded successfully with logs coordinator!', 'success', 3000);
+                        showStatus('🎉 GUST-MARK-1 Enhanced Dashboard loaded with coordinated 5-minute auto commands!', 'success', 3000);
                     }
                     
                 } else {
@@ -682,6 +749,7 @@
         window.verifyModularArchitecture = verifyModularArchitecture;
         window.testModularIntegration = testModularIntegration;
         window.monitorModularPerformance = monitorModularPerformance;
+        window.verifyAutoCommandCoordination = verifyAutoCommandCoordination;  // ✅ NEW
         
         // Enhanced module inspection
         window.inspectModule = function(moduleName) {
@@ -713,7 +781,7 @@
             console.groupEnd();
         };
         
-        // Enhanced performance monitoring
+        // ✅ ENHANCED: Performance monitoring with auto command coordination info
         window.getModularStats = function() {
             const stats = {
                 timestamp: new Date().toISOString(),
@@ -748,12 +816,24 @@
                         status: 'All frontend issues resolved'
                     }
                 },
-                autoCommands: typeof autoConsoleConfig !== 'undefined' ? {
-                    enabled: autoConsoleConfig.enabled,
-                    running: window.autoCommandsRunning || false,
-                    interval: autoConsoleConfig.interval,
-                    coordinator: 'Sophisticated functionality restored'
-                } : 'Not available',
+                // ✅ ENHANCED: Auto command coordination info
+                autoCommandCoordination: {
+                    active: window.autoCommandCoordinationActive,
+                    logsCoordinator: {
+                        enabled: window.autoConsoleConfig?.enabled || false,
+                        interval: window.autoConsoleConfig?.interval || 'unknown',
+                        intervalMinutes: window.autoConsoleConfig?.interval ? (window.autoConsoleConfig.interval / 60000) : 'unknown',
+                        running: window.autoCommandsRunning || false,
+                        status: 'Primary auto command system (5-minute intervals)'
+                    },
+                    playerCountSystem: {
+                        autoCommandsDisabled: window.autoConsoleConfig?.note?.includes('DISABLED') || false,
+                        dataExtractionEnabled: window.logsBasedPlayerCountSystem?.enabled || false,
+                        polling: window.logsBasedPlayerCountSystem?.polling || false,
+                        status: 'Data extraction only (triggered by coordinator)'
+                    },
+                    coordination: window.autoCommandCoordinationActive ? 'ACTIVE' : 'INACTIVE'
+                },
                 coordinatorFunctions: {
                     getAvailableServersForAutoCommands: typeof getAvailableServersForAutoCommands,
                     initializeAutoConsoleCommands: typeof initializeAutoConsoleCommands,
@@ -778,7 +858,8 @@
         console.log('📁 Logs modules location: templates/scripts/logs/');
         console.log('🎯 Logs coordinator: Restores sophisticated functionality lost during modularization');
         console.log('🚀 Optimized storage system: 99.8% performance improvement achieved');
-        console.log('📊 Use getModularStats() to see complete organization details including coordinator status');
+        console.log('📊 Use getModularStats() to see complete organization details including auto command coordination');
+        console.log('⏱️ FIXED: Auto commands coordinated to prevent conflicts and run every 5 minutes');
         
     </script>
 </body>

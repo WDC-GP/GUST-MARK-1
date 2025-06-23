@@ -10,6 +10,7 @@ GUST Bot Enhanced - Main Flask Application (COMPLETE FIXED VERSION)
 ✅ NEW: Enhanced authentication and demo mode handling
 ✅ CRITICAL FIX: Auto console command 'int' object has no attribute 'strip' error resolved
 ✅ NEW: Added console compatibility endpoint for /api/console/server-info/<server_id>
+✅ FIXED: Enhanced legacy endpoint request validation to prevent 400 Bad Request errors
 """
 
 import os
@@ -574,11 +575,12 @@ class GustBotEnhanced:
                     'error': f'Auto command processing error: {str(e)}'
                 }), 500
         
-        # ✅ NEW: Console compatibility endpoint for legacy /api/console/server-info/<server_id>
+        # ✅ FIXED: Console compatibility endpoint for legacy /api/console/server-info/<server_id>
         @self.app.route('/api/console/server-info/<server_id>', methods=['POST'])
         def console_server_info_compatibility(server_id):
             """
             ✅ COMPATIBILITY: Legacy endpoint that handles old frontend code
+            ✅ FIXED: Enhanced request validation to prevent 400 Bad Request errors
             This fixes the 404 error for /api/console/server-info/<server_id>
             """
             if 'logged_in' not in session:
@@ -587,10 +589,43 @@ class GustBotEnhanced:
             try:
                 logger.info(f"🔄 Legacy console endpoint called for server {server_id}")
                 
-                # Get request data (if any)
-                data = request.json if request.json else {}
-                command = data.get('command', 'serverinfo')  # Default to serverinfo
-                region = data.get('region', 'US')
+                # ✅ FIXED: Enhanced request data handling with better validation
+                data = {}
+                try:
+                    # Handle different content types and request formats
+                    if request.is_json:
+                        data = request.get_json(force=True) or {}
+                    elif request.data:
+                        # Try to parse as JSON even if content-type is wrong
+                        try:
+                            import json
+                            data = json.loads(request.data.decode('utf-8'))
+                        except (ValueError, UnicodeDecodeError):
+                            data = {}
+                    elif request.form:
+                        # Handle form data
+                        data = request.form.to_dict()
+                    else:
+                        # Default empty data
+                        data = {}
+                        
+                except Exception as parse_error:
+                    logger.warning(f"⚠️ Request parsing error for server {server_id}: {parse_error}")
+                    # Continue with empty data rather than failing
+                    data = {}
+                
+                # ✅ FIXED: Safe parameter extraction with defaults
+                command = str(data.get('command', 'serverinfo')).strip()
+                region = str(data.get('region', 'US')).strip().upper()
+                
+                # Validate server_id
+                if not server_id or server_id.strip() == '':
+                    return jsonify({
+                        'success': False,
+                        'error': 'Server ID is required',
+                        'legacy_endpoint': True,
+                        'recommended_endpoint': '/api/console/send-auto'
+                    }), 400
                 
                 # Check demo mode
                 demo_mode = session.get('demo_mode', True)
@@ -607,8 +642,12 @@ class GustBotEnhanced:
                         'data': {
                             'fps': random.randint(45, 65),
                             'players': f"{random.randint(0, 50)}/100",
-                            'status': 'online'
+                            'status': 'online',
+                            'hostname': f'Demo Server {server_id}',
+                            'uptime': random.randint(3600, 86400)
                         },
+                        'command': command,
+                        'region': region,
                         'recommended_endpoint': '/api/console/send-auto',
                         'timestamp': datetime.now().isoformat()
                     })
@@ -620,6 +659,8 @@ class GustBotEnhanced:
                         'legacy_endpoint': True,
                         'server_id': server_id,
                         'message': f'Legacy endpoint accessed for server {server_id}',
+                        'command': command,
+                        'region': region,
                         'recommended_endpoint': '/api/console/send-auto',
                         'note': 'This endpoint is deprecated. Please use /api/console/send-auto for new implementations.',
                         'timestamp': datetime.now().isoformat()
@@ -627,12 +668,22 @@ class GustBotEnhanced:
                     
             except Exception as e:
                 logger.error(f"❌ Legacy console endpoint error for {server_id}: {e}")
+                # ✅ FIXED: Enhanced error response with debugging info
                 return jsonify({
                     'success': False,
-                    'error': f'Legacy endpoint error: {str(e)}',
+                    'error': f'Legacy endpoint processing error: {str(e)}',
                     'legacy_endpoint': True,
                     'server_id': server_id,
-                    'recommended_endpoint': '/api/console/send-auto'
+                    'recommended_endpoint': '/api/console/send-auto',
+                    'debug_info': {
+                        'request_method': request.method,
+                        'content_type': request.content_type,
+                        'has_json': request.is_json,
+                        'has_data': bool(request.data),
+                        'has_form': bool(request.form),
+                        'error_type': type(e).__name__
+                    },
+                    'timestamp': datetime.now().isoformat()
                 }), 500
         
         @self.app.route('/api/console/output')
@@ -1487,6 +1538,7 @@ class GustBotEnhanced:
         logger.info(f"🤖 NEW: Auto command API endpoint added for serverinfo commands")
         logger.info(f"✅ CRITICAL FIX: Auto console command 'int' object has no attribute 'strip' error resolved")
         logger.info(f"🔄 NEW: Console compatibility endpoint for legacy /api/console/server-info/<server_id>")
+        logger.info(f"✅ FIXED: Enhanced legacy endpoint request validation to prevent 400 Bad Request errors")
         
         try:
             self.app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)

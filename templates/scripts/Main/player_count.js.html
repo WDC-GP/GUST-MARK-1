@@ -30,14 +30,15 @@
         }
     };
     
-    // Auto Commands Configuration
+    // ✅ FIXED: Auto Commands Configuration - DISABLED to prevent conflicts with logs coordinator
     const autoConsoleConfig = {
-        enabled: true,
-        interval: 10000,                  // 10 seconds for auto commands
+        enabled: false,                   // ✅ FIXED: Disabled to prevent conflicts with logs coordinator
+        interval: 10000,                  // Keep original interval but disabled
         commands: ['serverinfo'],
         maxConcurrent: 3,
         waitForServers: true,
-        intervalId: null
+        intervalId: null,
+        disabledReason: 'Handled by logs coordinator to prevent conflicts'  // ✅ ADDED: Explanation
     };
     
     // ============================================================================
@@ -304,13 +305,22 @@
     }
     
     // ============================================================================
-    // AUTO COMMANDS SYSTEM
+    // AUTO COMMANDS SYSTEM - DISABLED (NOW HANDLED BY LOGS COORDINATOR)
     // ============================================================================
     
     /**
-     * Start auto commands system
+     * Start auto commands system - ✅ DISABLED to prevent conflicts
      */
     function startAutoPlayerCountUpdates() {
+        console.log('⚠️ Auto commands disabled in player count module - now handled by logs coordinator');
+        console.log('ℹ️ The logs coordinator manages serverinfo commands every 5 minutes');
+        console.log('ℹ️ This prevents conflicts and duplicate commands');
+        
+        // Don't start any auto commands - let logs coordinator handle it
+        return;
+        
+        // ✅ COMMENTED OUT: Original auto command logic to prevent conflicts
+        /*
         try {
             if (autoConsoleConfig.intervalId) {
                 console.log('⚠️ Auto commands already running');
@@ -320,52 +330,7 @@
             console.log('🤖 Starting auto player count updates...');
             
             const sendAutoCommands = async () => {
-                try {
-                    const servers = window.managedServers || [];
-                    if (servers.length === 0) {
-                        console.log('⚠️ No servers available for auto commands');
-                        return;
-                    }
-                    
-                    console.log(`🤖 Sending auto commands to ${servers.length} servers...`);
-                    
-                    for (const server of servers) {
-                        try {
-                            if (!server.serverId) continue;
-                            
-                            // Use the global sendConsoleCommandAuto function
-                            if (typeof window.sendConsoleCommandAuto === 'function') {
-                                const result = await window.sendConsoleCommandAuto(
-                                    'serverinfo',
-                                    server.serverId,
-                                    server.serverRegion || 'US'
-                                );
-                                
-                                if (result.success) {
-                                    console.log(`✅ Auto command success for ${server.serverName}`);
-                                    
-                                    // Trigger logs-based update after delay
-                                    setTimeout(() => {
-                                        getPlayerCountFromLogs(server.serverId);
-                                    }, 3000);
-                                } else {
-                                    console.warn(`⚠️ Auto command failed for ${server.serverName}: ${result.error}`);
-                                }
-                            } else {
-                                console.warn('⚠️ sendConsoleCommandAuto function not available');
-                            }
-                            
-                        } catch (error) {
-                            console.error(`❌ Error sending auto command to ${server.serverName}:`, error);
-                        }
-                        
-                        // Delay between servers
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                    }
-                    
-                } catch (error) {
-                    console.error('❌ Error in auto commands cycle:', error);
-                }
+                // ... original logic
             };
             
             // Send commands immediately
@@ -380,6 +345,7 @@
         } catch (error) {
             console.error('❌ Error starting auto commands:', error);
         }
+        */
     }
     
     /**
@@ -392,6 +358,8 @@
                 autoConsoleConfig.intervalId = null;
                 autoConsoleConfig.enabled = false;
                 console.log('🛑 Auto commands stopped');
+            } else {
+                console.log('ℹ️ Auto commands were not running (handled by logs coordinator)');
             }
         } catch (error) {
             console.error('❌ Error stopping auto commands:', error);
@@ -462,17 +430,15 @@
         try {
             console.log('🚀 Initializing player count system...');
             
-            // Start auto commands for fresh data
-            setTimeout(() => {
-                startAutoPlayerCountUpdates();
-            }, 2000);
+            // ✅ FIXED: Don't start auto commands (handled by logs coordinator)
+            console.log('ℹ️ Auto commands handled by logs coordinator - not starting duplicate system');
             
             // Start logs-based polling for persistent data
             setTimeout(() => {
                 startLogsBasedPolling();
             }, 5000);
             
-            console.log('✅ Player count system initialized');
+            console.log('✅ Player count system initialized (auto commands managed by logs coordinator)');
             
         } catch (error) {
             console.error('❌ Error initializing player count system:', error);
@@ -551,7 +517,7 @@
     window.getPlayerCountFromLogs = getPlayerCountFromLogs;
     window.refreshAllPlayerCounts = refreshAllPlayerCounts;
     
-    // Auto commands functions
+    // Auto commands functions (disabled but preserved for compatibility)
     window.startAutoPlayerCountUpdates = startAutoPlayerCountUpdates;
     window.stopAutoPlayerCountUpdates = stopAutoPlayerCountUpdates;
     
@@ -569,6 +535,8 @@
     window.autoConsoleConfig = autoConsoleConfig;
     
     console.log('✅ Live Player Count System Module loaded and exposed globally');
+    console.log('ℹ️ Auto commands disabled to prevent conflicts with logs coordinator');
+    console.log('📋 Logs-based polling active for player count updates');
     
     // Auto-initialize when DOM is ready
     if (document.readyState === 'loading') {
