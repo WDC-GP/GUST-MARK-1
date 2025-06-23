@@ -247,11 +247,24 @@
         
         if (!previewContainer || !previewDiv) return;
         
-        previewDiv.innerHTML = entries.map(entry => `
+        // ✅ FIX: Sort entries by timestamp (newest first)
+        const sortedEntries = [...entries].sort((a, b) => {
+            // Try to parse timestamps for proper sorting
+            const timestampA = new Date(a.timestamp || a.time || '1970-01-01');
+            const timestampB = new Date(b.timestamp || b.time || '1970-01-01');
+            
+            // Sort newest first (descending order)
+            return timestampB - timestampA;
+        });
+        
+        previewDiv.innerHTML = sortedEntries.map((entry, index) => `
             <div class="border-b border-gray-700 pb-2 mb-2">
                 <div class="flex items-center justify-between text-xs">
-                    <span class="text-blue-400">${entry.timestamp || 'Unknown time'}</span>
-                    <span class="text-purple-400">${entry.level || 'INFO'}</span>
+                    <span class="text-blue-400">${entry.timestamp || entry.time || 'Unknown time'}</span>
+                    <div class="flex space-x-2">
+                        <span class="text-purple-400">${entry.level || 'INFO'}</span>
+                        ${index === 0 ? '<span class="bg-green-600 text-white px-1 rounded text-xs">NEWEST</span>' : ''}
+                    </div>
                 </div>
                 <div class="text-gray-300 mt-1 font-mono text-sm">
                     ${escapeHtml(entry.message || entry.raw || 'No message')}
@@ -260,7 +273,10 @@
         `).join('');
         
         previewContainer.classList.remove('hidden');
-        showLogsStatus('👁️ Showing log preview', 'info');
+        showLogsStatus('👁️ Showing log preview (newest first)', 'info');
+        
+        // ✅ ENHANCEMENT: Auto-scroll to top to show newest entries
+        previewDiv.scrollTop = 0;
     }
     
     function hideLogPreview() {

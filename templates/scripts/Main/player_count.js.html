@@ -3,6 +3,7 @@
     // LIVE PLAYER COUNT SYSTEM MODULE
     // Logs-based real-time player monitoring with enhanced UX
     // Size target: ~12KB | Dependencies: Console, Logs API
+    // ✅ FIXED: Promise handling and error management
     // ============================================================================
     
     console.log('👥 Loading Live Player Count System Module...');
@@ -192,80 +193,84 @@
     }
     
     // ============================================================================
-    // PLAYER COUNT DATA RETRIEVAL
+    // PLAYER COUNT DATA RETRIEVAL - ✅ FIXED
     // ============================================================================
     
     /**
-     * Get player count from logs API
+     * ✅ FIXED: Get player count from logs API - Always returns a Promise
      */
     async function getPlayerCountFromLogs(serverId) {
-        try {
-            if (!serverId) {
-                throw new Error('Server ID is required');
-            }
-            
-            console.log(`📊 Fetching player count from logs for server: ${serverId}`);
-            
-            // Show loading state while preserving old values
-            const oldData = logsBasedPlayerCountSystem.state.serverData.get(serverId);
-            if (oldData && logsBasedPlayerCountSystem.config.preserveValues) {
-                updatePlayerCountDisplay(serverId, oldData, 'loading');
-            }
-            
-            const response = await fetch(`/api/logs/player-count/${serverId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin'
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.success && result.data) {
-                const playerData = {
-                    current: result.data.current || 0,
-                    max: result.data.max || 100,
-                    percentage: result.data.percentage || 0,
-                    source: 'Server Logs',
-                    timestamp: new Date().toISOString()
-                };
+        // ✅ FIX: Always return a Promise, never return null directly
+        return new Promise(async (resolve, reject) => {
+            try {
+                if (!serverId) {
+                    throw new Error('Server ID is required');
+                }
                 
-                updatePlayerCountDisplay(serverId, playerData, 'success');
+                console.log(`📊 Fetching player count from logs for server: ${serverId}`);
                 
-                // Reset error count on success
-                logsBasedPlayerCountSystem.state.errorCounts.set(serverId, 0);
+                // Show loading state while preserving old values
+                const oldData = logsBasedPlayerCountSystem.state.serverData.get(serverId);
+                if (oldData && logsBasedPlayerCountSystem.config.preserveValues) {
+                    updatePlayerCountDisplay(serverId, oldData, 'loading');
+                }
                 
-                console.log(`✅ Player count updated: ${playerData.current}/${playerData.max} (${playerData.percentage}%)`);
-                return playerData;
+                const response = await fetch(`/api/logs/player-count/${serverId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin'
+                });
                 
-            } else {
-                throw new Error(result.error || 'No player data available');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const playerData = {
+                        current: result.data.current || 0,
+                        max: result.data.max || 100,
+                        percentage: result.data.percentage || 0,
+                        source: 'Server Logs',
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    updatePlayerCountDisplay(serverId, playerData, 'success');
+                    
+                    // Reset error count on success
+                    logsBasedPlayerCountSystem.state.errorCounts.set(serverId, 0);
+                    
+                    console.log(`✅ Player count updated: ${playerData.current}/${playerData.max} (${playerData.percentage}%)`);
+                    resolve(playerData);  // ✅ FIX: Always resolve, never return
+                    
+                } else {
+                    throw new Error(result.error || 'No player data available');
+                }
+                
+            } catch (error) {
+                console.error(`❌ Error getting player count for ${serverId}:`, error);
+                
+                // Increment error count
+                const errorCount = (logsBasedPlayerCountSystem.state.errorCounts.get(serverId) || 0) + 1;
+                logsBasedPlayerCountSystem.state.errorCounts.set(serverId, errorCount);
+                
+                // Show error state but preserve old values if available
+                const oldData = logsBasedPlayerCountSystem.state.serverData.get(serverId);
+                if (oldData && logsBasedPlayerCountSystem.config.preserveValues) {
+                    updatePlayerCountDisplay(serverId, oldData, 'error');
+                } else {
+                    updatePlayerCountDisplay(serverId, null, 'error');
+                }
+                
+                // ✅ FIX: Reject with error instead of returning null
+                reject(error);
             }
-            
-        } catch (error) {
-            console.error(`❌ Error getting player count for ${serverId}:`, error);
-            
-            // Increment error count
-            const errorCount = (logsBasedPlayerCountSystem.state.errorCounts.get(serverId) || 0) + 1;
-            logsBasedPlayerCountSystem.state.errorCounts.set(serverId, errorCount);
-            
-            // Show error state but preserve old values if available
-            const oldData = logsBasedPlayerCountSystem.state.serverData.get(serverId);
-            if (oldData && logsBasedPlayerCountSystem.config.preserveValues) {
-                updatePlayerCountDisplay(serverId, oldData, 'error');
-            } else {
-                updatePlayerCountDisplay(serverId, null, 'error');
-            }
-            
-            return null;
-        }
+        });
     }
     
     /**
-     * Refresh player count for all servers
+     * ✅ FIXED: Refresh player count for all servers - Better error handling
      */
     async function refreshAllPlayerCounts() {
         try {
@@ -282,14 +287,36 @@
             for (let i = 0; i < servers.length; i += batchSize) {
                 const batch = servers.slice(i, i + batchSize);
                 
-                const promises = batch.map(server => 
-                    getPlayerCountFromLogs(server.serverId).catch(error => {
-                        console.error(`❌ Failed to refresh player count for ${server.serverName}:`, error);
-                        return null;
-                    })
-                );
+                // ✅ FIX: Better Promise handling with proper error checking
+                const promises = batch.map(server => {
+                    // Validate server object
+                    if (!server || !server.serverId) {
+                        console.warn('⚠️ Invalid server object:', server);
+                        return Promise.resolve(null);
+                    }
+                    
+                    // Call the function and ensure it returns a Promise
+                    try {
+                        const result = getPlayerCountFromLogs(server.serverId);
+                        
+                        // ✅ FIX: Ensure we have a Promise before calling .catch()
+                        if (result && typeof result.catch === 'function') {
+                            return result.catch(error => {
+                                console.error(`❌ Failed to refresh player count for ${server.serverName}:`, error);
+                                return null;
+                            });
+                        } else {
+                            console.warn('⚠️ getPlayerCountFromLogs did not return a Promise for:', server.serverId);
+                            return Promise.resolve(null);
+                        }
+                    } catch (syncError) {
+                        console.error(`❌ Synchronous error calling getPlayerCountFromLogs for ${server.serverName}:`, syncError);
+                        return Promise.resolve(null);
+                    }
+                });
                 
-                await Promise.all(promises);
+                // ✅ FIX: Use allSettled to handle all promises without failing on individual errors
+                await Promise.allSettled(promises);
                 
                 // Stagger batches
                 if (i + batchSize < servers.length) {
@@ -509,6 +536,55 @@
     }
     
     // ============================================================================
+    // ✅ ENHANCED FUNCTION EXISTENCE CHECKER
+    // ============================================================================
+    
+    /**
+     * ✅ NEW: Ensure player count functions exist and work properly
+     */
+    function ensurePlayerCountFunctionExists() {
+        if (typeof window.getPlayerCountFromLogs !== 'function') {
+            console.warn('⚠️ getPlayerCountFromLogs function not found, creating fallback');
+            
+            // Create a fallback function that always returns a Promise
+            window.getPlayerCountFromLogs = async function(serverId) {
+                console.log(`📊 Fallback: Getting player count for ${serverId}`);
+                
+                return new Promise(async (resolve, reject) => {
+                    try {
+                        const response = await fetch(`/api/logs/player-count/${serverId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin'
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        
+                        const result = await response.json();
+                        
+                        if (result.success && result.data) {
+                            resolve({
+                                current: result.data.current || 0,
+                                max: result.data.max || 100,
+                                percentage: result.data.percentage || 0,
+                                source: 'Fallback API',
+                                timestamp: new Date().toISOString()
+                            });
+                        } else {
+                            throw new Error(result.error || 'No data available');
+                        }
+                    } catch (error) {
+                        console.error(`❌ Fallback error for ${serverId}:`, error);
+                        reject(error);
+                    }
+                });
+            };
+        }
+    }
+    
+    // ============================================================================
     // GLOBAL FUNCTION EXPOSURE
     // ============================================================================
     
@@ -530,6 +606,9 @@
     window.shutdownPlayerCountSystem = shutdownPlayerCountSystem;
     window.preservePlayerCountValues = preservePlayerCountValues;
     
+    // ✅ NEW: Function checker
+    window.ensurePlayerCountFunctionExists = ensurePlayerCountFunctionExists;
+    
     // State access
     window.logsBasedPlayerCountSystem = logsBasedPlayerCountSystem;
     window.autoConsoleConfig = autoConsoleConfig;
@@ -537,14 +616,24 @@
     console.log('✅ Live Player Count System Module loaded and exposed globally');
     console.log('ℹ️ Auto commands disabled to prevent conflicts with logs coordinator');
     console.log('📋 Logs-based polling active for player count updates');
+    console.log('🔧 Enhanced Promise handling and error management applied');
+    
+    // ✅ FIX: Ensure functions exist when the script loads
+    setTimeout(ensurePlayerCountFunctionExists, 100);
     
     // Auto-initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(initializePlayerCountSystem, 3000);
+            setTimeout(() => {
+                ensurePlayerCountFunctionExists();
+                initializePlayerCountSystem();
+            }, 3000);
         });
     } else {
-        setTimeout(initializePlayerCountSystem, 3000);
+        setTimeout(() => {
+            ensurePlayerCountFunctionExists();
+            initializePlayerCountSystem();
+        }, 3000);
     }
     
     // Cleanup on page unload

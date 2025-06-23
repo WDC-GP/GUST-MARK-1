@@ -7,6 +7,7 @@ Background Authentication Service for GUST Bot Enhanced (COMPLETE COOKIE SUPPORT
 ✅ ENHANCED: Integration with credential manager for seamless re-authentication
 ✅ ENHANCED: Advanced monitoring and status reporting
 ✅ ENHANCED: Configurable intervals and safety mechanisms
+✅ FIXED: Authentication data loading bug that caused 'str' object has no attribute 'get' error
 """
 
 import time
@@ -237,17 +238,63 @@ class BackgroundAuthService:
     def _renew_authentication(self) -> bool:
         """
         ✅ ENHANCED: Renew authentication with OAuth and cookie support
+        ✅ FIXED: Load authentication data correctly as dictionary
         
         Returns:
             bool: True if renewal successful, False otherwise
         """
         try:
-            # Load current authentication data
-            auth_data = load_token()
+            # ✅ FIX: Load current authentication data using proper method for dictionary
+            auth_data = None
+            
+            # Try to get authentication data as dictionary
+            try:
+                # First try load_token_data() if available (returns dict)
+                from utils.helpers import load_token_data
+                auth_data = load_token_data()
+                logger.debug("✅ Loaded auth data using load_token_data()")
+            except ImportError:
+                logger.debug("⚠️ load_token_data() not available, trying alternative methods")
+            except Exception as e:
+                logger.debug(f"⚠️ load_token_data() failed: {e}")
+            
+            # Fallback: Try to load and parse token file directly
             if not auth_data:
+                try:
+                    import json
+                    import os
+                    
+                    # Try to read gp-session.json directly
+                    session_file = 'gp-session.json'
+                    if not os.path.exists(session_file):
+                        session_file = 'data/gp-session.json'
+                    
+                    if os.path.exists(session_file):
+                        with open(session_file, 'r') as f:
+                            auth_data = json.load(f)
+                        logger.debug("✅ Loaded auth data from session file directly")
+                    
+                except Exception as e:
+                    logger.debug(f"⚠️ Failed to read session file directly: {e}")
+            
+            # Final fallback: Create minimal structure from string token
+            if not auth_data:
+                token_str = load_token()  # This returns string
+                if token_str and isinstance(token_str, str):
+                    # Create minimal dict structure for compatibility
+                    auth_data = {
+                        'access_token': token_str,
+                        'auth_type': 'oauth',  # Assume OAuth for string tokens
+                        'username': 'unknown'
+                    }
+                    logger.debug("✅ Created minimal auth data structure from string token")
+            
+            # Check if we have any auth data
+            if not auth_data or not isinstance(auth_data, dict):
                 logger.warning("⚠️ No authentication data found, attempting credential re-auth")
                 return self._attempt_credential_reauth()
             
+            # ✅ Now auth_data is guaranteed to be a dict, so .get() will work
             auth_type = auth_data.get('auth_type', 'oauth')
             username = auth_data.get('username', 'unknown')
             
@@ -269,6 +316,7 @@ class BackgroundAuthService:
                 
         except Exception as e:
             logger.error(f"❌ Error in authentication renewal: {e}")
+            logger.error(f"❌ Exception details: {type(e).__name__}: {str(e)}")
             return False
     
     def _refresh_oauth_token(self, auth_data: dict, username: str) -> bool:
