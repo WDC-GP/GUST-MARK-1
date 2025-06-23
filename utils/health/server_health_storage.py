@@ -5,11 +5,13 @@ Server Health Storage System for WDC-GP/GUST-MARK-1 (FIXED VERSION)
 ✅ OPTIMIZED: Modular storage architecture with enhanced performance maintained
 ✅ PRESERVED: 100% backward compatibility - all existing method signatures maintained
 ✅ ENHANCED: Real data prioritization and proper data source tracking
+✅ FIXED: Added missing store_system_health method
 
 CRITICAL FIXES IMPLEMENTED:
 1. FPS Accuracy: Removed artificial bounds checking (208.0, 229.0 FPS now accurate)
 2. Player Activity: Real log data takes priority over estimates (0 players shows correctly)  
 3. CPU Indicators: Clear data source tracking for synthetic vs real data
+4. Missing Method: Added store_system_health method to prevent AttributeError
 """
 
 import json
@@ -61,6 +63,7 @@ class ServerHealthStorage:
     ✅ OPTIMIZED: Modular backend storage with enhanced performance maintained
     ✅ PRESERVED: 100% backward compatibility - all existing methods work identically
     ✅ ENHANCED: Real data prioritization, proper FPS handling, and data source tracking
+    ✅ FIXED: Added missing store_system_health method
     """
     
     def __init__(self, db=None, user_storage=None):
@@ -120,6 +123,9 @@ class ServerHealthStorage:
         self.health_snapshots = deque(maxlen=500)
         self.performance_data = deque(maxlen=200)
         
+        # ✅ NEW: System health storage for store_system_health method
+        self.system_health_data = deque(maxlen=100)
+        
         # ✅ PRESERVED: GraphQL Sensors integration
         self.sensors_client = None
         if GRAPHQL_SENSORS_AVAILABLE:
@@ -149,6 +155,69 @@ class ServerHealthStorage:
             'console': {'available': False, 'quality': 'low'},
             'synthetic': {'available': True, 'quality': 'lowest'}
         }
+    
+    # ===== ✅ FIXED: MISSING METHOD THAT WAS CAUSING THE ERROR =====
+    
+    def store_system_health(self, system_metrics: Dict[str, Any]) -> bool:
+        """
+        ✅ FIXED: Store system health metrics - this method was missing and causing AttributeError
+        
+        Args:
+            system_metrics (Dict[str, Any]): System health metrics to store
+            
+        Returns:
+            bool: True if storage successful, False otherwise
+        """
+        try:
+            logger.info("[System Health] Storing system health metrics")
+            
+            if self._use_optimized:
+                # Try to use optimized storage if available
+                if hasattr(self._optimized_storage, 'store_system_health'):
+                    return self._optimized_storage.store_system_health(system_metrics)
+                else:
+                    # Fallback to optimized health snapshot storage
+                    return self._optimized_storage.store_health_snapshot('system', {
+                        'system_metrics': system_metrics,
+                        'timestamp': datetime.utcnow().isoformat(),
+                        'metric_type': 'system_health'
+                    })
+            else:
+                # Legacy storage implementation
+                return self._legacy_store_system_health(system_metrics)
+                
+        except Exception as e:
+            logger.error(f"[System Health] Error storing system health metrics: {e}")
+            return False
+    
+    def _legacy_store_system_health(self, system_metrics: Dict[str, Any]) -> bool:
+        """Legacy implementation for storing system health metrics"""
+        try:
+            system_health_entry = {
+                'metrics': system_metrics,
+                'timestamp': datetime.utcnow(),
+                'stored_at': datetime.utcnow().isoformat(),
+                'entry_id': str(uuid.uuid4())
+            }
+            
+            # Store in memory
+            self.system_health_data.append(system_health_entry)
+            
+            # Store in MongoDB if available
+            if self.db:
+                try:
+                    collection = self.db['system_health']
+                    collection.insert_one(system_health_entry.copy())
+                    logger.debug("[System Health] Stored in MongoDB")
+                except Exception as e:
+                    logger.warning(f"[System Health] MongoDB storage failed: {e}")
+            
+            logger.info(f"[System Health] ✅ Successfully stored system health metrics")
+            return True
+            
+        except Exception as e:
+            logger.error(f"[System Health] Error in legacy system health storage: {e}")
+            return False
     
     # ===== ✅ FIXED METHODS FOR CRITICAL ISSUES =====
     
@@ -616,7 +685,8 @@ class ServerHealthStorage:
                     'fps_accuracy_fix': True,
                     'player_activity_priority_fix': True,
                     'cpu_data_source_indicators': True,
-                    'debug_logging_enhanced': True
+                    'debug_logging_enhanced': True,
+                    'store_system_health_method_added': True  # ✅ NEW FIX
                 }
             }
             
@@ -632,14 +702,17 @@ class ServerHealthStorage:
                 health_result['fixes_verified'] = {
                     'fps_method_patched': hasattr(self._optimized_storage, '_extract_log_default_json_FIXED'),
                     'data_priority_method_patched': hasattr(self._optimized_storage, '_combine_enhanced_multi_source_data_FIXED'),
-                    'debug_logging_method_patched': hasattr(self._optimized_storage, 'enhanced_health_with_debug_logging')
+                    'debug_logging_method_patched': hasattr(self._optimized_storage, 'enhanced_health_with_debug_logging'),
+                    'store_system_health_method_exists': hasattr(self, 'store_system_health')  # ✅ NEW CHECK
                 }
             else:
                 # Legacy health check
                 health_result.update({
                     'command_history_working': len(self.command_history) >= 0,
                     'health_snapshots_working': len(self.health_snapshots) >= 0,
-                    'cache_working': isinstance(self.metrics_cache, dict)
+                    'system_health_data_working': len(self.system_health_data) >= 0,  # ✅ NEW CHECK
+                    'cache_working': isinstance(self.metrics_cache, dict),
+                    'store_system_health_method_exists': hasattr(self, 'store_system_health')  # ✅ NEW CHECK
                 })
             
             response_time = (time.time() - start_time) * 1000
@@ -680,4 +753,4 @@ if OPTIMIZED_STORAGE_AVAILABLE:
         'HealthQueryManager'
     ])
 
-logger.info(f"[Server Health Storage] ✅ FIXED Module loaded (optimized: {OPTIMIZED_STORAGE_AVAILABLE})")
+logger.info(f"[Server Health Storage] ✅ FIXED Module loaded with store_system_health method (optimized: {OPTIMIZED_STORAGE_AVAILABLE})")

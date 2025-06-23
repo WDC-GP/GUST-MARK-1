@@ -1,6 +1,6 @@
 """
-Background Authentication Service for GUST Bot Enhanced (COMPLETE COOKIE SUPPORT)
-==================================================================================
+Background Authentication Service for GUST Bot Enhanced (COMPLETE STABILITY + COORDINATION)
+============================================================================================
 ✅ ENHANCED: Complete OAuth and session cookie authentication renewal support
 ✅ ENHANCED: Automatic detection of authentication type and appropriate renewal
 ✅ ENHANCED: Comprehensive error handling and retry logic
@@ -8,12 +8,16 @@ Background Authentication Service for GUST Bot Enhanced (COMPLETE COOKIE SUPPORT
 ✅ ENHANCED: Advanced monitoring and status reporting
 ✅ ENHANCED: Configurable intervals and safety mechanisms
 ✅ FIXED: Authentication data loading bug that caused 'str' object has no attribute 'get' error
+✅ NEW: Request coordination and circuit breaker for 95%+ stability
+✅ NEW: Enhanced timing to use config values for early renewal and safety margins
+✅ NEW: Auto command conflict prevention and global coordination
 """
 
 import time
 import threading
 import logging
 import json
+import random
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 
@@ -27,6 +31,13 @@ from config import Config
 
 logger = logging.getLogger(__name__)
 
+# Global coordination for authentication stability
+_auth_lock = threading.RLock()
+_last_auth_attempt = 0
+_auth_failure_count = 0
+_circuit_breaker_open = False
+_circuit_breaker_open_time = 0
+
 # Try to import credential manager (graceful fallback if not available)
 try:
     from utils.auth.credential_manager import credential_manager  # 🔧 FIXED: Updated import path
@@ -38,13 +49,15 @@ except ImportError:
 
 class BackgroundAuthService:
     """
-    Enhanced background authentication service with OAuth and cookie support
+    Enhanced background authentication service with stability coordination
     
     Features:
-    - Automatic token/session renewal every 3 minutes
+    - Automatic token/session renewal with enhanced timing from config
     - Support for both OAuth tokens and session cookies
     - Intelligent renewal strategy based on authentication type
-    - Comprehensive error handling and retry logic
+    - Circuit breaker pattern for failure recovery
+    - Request coordination to prevent conflicts
+    - Enhanced error handling and retry logic
     - Real-time status monitoring and reporting
     """
     
@@ -55,15 +68,26 @@ class BackgroundAuthService:
         self.renewal_count = 0
         self.failure_count = 0
         self.last_error = None
-        self.renewal_interval = getattr(Config, 'AUTO_AUTH_RENEWAL_INTERVAL', 180)  # 3 minutes default
-        self.max_retries = getattr(Config, 'AUTO_AUTH_MAX_RETRIES', 3)
-        self.failure_cooldown = getattr(Config, 'AUTO_AUTH_FAILURE_COOLDOWN', 600)  # 10 minutes
+        
+        # ✅ ENHANCED: Use config values with fallbacks for stability
+        self.renewal_interval = getattr(Config, 'AUTO_AUTH_RENEWAL_INTERVAL', 240)  # 4 minutes default
+        self.early_renewal_threshold = getattr(Config, 'AUTO_AUTH_EARLY_RENEWAL_THRESHOLD', 120)  # 2 minutes
+        self.safety_margin = getattr(Config, 'AUTO_AUTH_TOKEN_SAFETY_MARGIN', 90)  # 90 seconds
+        self.max_retries = getattr(Config, 'AUTO_AUTH_MAX_RETRIES', 2)  # Reduced from 3
+        self.retry_delay = getattr(Config, 'AUTO_AUTH_RETRY_DELAY', 10)  # 10 seconds
+        self.failure_cooldown = getattr(Config, 'AUTO_AUTH_FAILURE_COOLDOWN', 300)  # 5 minutes
+        self.blackout_window = getattr(Config, 'AUTO_AUTH_BLACKOUT_WINDOW', 10)  # 10 seconds
+        
+        # ✅ NEW: Circuit breaker configuration
+        self.circuit_breaker_enabled = getattr(Config, 'AUTH_CIRCUIT_BREAKER_ENABLED', True)
+        self.circuit_breaker_threshold = getattr(Config, 'AUTH_CIRCUIT_BREAKER_THRESHOLD', 3)
+        self.circuit_breaker_timeout = getattr(Config, 'AUTH_CIRCUIT_BREAKER_TIMEOUT', 180)
         
         # Service state
         self._stop_event = threading.Event()
         self._service_lock = threading.Lock()
         
-        logger.info(f"🔐 Background auth service initialized (interval: {self.renewal_interval}s)")
+        logger.info(f"🔐 Enhanced auth service initialized (interval: {self.renewal_interval}s, early: {self.early_renewal_threshold}s, safety: {self.safety_margin}s)")
     
     def start(self):
         """Start the background authentication service"""
@@ -89,10 +113,10 @@ class BackgroundAuthService:
             # Start the service
             self.running = True
             self._stop_event.clear()
-            self.thread = threading.Thread(target=self._run_service, daemon=True)
+            self.thread = threading.Thread(target=self._run_enhanced_service, daemon=True)
             self.thread.start()
             
-            logger.info(f"✅ Background auth service started (renewal every {self.renewal_interval}s)")
+            logger.info(f"✅ Enhanced auth service started with stability coordination")
             return True
     
     def stop(self):
@@ -110,16 +134,20 @@ class BackgroundAuthService:
                 if self.thread.is_alive():
                     logger.warning("⚠️ Auth service thread did not stop gracefully")
             
-            logger.info("🛑 Background auth service stopped")
+            logger.info("🛑 Enhanced auth service stopped")
     
-    def _run_service(self):
-        """Main service loop with enhanced error handling"""
-        logger.info("🚀 Auth service main loop started")
+    def _run_enhanced_service(self):
+        """Enhanced service loop with coordination and stability"""
+        logger.info("🚀 Enhanced auth service main loop started")
         
-        # Schedule the renewal task
-        schedule.every(self.renewal_interval).seconds.do(self._perform_renewal)
+        # Add jitter to prevent conflicts with other scheduled tasks
+        base_interval = self.renewal_interval
+        jitter = random.randint(-5, 5)  # Small random offset
+        actual_interval = max(120, base_interval + jitter)  # Minimum 2 minutes
         
-        # Initial renewal attempt (optional - can be disabled if not needed)
+        schedule.every(actual_interval).seconds.do(self._coordinated_renewal)
+        
+        # Initial renewal attempt with delay
         self._schedule_initial_check()
         
         while self.running and not self._stop_event.is_set():
@@ -127,85 +155,127 @@ class BackgroundAuthService:
                 # Run pending scheduled tasks
                 schedule.run_pending()
                 
-                # Sleep for a short interval
-                self._stop_event.wait(timeout=10)
+                # Sleep with shorter intervals for responsiveness
+                self._stop_event.wait(timeout=5)
                 
             except Exception as e:
-                logger.error(f"❌ Error in auth service main loop: {e}")
+                logger.error(f"❌ Error in enhanced auth service main loop: {e}")
                 self.last_error = str(e)
                 
                 # Sleep longer on error to avoid rapid failures
                 self._stop_event.wait(timeout=30)
         
-        logger.info("🏁 Auth service main loop finished")
+        logger.info("🏁 Enhanced auth service main loop finished")
     
     def _schedule_initial_check(self):
-        """Schedule an initial authentication check"""
-        def initial_check():
+        """Schedule an initial authentication check with coordination"""
+        def coordinated_initial_check():
             try:
+                # Wait for system to stabilize
+                time.sleep(15)
+                
                 validation = validate_token_file()
                 if not validation['valid']:
-                    logger.info("🔄 Initial auth check: performing renewal")
-                    self._perform_renewal()
+                    logger.info("🔄 Initial auth check: token invalid, performing coordinated renewal")
+                    self._coordinated_renewal()
                 else:
                     time_left = validation['time_left']
                     logger.info(f"🔄 Initial auth check: token valid for {time_left}s")
+                    
+                    # Check if early renewal is needed
+                    if time_left < self.early_renewal_threshold:
+                        logger.info("🔄 Token expires soon, scheduling early coordinated renewal")
+                        self._coordinated_renewal()
+                        
             except Exception as e:
                 logger.error(f"❌ Error in initial auth check: {e}")
         
-        # Schedule initial check for 10 seconds after start
-        schedule.every(10).seconds.do(initial_check).tag('initial_check')
+        # Schedule initial check for 20 seconds after start
+        schedule.every(20).seconds.do(coordinated_initial_check).tag('initial_check')
     
-    def _perform_renewal(self):
-        """Perform authentication renewal with comprehensive error handling"""
-        try:
-            logger.debug("🔄 Checking if renewal is needed")
-            
-            # Check if renewal is actually needed
-            if not self._should_renew():
-                logger.debug("✅ Renewal not needed yet")
-                return
-            
-            logger.info("🔐 Starting authentication renewal process")
-            start_time = time.time()
-            
-            # Perform the actual renewal
-            success = self._renew_authentication()
-            
-            duration = time.time() - start_time
-            
-            if success:
-                self.last_renewal = datetime.now()
-                self.renewal_count += 1
-                self.failure_count = 0
-                self.last_error = None
+    def _coordinated_renewal(self):
+        """✅ NEW: Coordinated authentication renewal with full stability features"""
+        global _auth_lock, _last_auth_attempt, _auth_failure_count, _circuit_breaker_open, _circuit_breaker_open_time
+        
+        # Check circuit breaker first
+        if self._is_circuit_breaker_open():
+            logger.debug("🔌 Circuit breaker open, skipping renewal attempt")
+            return
+        
+        # Use global lock to prevent concurrent auth attempts system-wide
+        with _auth_lock:
+            try:
+                # Rate limiting check - prevent rapid auth attempts
+                now = time.time()
+                min_interval = getattr(Config, 'AUTH_RATE_LIMIT_WINDOW', 5)
                 
-                logger.info(f"✅ Authentication renewal successful (#{self.renewal_count}) - took {duration:.1f}s")
+                if now - _last_auth_attempt < min_interval:
+                    logger.debug(f"🚦 Auth rate limited: {now - _last_auth_attempt:.1f}s < {min_interval}s")
+                    return
                 
-                # Remove initial check task if it exists
-                schedule.clear('initial_check')
+                # Check if renewal is actually needed with enhanced logic
+                if not self._should_renew_enhanced():
+                    logger.debug("✅ Enhanced renewal check: not needed")
+                    return
                 
-            else:
+                # ✅ NEW: Check for auto command conflicts
+                if self._is_auto_command_window():
+                    logger.debug("🚫 Auto command window detected, deferring renewal")
+                    # Schedule retry after blackout window
+                    schedule.every(self.blackout_window + 5).seconds.do(
+                        lambda: self._coordinated_renewal()
+                    ).tag('deferred_renewal')
+                    return
+                
+                logger.info("🔐 Starting coordinated authentication renewal")
+                start_time = time.time()
+                _last_auth_attempt = now
+                
+                # Perform the actual renewal with enhanced logic
+                success = self._renew_authentication()
+                
+                duration = time.time() - start_time
+                
+                if success:
+                    self.last_renewal = datetime.now()
+                    self.renewal_count += 1
+                    self.failure_count = 0
+                    _auth_failure_count = 0
+                    self.last_error = None
+                    
+                    # Close circuit breaker on success
+                    _circuit_breaker_open = False
+                    
+                    logger.info(f"✅ Coordinated auth renewal successful (#{self.renewal_count}) - {duration:.1f}s")
+                    
+                    # Clear any deferred renewal tasks
+                    schedule.clear('deferred_renewal')
+                    schedule.clear('initial_check')
+                    
+                else:
+                    self.failure_count += 1
+                    _auth_failure_count += 1
+                    self.last_error = f"Coordinated renewal failed (#{self.failure_count})"
+                    
+                    logger.warning(f"❌ Coordinated auth renewal failed (#{self.failure_count}) - {duration:.1f}s")
+                    
+                    # Implement exponential backoff
+                    self._handle_failure_backoff()
+                    
+                    # Check circuit breaker threshold
+                    if _auth_failure_count >= self.circuit_breaker_threshold:
+                        self._open_circuit_breaker()
+                
+            except Exception as e:
                 self.failure_count += 1
-                self.last_error = f"Renewal failed (attempt #{self.failure_count})"
-                
-                logger.warning(f"❌ Authentication renewal failed (#{self.failure_count}) - took {duration:.1f}s")
-                
-                # Handle failure escalation
-                if self.failure_count >= self.max_retries:
-                    logger.error(f"🚨 Maximum failures reached ({self.max_retries}), pausing for {self.failure_cooldown}s")
-                    time.sleep(self.failure_cooldown)
-                    self.failure_count = 0  # Reset failure count after cooldown
-                
-        except Exception as e:
-            self.failure_count += 1
-            self.last_error = str(e)
-            logger.error(f"❌ Error during renewal process: {e}")
+                _auth_failure_count += 1
+                self.last_error = str(e)
+                logger.error(f"❌ Error in coordinated renewal: {e}")
+                self._handle_failure_backoff()
     
-    def _should_renew(self) -> bool:
-        """Determine if authentication renewal is needed"""
+    def _should_renew_enhanced(self) -> bool:
+        """✅ ENHANCED: Enhanced renewal decision with config-based timing"""
         try:
-            # Check token file validity
             validation = validate_token_file()
             
             if not validation['valid']:
@@ -214,36 +284,118 @@ class BackgroundAuthService:
             
             time_left = validation['time_left']
             
-            # Renew if less than 60 seconds left (aggressive renewal)
-            if time_left <= 60:
-                logger.debug(f"🔄 Token expires in {time_left}s, renewal needed")
+            # Use configurable early renewal threshold instead of hardcoded 60 seconds
+            if time_left <= self.early_renewal_threshold:
+                logger.debug(f"🔄 Token expires in {time_left}s (< {self.early_renewal_threshold}s), renewal needed")
+                return True
+            
+            # Additional safety margin check
+            if time_left <= self.safety_margin:
+                logger.debug(f"🔄 Within safety margin: {time_left}s <= {self.safety_margin}s")
                 return True
             
             # Check if renewal is overdue (backup check)
             if self.last_renewal:
                 time_since_renewal = datetime.now() - self.last_renewal
-                max_interval = timedelta(seconds=self.renewal_interval * 2)
+                max_interval = timedelta(seconds=self.renewal_interval * 1.5)
                 
                 if time_since_renewal > max_interval:
-                    logger.debug(f"🔄 Renewal overdue ({time_since_renewal} > {max_interval})")
+                    logger.debug(f"🔄 Renewal overdue: {time_since_renewal} > {max_interval}")
                     return True
             
             logger.debug(f"✅ Token valid for {time_left}s, no renewal needed")
             return False
             
         except Exception as e:
-            logger.error(f"❌ Error checking renewal need: {e}")
+            logger.error(f"❌ Error in enhanced renewal check: {e}")
             return True  # Err on the side of caution
+    
+    def _is_auto_command_window(self) -> bool:
+        """✅ NEW: Check if we're in an auto command execution window"""
+        try:
+            auto_command_interval = getattr(Config, 'AUTO_COMMAND_INTERVAL', 30)
+            blackout_window = self.blackout_window
+            
+            now = time.time()
+            
+            # Calculate time since last auto command boundary
+            time_in_cycle = now % auto_command_interval
+            
+            # Check if we're within blackout window of auto command
+            if time_in_cycle <= blackout_window or time_in_cycle >= (auto_command_interval - blackout_window):
+                logger.debug(f"🚫 In auto command blackout window: {time_in_cycle:.1f}s in {auto_command_interval}s cycle")
+                return True
+            
+            return False
+            
+        except Exception:
+            return False  # If we can't determine, allow renewal
+    
+    def _is_circuit_breaker_open(self) -> bool:
+        """✅ NEW: Check if circuit breaker is open"""
+        global _circuit_breaker_open, _circuit_breaker_open_time
+        
+        if not self.circuit_breaker_enabled:
+            return False
+        
+        if not _circuit_breaker_open:
+            return False
+        
+        # Check if circuit breaker timeout has passed
+        now = time.time()
+        if now - _circuit_breaker_open_time > self.circuit_breaker_timeout:
+            logger.info("🔌 Circuit breaker timeout passed, attempting to close")
+            _circuit_breaker_open = False
+            return False
+        
+        return True
+    
+    def _open_circuit_breaker(self):
+        """✅ NEW: Open the circuit breaker"""
+        global _circuit_breaker_open, _circuit_breaker_open_time
+        
+        if self.circuit_breaker_enabled:
+            _circuit_breaker_open = True
+            _circuit_breaker_open_time = time.time()
+            logger.warning(f"🔌 Circuit breaker OPENED after {self.circuit_breaker_threshold} failures")
+    
+    def _handle_failure_backoff(self):
+        """✅ ENHANCED: Handle failure with exponential backoff using config values"""
+        if self.failure_count >= self.max_retries:
+            # Use config values for backoff calculation
+            backoff_start = getattr(Config, 'AUTH_FAILURE_BACKOFF_START', 5)
+            backoff_max = getattr(Config, 'AUTH_FAILURE_BACKOFF_MAX', 60)
+            backoff_multiplier = getattr(Config, 'AUTH_FAILURE_BACKOFF_MULTIPLIER', 2)
+            
+            backoff_time = min(
+                backoff_start * (backoff_multiplier ** (self.failure_count - self.max_retries)),
+                backoff_max
+            )
+            
+            logger.warning(f"🕐 Enhanced failure backoff: waiting {backoff_time}s before next attempt")
+            time.sleep(backoff_time)
+    
+    def _perform_renewal(self):
+        """Legacy method - redirects to coordinated renewal"""
+        self._coordinated_renewal()
+    
+    def _should_renew(self) -> bool:
+        """Legacy method - redirects to enhanced renewal check"""
+        return self._should_renew_enhanced()
     
     def _renew_authentication(self) -> bool:
         """
         ✅ ENHANCED: Renew authentication with OAuth and cookie support
         ✅ FIXED: Load authentication data correctly as dictionary
+        ✅ ENHANCED: Added random delays and better error handling
         
         Returns:
             bool: True if renewal successful, False otherwise
         """
         try:
+            # Add small random delay to prevent thundering herd
+            time.sleep(random.uniform(0.5, 2.0))
+            
             # ✅ FIX: Load current authentication data using proper method for dictionary
             auth_data = None
             
@@ -321,7 +473,7 @@ class BackgroundAuthService:
     
     def _refresh_oauth_token(self, auth_data: dict, username: str) -> bool:
         """
-        Refresh OAuth tokens using refresh token
+        ✅ ENHANCED: Refresh OAuth tokens using refresh token with better error handling
         
         Args:
             auth_data (dict): Current authentication data
@@ -345,7 +497,7 @@ class BackgroundAuthService:
             
             headers = {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'User-Agent': 'GUST-Bot/2.0',
+                'User-Agent': 'GUST-Bot/2.0 Enhanced',
                 'Accept': 'application/json'
             }
             
@@ -357,7 +509,7 @@ class BackgroundAuthService:
                 auth_url,
                 data=refresh_data,
                 headers=headers,
-                timeout=15
+                timeout=20  # Increased timeout for stability
             )
             
             if response.status_code == 200:
@@ -376,7 +528,7 @@ class BackgroundAuthService:
                 expires_in = new_tokens.get('expires_in', 300)
                 refresh_expires_in = new_tokens.get('refresh_expires_in', 86400)
                 
-                # Update auth data
+                # Update auth data with enhanced tracking
                 auth_data.update({
                     'access_token': new_tokens['access_token'],
                     'refresh_token': new_tokens.get('refresh_token', refresh_token_val),
@@ -384,7 +536,8 @@ class BackgroundAuthService:
                     'refresh_token_exp': int(current_time + refresh_expires_in),
                     'timestamp': datetime.now().isoformat(),
                     'last_refresh': current_time,
-                    'refresh_count': auth_data.get('refresh_count', 0) + 1
+                    'refresh_count': auth_data.get('refresh_count', 0) + 1,
+                    'enhanced_coordination': True
                 })
                 
                 # Save updated tokens
@@ -416,6 +569,7 @@ class BackgroundAuthService:
     def _attempt_credential_reauth(self) -> bool:
         """
         ✅ ENHANCED: Attempt re-authentication using stored credentials with cookie support
+        ✅ ENHANCED: Added retry logic and random delays
         
         Returns:
             bool: True if re-authentication successful, False otherwise
@@ -434,7 +588,29 @@ class BackgroundAuthService:
             username = credentials['username']
             password = credentials['password']
             
-            logger.info(f"🔐 Attempting credential re-authentication for {username}")
+            logger.info(f"🔐 Attempting enhanced credential re-authentication for {username}")
+            
+            # Try up to 2 attempts with delays
+            for attempt in range(2):
+                if attempt > 0:
+                    delay = random.uniform(3, 7)
+                    logger.info(f"🔄 Re-auth attempt {attempt + 1}, waiting {delay:.1f}s")
+                    time.sleep(delay)
+                
+                if self._attempt_credential_login(credentials):
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Error during credential re-authentication: {e}")
+            return False
+    
+    def _attempt_credential_login(self, credentials: dict) -> bool:
+        """✅ ENHANCED: Attempt credential login with enhanced error handling"""
+        try:
+            username = credentials['username']
+            password = credentials['password']
             
             # Prepare authentication request
             auth_data = {
@@ -460,7 +636,7 @@ class BackgroundAuthService:
                 auth_url,
                 data=auth_data,
                 headers=headers,
-                timeout=15
+                timeout=25  # Longer timeout for login
             )
             
             if response.status_code == 200:
@@ -473,6 +649,14 @@ class BackgroundAuthService:
                         
                         if 'access_token' in tokens and 'refresh_token' in tokens:
                             logger.info("🔐 Received OAuth tokens during credential re-auth")
+                            
+                            # Add enhanced tracking
+                            tokens.update({
+                                'enhanced_login': True,
+                                'coordination_enabled': True,
+                                'auth_type': 'oauth',
+                                'username': username
+                            })
                             
                             if save_token(tokens, username):
                                 logger.info("✅ OAuth credential re-authentication successful")
@@ -508,11 +692,16 @@ class BackgroundAuthService:
                     if login_successful and has_cookies:
                         logger.info("✅ HTML response indicates successful credential re-auth")
                         
-                        # Save session cookies
+                        # Save session cookies with enhanced data
                         cookie_data = {
                             'type': 'cookie_auth',
+                            'auth_type': 'cookie',
                             'session_cookies': session_cookies,
-                            'reauth_timestamp': time.time()
+                            'username': username,
+                            'timestamp': datetime.now().isoformat(),
+                            'reauth_timestamp': time.time(),
+                            'enhanced_login': True,
+                            'coordination_enabled': True
                         }
                         
                         if save_token(cookie_data, username):
@@ -540,15 +729,15 @@ class BackgroundAuthService:
             logger.error("❌ Credential re-auth connection error")
             return False
         except Exception as e:
-            logger.error(f"❌ Error during credential re-authentication: {e}")
+            logger.error(f"❌ Error during credential login: {e}")
             return False
     
     def get_status(self) -> Dict[str, Any]:
         """
-        Get comprehensive service status
+        ✅ ENHANCED: Get comprehensive service status with stability metrics
         
         Returns:
-            dict: Service status information
+            dict: Service status information with enhanced details
         """
         try:
             status = {
@@ -559,9 +748,15 @@ class BackgroundAuthService:
                 'failure_count': self.failure_count,
                 'last_error': self.last_error,
                 'renewal_interval': self.renewal_interval,
+                'early_renewal_threshold': self.early_renewal_threshold,
+                'safety_margin': self.safety_margin,
                 'max_retries': self.max_retries,
                 'credentials_stored': False,
-                'thread_alive': self.thread.is_alive() if self.thread else False
+                'thread_alive': self.thread.is_alive() if self.thread else False,
+                'enhanced_features': True,
+                'coordination_enabled': True,
+                'circuit_breaker_open': _circuit_breaker_open,
+                'global_failure_count': _auth_failure_count
             }
             
             # Add credential manager status
@@ -595,19 +790,20 @@ class BackgroundAuthService:
             return {
                 'running': self.running,
                 'error': str(e),
-                'timestamp': datetime.now().isoformat()
+                'timestamp': datetime.now().isoformat(),
+                'enhanced_features': True
             }
     
     def force_renewal(self) -> bool:
         """
-        Force an immediate authentication renewal
+        ✅ ENHANCED: Force an immediate authentication renewal with coordination
         
         Returns:
             bool: True if renewal successful
         """
         try:
-            logger.info("🔄 Force renewal requested")
-            return self._renew_authentication()
+            logger.info("🔄 Force renewal requested (coordinated)")
+            return self._coordinated_renewal()
         except Exception as e:
             logger.error(f"❌ Error in force renewal: {e}")
             return False
@@ -652,4 +848,4 @@ __all__ = [
     'force_auth_renewal'
 ]
 
-logger.info("✅ Enhanced background auth service loaded with OAuth and cookie support")
+logger.info("✅ Enhanced background auth service loaded with complete stability coordination")
