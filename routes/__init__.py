@@ -1,5 +1,6 @@
 # routes/__init__.py - UPDATED VERSION WITH SERVER HEALTH ROUTES INTEGRATION
 # Remove circular imports by lazy loading + Add logs routes + Add server health routes
+# ✅ NO CHANGES NEEDED: This file continues to work with moved server_health.py
 
 def init_all_routes(app, db, user_storage, economy_storage=None, logs_storage=None, server_health_storage=None):
     '''Initialize all routes with lazy loading to prevent circular imports + logs integration + server health'''
@@ -68,10 +69,11 @@ def init_all_routes(app, db, user_storage, economy_storage=None, logs_storage=No
     print("[✅ OK] Logs routes registered (with player count integration)")
     
     # ============================================================================
-    # SERVER HEALTH ROUTES INTEGRATION - NEW ADDITION
+    # SERVER HEALTH ROUTES INTEGRATION - WORKS WITH MOVED FILE
     # ============================================================================
     
     # Server Health Routes (health monitoring + layout-specific endpoints)
+    # ✅ This import continues to work because server_health/__init__.py handles the moved file
     from .server_health import init_server_health_routes, server_health_bp
     
     # Initialize server health storage if not provided
@@ -166,6 +168,7 @@ def init_all_routes_enhanced(app, db, user_storage, economy_storage=None, logs_s
     print("[✅ OK] Logs routes registered (with player count integration)")
     
     # Server Health Routes (with server health storage and layout integration)
+    # ✅ This import continues to work because server_health/__init__.py handles the moved file
     from .server_health import init_server_health_routes, server_health_bp
     
     # Initialize server health storage if not provided
