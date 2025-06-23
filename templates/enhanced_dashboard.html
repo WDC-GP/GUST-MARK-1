@@ -452,7 +452,7 @@
                     'processEnhancedHealthData', 'loadEnhancedHealthData', 'safeLoadServerHealth', 'showHealthError'
                 ],
                 'Logs Coordinator (Restored)': [
-                    'startFinalDropdownSolution', 'getAvailableServersForAutoCommands', 'waitForServersToLoad',
+                    'getAvailableServersForAutoCommands', 'waitForServersToLoad', 'initializeAutoConsoleCommands',
                     'setupRestoredEventHandling', 'forceRefreshAutoCommands'
                 ],
                 'Logs UI': [
@@ -567,7 +567,7 @@
                 // Test 6: Logs coordinator functions
                 console.log('🧪 Testing logs coordinator restored functions...');
                 const coordinatorFunctions = [
-                    'startFinalDropdownSolution', 
+                    'getAvailableServersForAutoCommands', 
                     'initializeAutoConsoleCommands', 
                     'getAutoCommandStatus'
                 ];
@@ -640,10 +640,10 @@
                         // initializePlayerCountSystem() is called automatically by player count module
                     }
                     
-                    // Start logs coordinator functionality
-                    if (typeof startFinalDropdownSolution === 'function') {
-                        console.log('🎯 Starting logs coordinator functionality...');
-                        setTimeout(startFinalDropdownSolution, 1000);
+                    // Start logs coordinator auto commands functionality
+                    if (typeof initializeAutoConsoleCommands === 'function') {
+                        console.log('🎯 Starting logs coordinator auto command functionality...');
+                        setTimeout(initializeAutoConsoleCommands, 1000);
                     }
                     
                     console.log('✅ Enhanced modular architecture initialization complete!');
@@ -693,7 +693,7 @@
                 'playerCount': ['updatePlayerCountDisplay', 'getPlayerCountFromLogs', 'logsBasedPlayerCountSystem'],
                 'core': ['showTab', 'loadTabModule', 'initializeApp', 'safeCall'],
                 'serverHealth': ['processEnhancedHealthData', 'loadEnhancedHealthData', 'safeLoadServerHealth', 'showHealthError'],
-                'logsCoordinator': ['startFinalDropdownSolution', 'getAvailableServersForAutoCommands', 'waitForServersToLoad', 'setupRestoredEventHandling'],
+                'logsCoordinator': ['getAvailableServersForAutoCommands', 'waitForServersToLoad', 'setupRestoredEventHandling', 'initializeAutoConsoleCommands'],
                 'logs': ['showLogsTab', 'downloadServerLogs', 'autoConsoleConfig'],
                 'logsUI': ['showLogsTab', 'initializeLogs', 'showLogPreview', 'displayLogsList'],
                 'logsAPI': ['downloadServerLogs', 'loadLogs', 'getLogDetails', 'fetchWithRetry'],
@@ -755,7 +755,7 @@
                     coordinator: 'Sophisticated functionality restored'
                 } : 'Not available',
                 coordinatorFunctions: {
-                    startFinalDropdownSolution: typeof startFinalDropdownSolution,
+                    getAvailableServersForAutoCommands: typeof getAvailableServersForAutoCommands,
                     initializeAutoConsoleCommands: typeof initializeAutoConsoleCommands,
                     getAutoCommandStatus: typeof getAutoCommandStatus,
                     waitForServersToLoad: typeof waitForServersToLoad

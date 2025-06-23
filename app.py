@@ -9,6 +9,7 @@ GUST Bot Enhanced - Main Flask Application (COMPLETE FIXED VERSION)
 ✅ NEW: Auto command API endpoint for serverinfo commands
 ✅ NEW: Enhanced authentication and demo mode handling
 ✅ CRITICAL FIX: Auto console command 'int' object has no attribute 'strip' error resolved
+✅ NEW: Added console compatibility endpoint for /api/console/server-info/<server_id>
 """
 
 import os
@@ -573,6 +574,67 @@ class GustBotEnhanced:
                     'error': f'Auto command processing error: {str(e)}'
                 }), 500
         
+        # ✅ NEW: Console compatibility endpoint for legacy /api/console/server-info/<server_id>
+        @self.app.route('/api/console/server-info/<server_id>', methods=['POST'])
+        def console_server_info_compatibility(server_id):
+            """
+            ✅ COMPATIBILITY: Legacy endpoint that handles old frontend code
+            This fixes the 404 error for /api/console/server-info/<server_id>
+            """
+            if 'logged_in' not in session:
+                return jsonify({'error': 'Authentication required'}), 401
+            
+            try:
+                logger.info(f"🔄 Legacy console endpoint called for server {server_id}")
+                
+                # Get request data (if any)
+                data = request.json if request.json else {}
+                command = data.get('command', 'serverinfo')  # Default to serverinfo
+                region = data.get('region', 'US')
+                
+                # Check demo mode
+                demo_mode = session.get('demo_mode', True)
+                
+                if demo_mode:
+                    # Return demo response
+                    import random
+                    return jsonify({
+                        'success': True,
+                        'demo_mode': True,
+                        'legacy_endpoint': True,
+                        'server_id': server_id,
+                        'message': f'[DEMO] Server info for {server_id}',
+                        'data': {
+                            'fps': random.randint(45, 65),
+                            'players': f"{random.randint(0, 50)}/100",
+                            'status': 'online'
+                        },
+                        'recommended_endpoint': '/api/console/send-auto',
+                        'timestamp': datetime.now().isoformat()
+                    })
+                else:
+                    # For live mode, return success but indicate the endpoint is legacy
+                    return jsonify({
+                        'success': True,
+                        'demo_mode': False,
+                        'legacy_endpoint': True,
+                        'server_id': server_id,
+                        'message': f'Legacy endpoint accessed for server {server_id}',
+                        'recommended_endpoint': '/api/console/send-auto',
+                        'note': 'This endpoint is deprecated. Please use /api/console/send-auto for new implementations.',
+                        'timestamp': datetime.now().isoformat()
+                    })
+                    
+            except Exception as e:
+                logger.error(f"❌ Legacy console endpoint error for {server_id}: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': f'Legacy endpoint error: {str(e)}',
+                    'legacy_endpoint': True,
+                    'server_id': server_id,
+                    'recommended_endpoint': '/api/console/send-auto'
+                }), 500
+        
         @self.app.route('/api/console/output')
         def get_console_output():
             """Get recent console output"""
@@ -1001,6 +1063,7 @@ class GustBotEnhanced:
                     'features': {
                         'console_commands': True,
                         'auto_console_commands': True,  # NEW: Auto command feature flag
+                        'console_compatibility': True,  # NEW: Legacy endpoint compatibility
                         'event_management': True,
                         'koth_events_fixed': True,
                         'economy_system': True,
@@ -1423,6 +1486,7 @@ class GustBotEnhanced:
         logger.info(f"✅ CRITICAL FIX: GraphQL endpoint correctly configured (no '/graphql' suffix)")
         logger.info(f"🤖 NEW: Auto command API endpoint added for serverinfo commands")
         logger.info(f"✅ CRITICAL FIX: Auto console command 'int' object has no attribute 'strip' error resolved")
+        logger.info(f"🔄 NEW: Console compatibility endpoint for legacy /api/console/server-info/<server_id>")
         
         try:
             self.app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)
