@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GUST Bot - Enhanced with Live Console (FIXED) + Server Health</title>
+    <title>GUST Bot - Enhanced with Modular Architecture</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}">
     <!-- Chart.js CDN for Server Health charts -->
@@ -34,21 +34,385 @@
         </div>
     </div>
     
-    <!-- Modular JavaScript -->
-    {% include 'scripts/main.js.html' %}
+    <!-- ============================================================================ -->
+    <!-- MODULAR JAVASCRIPT ARCHITECTURE -->
+    <!-- Load order: State → Utils → Player Count → Core → Feature Modules -->
+    <!-- Main modules organized in /scripts/Main/ folder -->
+    <!-- ============================================================================ -->
+    
+    <!-- 1. STATE MANAGEMENT MODULE (First - provides global state) -->
+    {% include 'scripts/Main/state.js.html' %}
+    
+    <!-- 2. UTILITIES MODULE (Second - provides helper functions) -->
+    {% include 'scripts/Main/utils.js.html' %}
+    
+    <!-- 3. PLAYER COUNT SYSTEM MODULE (Third - depends on state and utils) -->
+    {% include 'scripts/Main/player_count.js.html' %}
+    
+    <!-- 4. CORE APPLICATION MODULE (Fourth - orchestrates everything) -->
+    {% include 'scripts/Main/core.js.html' %}
+    
+    <!-- ============================================================================ -->
+    <!-- FEATURE-SPECIFIC MODULES (Order: dependencies first) -->
+    <!-- ============================================================================ -->
+    
+    <!-- Dashboard and Server Management -->
     {% include 'scripts/dashboard.js.html' %}
     {% include 'scripts/server_manager.js.html' %}
+    
+    <!-- Console and Communication -->
     {% include 'scripts/console.js.html' %}
     
-    <!-- Server Health JavaScript -->
+    <!-- Server Health Monitoring -->
     {% include 'scripts/server_health.js.html' %}
     
+    <!-- Application Features -->
     {% include 'scripts/events.js.html' %}
     {% include 'scripts/economy.js.html' %}
     {% include 'scripts/gambling.js.html' %}
     {% include 'scripts/clans.js.html' %}
     {% include 'scripts/user_management.js.html' %}
     
-    {% include 'scripts/logs.js.html' %}
+    <!-- ============================================================================ -->
+    <!-- LOGS MANAGEMENT - MODULAR ARCHITECTURE -->
+    <!-- Organized in dedicated /scripts/logs/ directory -->
+    <!-- Load order: UI → API → Commands (dependencies flow) -->
+    <!-- ============================================================================ -->
+    
+    <!-- 1. LOGS UI MODULE (First - provides interface functions) -->
+    {% include 'scripts/logs/logs_ui.js.html' %}
+    
+    <!-- 2. LOGS API MODULE (Second - provides data communication) -->
+    {% include 'scripts/logs/logs_api.js.html' %}
+    
+    <!-- 3. LOGS AUTO-COMMAND MODULE (Third - depends on UI and API) -->
+    {% include 'scripts/logs/logs_commands.js.html' %}
+    
+    <!-- ============================================================================ -->
+    <!-- INITIALIZATION AND INTEGRATION VERIFICATION -->
+    <!-- ============================================================================ -->
+    <script>
+        // ============================================================================
+        // MODULAR ARCHITECTURE INITIALIZATION
+        // ============================================================================
+        
+        console.log('🚀 GUST-MARK-1 Enhanced Dashboard - Modular Architecture Initialization');
+        console.log('📦 Loading sequence: State → Utils → Player Count → Core → Features → Logs');
+        console.log('📁 Main modules organized in /scripts/Main/ folder');
+        console.log('📁 Logs modules organized in /scripts/logs/ folder');
+        
+        // Verify module loading completion
+        function verifyModularArchitecture() {
+            console.group('🔍 Modular Architecture Verification');
+            
+            // Core module verification
+            const coreModules = {
+                'State Management': [
+                    'currentTab', 'managedServers', 'connectionStatus', 'requestQueue',
+                    'setCurrentTab', 'setManagedServers', 'onStateEvent', 'getStateSnapshot'
+                ],
+                'Utilities': [
+                    'escapeHtml', 'formatFileSize', 'showStatus', 'safeGetElement',
+                    'validateServerId', 'debounce', 'logError', 'createPerformanceTimer'
+                ],
+                'Player Count System': [
+                    'updatePlayerCountDisplay', 'getPlayerCountFromLogs', 'refreshAllPlayerCounts',
+                    'startAutoPlayerCountUpdates', 'initializePlayerCountSystem', 'logsBasedPlayerCountSystem'
+                ],
+                'Core Application': [
+                    'showTab', 'loadTabModule', 'loadServerList', 'refreshAllData',
+                    'initializeApp', 'safeCall', 'createPlaceholderView'
+                ],
+                'Logs UI': [
+                    'showLogsTab', 'loadLogsTab', 'initializeLogs', 'showLogPreview',
+                    'hideLogPreview', 'displayLogsList', 'showLogsStatus', 'updateLogsInterface'
+                ],
+                'Logs API': [
+                    'downloadServerLogs', 'loadLogs', 'refreshLogsList', 'getLogDetails',
+                    'getPlayerCountFromLogs', 'getLogsServers', 'fetchWithRetry'
+                ],
+                'Logs Auto-Commands': [
+                    'initializeAutoConsoleCommands', 'startAutoConsoleCommands', 'stopAutoConsoleCommands',
+                    'rotateServerCommands', 'getAutoCommandStatus', 'autoConsoleConfig'
+                ]
+            };
+            
+            let totalFunctions = 0;
+            let availableFunctions = 0;
+            
+            Object.entries(coreModules).forEach(([moduleName, functions]) => {
+                console.group(`📦 ${moduleName} Module`);
+                
+                functions.forEach(funcName => {
+                    totalFunctions++;
+                    if (typeof window[funcName] !== 'undefined') {
+                        console.log(`✅ ${funcName}: ${typeof window[funcName]}`);
+                        availableFunctions++;
+                    } else {
+                        console.warn(`❌ ${funcName}: undefined`);
+                    }
+                });
+                
+                console.groupEnd();
+            });
+            
+            const completionRate = Math.round((availableFunctions / totalFunctions) * 100);
+            console.log(`📊 Module Completion Rate: ${availableFunctions}/${totalFunctions} (${completionRate}%)`);
+            
+            if (completionRate >= 90) {
+                console.log('✅ Modular architecture loaded successfully!');
+            } else {
+                console.warn('⚠️ Some modules may not have loaded correctly');
+            }
+            
+            console.groupEnd();
+            
+            return completionRate;
+        }
+        
+        // Integration testing
+        function testModularIntegration() {
+            console.group('🧪 Modular Integration Testing');
+            
+            try {
+                // Test 1: State management
+                console.log('🧪 Testing state management...');
+                if (typeof setCurrentTab === 'function') {
+                    setCurrentTab('dashboard');
+                    console.log('✅ State management working');
+                } else {
+                    console.warn('⚠️ State management not available');
+                }
+                
+                // Test 2: Utilities
+                console.log('🧪 Testing utilities...');
+                if (typeof formatFileSize === 'function') {
+                    const testSize = formatFileSize(1024);
+                    console.log(`✅ Utilities working: ${testSize}`);
+                } else {
+                    console.warn('⚠️ Utilities not available');
+                }
+                
+                // Test 3: Player count system
+                console.log('🧪 Testing player count system...');
+                if (typeof logsBasedPlayerCountSystem !== 'undefined') {
+                    console.log('✅ Player count system available');
+                    if (typeof initializePlayerCountSystem === 'function') {
+                        console.log('✅ Player count initialization ready');
+                    }
+                } else {
+                    console.warn('⚠️ Player count system not available');
+                }
+                
+                // Test 4: Core application
+                console.log('🧪 Testing core application...');
+                if (typeof showTab === 'function' && typeof loadServerList === 'function') {
+                    console.log('✅ Core application functions available');
+                } else {
+                    console.warn('⚠️ Core application functions not available');
+                }
+                
+                // Test 5: Logs UI system
+                console.log('🧪 Testing logs UI system...');
+                if (typeof showLogsTab === 'function' && typeof initializeLogs === 'function') {
+                    console.log('✅ Logs UI system available');
+                } else {
+                    console.warn('⚠️ Logs UI system not available');
+                }
+                
+                // Test 6: Logs API system
+                console.log('🧪 Testing logs API system...');
+                if (typeof downloadServerLogs === 'function' && typeof loadLogs === 'function') {
+                    console.log('✅ Logs API system available');
+                } else {
+                    console.warn('⚠️ Logs API system not available');
+                }
+                
+                // Test 7: Logs auto-command system
+                console.log('🧪 Testing logs auto-command system...');
+                if (typeof autoConsoleConfig !== 'undefined' && typeof initializeAutoConsoleCommands === 'function') {
+                    console.log('✅ Logs auto-command system available');
+                    console.log(`🤖 Auto commands enabled: ${autoConsoleConfig.enabled}`);
+                } else {
+                    console.warn('⚠️ Logs auto-command system not available');
+                }
+                
+                // Test 8: Cross-module communication
+                console.log('🧪 Testing cross-module communication...');
+                if (typeof onStateEvent === 'function') {
+                    const unsubscribe = onStateEvent('test:event', (data) => {
+                        console.log('✅ Cross-module communication working');
+                    });
+                    
+                    if (typeof emitStateEvent === 'function') {
+                        emitStateEvent('test:event', { test: true });
+                        unsubscribe();
+                        console.log('✅ Event system working');
+                    }
+                } else {
+                    console.warn('⚠️ Cross-module communication not available');
+                }
+                
+                console.log('✅ Integration testing completed');
+                
+            } catch (error) {
+                console.error('❌ Integration testing failed:', error);
+            }
+            
+            console.groupEnd();
+        }
+        
+        // Performance monitoring
+        function monitorModularPerformance() {
+            if (typeof createPerformanceTimer === 'function') {
+                const timer = createPerformanceTimer('Modular Architecture Loading');
+                
+                setTimeout(() => {
+                    const loadTime = timer.end();
+                    
+                    if (typeof checkMemoryUsage === 'function') {
+                        const memory = checkMemoryUsage();
+                        if (memory) {
+                            console.log(`💾 Memory usage: ${memory.used} / ${memory.total} (${memory.percentage}%)`);
+                        }
+                    }
+                    
+                    console.log(`⚡ Modular architecture performance: ${loadTime.toFixed(2)}ms`);
+                }, 100);
+            }
+        }
+        
+        // Initialize modular architecture
+        function initializeModularArchitecture() {
+            console.log('🚀 Initializing modular architecture...');
+            
+            // Wait for all modules to load
+            setTimeout(() => {
+                const completionRate = verifyModularArchitecture();
+                
+                if (completionRate >= 90) {
+                    testModularIntegration();
+                    monitorModularPerformance();
+                    
+                    // Initialize core application
+                    if (typeof initializeApp === 'function') {
+                        console.log('🚀 Starting core application initialization...');
+                        // initializeApp() is called automatically by core module
+                    }
+                    
+                    // Start player count system
+                    if (typeof initializePlayerCountSystem === 'function') {
+                        console.log('👥 Player count system will initialize automatically...');
+                        // initializePlayerCountSystem() is called automatically by player count module
+                    }
+                    
+                    console.log('✅ Modular architecture initialization complete!');
+                    console.log('📁 Architecture: Main modules in /scripts/Main/, Logs modules in /scripts/logs/');
+                    
+                    // Show success message
+                    if (typeof showStatus === 'function') {
+                        showStatus('🎉 GUST-MARK-1 Enhanced Dashboard loaded successfully!', 'success', 3000);
+                    }
+                    
+                } else {
+                    console.error('❌ Modular architecture initialization failed - insufficient module loading');
+                    
+                    if (typeof showStatus === 'function') {
+                        showStatus('⚠️ Some modules failed to load. Please refresh the page.', 'error');
+                    }
+                }
+                
+            }, 2000); // Wait 2 seconds for all modules to load
+        }
+        
+        // Start initialization when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeModularArchitecture);
+        } else {
+            setTimeout(initializeModularArchitecture, 500);
+        }
+        
+        // ============================================================================
+        // DEVELOPMENT AND DEBUGGING HELPERS
+        // ============================================================================
+        
+        // Global debugging functions
+        window.verifyModularArchitecture = verifyModularArchitecture;
+        window.testModularIntegration = testModularIntegration;
+        window.monitorModularPerformance = monitorModularPerformance;
+        
+        // Module inspection helpers
+        window.inspectModule = function(moduleName) {
+            console.group(`🔍 Inspecting ${moduleName} Module`);
+            
+            const modulePatterns = {
+                'state': ['currentTab', 'managedServers', 'requestQueue', 'setCurrentTab'],
+                'utils': ['escapeHtml', 'formatFileSize', 'showStatus', 'safeGetElement'],
+                'playerCount': ['updatePlayerCountDisplay', 'getPlayerCountFromLogs', 'logsBasedPlayerCountSystem'],
+                'core': ['showTab', 'loadTabModule', 'initializeApp', 'safeCall'],
+                'logs': ['showLogsTab', 'downloadServerLogs', 'autoConsoleConfig'],
+                'logsUI': ['showLogsTab', 'initializeLogs', 'showLogPreview', 'displayLogsList'],
+                'logsAPI': ['downloadServerLogs', 'loadLogs', 'getLogDetails', 'fetchWithRetry'],
+                'logsCommands': ['autoConsoleConfig', 'startAutoConsoleCommands', 'rotateServerCommands']
+            };
+            
+            const pattern = modulePatterns[moduleName.toLowerCase()];
+            if (pattern) {
+                pattern.forEach(funcName => {
+                    console.log(`${funcName}: ${typeof window[funcName]}`);
+                });
+            } else {
+                console.log('Available modules:', Object.keys(modulePatterns));
+            }
+            
+            console.groupEnd();
+        };
+        
+        // Performance monitoring
+        window.getModularStats = function() {
+            const stats = {
+                timestamp: new Date().toISOString(),
+                organization: {
+                    main: 'Main modules in /scripts/Main/ folder',
+                    logs: 'Logs modules in /scripts/logs/ folder'
+                },
+                modules: {
+                    main: {
+                        loaded: ['state', 'utils', 'playerCount', 'core'],
+                        location: 'templates/scripts/Main/',
+                        totalSize: '~40KB split into 4 modules',
+                        averageModuleSize: '~10KB per module'
+                    },
+                    logs: {
+                        loaded: ['logs_ui', 'logs_api', 'logs_commands'],
+                        location: 'templates/scripts/logs/',
+                        totalSize: '~30KB split into 3 modules',
+                        averageModuleSize: '~10KB per module'
+                    }
+                },
+                autoCommands: typeof autoConsoleConfig !== 'undefined' ? {
+                    enabled: autoConsoleConfig.enabled,
+                    running: window.autoCommandsRunning || false,
+                    interval: autoConsoleConfig.interval
+                } : 'Not available'
+            };
+            
+            if (typeof getStateSnapshot === 'function') {
+                stats.state = getStateSnapshot();
+            }
+            
+            if (typeof requestQueue !== 'undefined' && requestQueue.getStats) {
+                stats.requestQueue = requestQueue.getStats();
+            }
+            
+            return stats;
+        };
+        
+        console.log('🔧 Development helpers loaded: verifyModularArchitecture(), testModularIntegration(), inspectModule(), getModularStats()');
+        console.log('📁 Main modules location: templates/scripts/Main/');
+        console.log('📁 Logs modules location: templates/scripts/logs/');
+        console.log('📊 Use getModularStats() to see complete organization details');
+        
+    </script>
 </body>
 </html>

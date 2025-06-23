@@ -1,0 +1,406 @@
+<script>
+    // ============================================================================
+    // CORE APPLICATION FUNCTIONS MODULE
+    // Essential navigation, tab management, and module loading
+    // Size target: ~10KB | Dependencies: None
+    // ============================================================================
+    
+    console.log('🏗️ Loading Core Application Functions Module...');
+    
+    // ============================================================================
+    // CORE TAB NAVIGATION SYSTEM
+    // ============================================================================
+    
+    /**
+     * Enhanced tab switching with module loading
+     */
+    function showTab(tab) {
+        console.log('🔄 Switching to tab:', tab);
+        
+        try {
+            // Update global state
+            if (window.currentTab !== undefined) {
+                window.currentTab = tab;
+            }
+            
+            // Update navigation UI
+            document.querySelectorAll('.nav-tab').forEach(t => {
+                if (t && t.classList) {
+                    t.classList.remove('active');
+                }
+            });
+            
+            const navTab = document.getElementById(tab + '-tab');
+            if (navTab && navTab.classList) {
+                navTab.classList.add('active');
+            }
+            
+            // Hide all views
+            document.querySelectorAll('.view').forEach(view => {
+                if (view && view.classList) {
+                    view.classList.add('hidden');
+                }
+            });
+            
+            // Show target view
+            let targetView = document.getElementById(tab + '-view');
+            if (!targetView) {
+                targetView = document.getElementById(tab);
+            }
+            
+            if (targetView && targetView.classList) {
+                targetView.classList.remove('hidden');
+                console.log('✅ Showing view:', targetView.id);
+            } else {
+                console.error('❌ No view found for tab:', tab);
+                createPlaceholderView(tab);
+                return;
+            }
+            
+            // Load tab-specific modules
+            loadTabModule(tab);
+            
+            // Update URL hash without causing page reload
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState(null, null, '#' + tab);
+            }
+            
+            console.log('✅ Tab switch complete:', tab);
+            
+        } catch (error) {
+            console.error('❌ showTab error:', error);
+        }
+    }
+    
+    /**
+     * Module loading with availability checking
+     */
+    async function loadTabModule(tab) {
+        console.log(`📦 Loading module for tab: ${tab}`);
+        
+        try {
+            switch(tab) {
+                case 'dashboard':
+                    safeCall('loadDashboard');
+                    break;
+                    
+                case 'server-manager':
+                    // Ensure server manager functions are available
+                    await ensureServerManagerLoaded();
+                    safeCall('loadServerManager');
+                    break;
+                    
+                case 'console':
+                    safeCall('initializeConsole');
+                    break;
+                    
+                case 'events':
+                    safeCall('loadEvents');
+                    break;
+                    
+                case 'economy':
+                    safeCall('loadEconomy');
+                    break;
+                    
+                case 'gambling':
+                    safeCall('loadGambling');
+                    break;
+                    
+                case 'clans':
+                    safeCall('loadClans');
+                    break;
+                    
+                case 'user-management':
+                case 'users':
+                    safeCall('loadUserManagement');
+                    break;
+                    
+                case 'logs':
+                    safeCall('loadLogs');
+                    break;
+                    
+                case 'server-health':
+                    safeCall('loadServerHealth');
+                    break;
+                    
+                default:
+                    console.log(`ℹ️ No specific module loader for tab: ${tab}`);
+            }
+        } catch (error) {
+            console.error(`❌ Error loading module for ${tab}:`, error);
+        }
+    }
+    
+    /**
+     * Ensure Server Manager module is loaded
+     */
+    async function ensureServerManagerLoaded() {
+        const requiredFunctions = ['addNewServer', 'loadServerManager', 'clearServerForm'];
+        const missingFunctions = requiredFunctions.filter(func => typeof window[func] !== 'function');
+        
+        if (missingFunctions.length > 0) {
+            console.log(`⚠️ Missing server manager functions: ${missingFunctions.join(', ')}`);
+            console.log('🔧 Server manager functions will use template fallbacks');
+        } else {
+            console.log('✅ All server manager functions available');
+        }
+    }
+    
+    // ============================================================================
+    // CORE DATA LOADING FUNCTIONS
+    // ============================================================================
+    
+    /**
+     * Load server list data
+     */
+    async function loadServerList() {
+        console.log('🔄 Loading server list...');
+        
+        try {
+            const response = await fetch('/api/servers', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const servers = await response.json();
+            
+            // Update global state
+            if (window.managedServers !== undefined) {
+                window.managedServers = servers;
+            }
+            
+            console.log(`✅ Loaded ${servers.length} servers`);
+            return servers;
+            
+        } catch (error) {
+            console.error('❌ Error loading server list:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Refresh all data across the application
+     */
+    async function refreshAllData() {
+        console.log('🔄 Refreshing all data...');
+        
+        try {
+            // Load servers first
+            await loadServerList();
+            
+            // Refresh current tab data
+            const currentTab = window.currentTab || 'dashboard';
+            await loadTabModule(currentTab);
+            
+            // Refresh player counts if system is available
+            if (typeof window.refreshAllPlayerCounts === 'function') {
+                window.refreshAllPlayerCounts();
+            }
+            
+            console.log('✅ All data refreshed successfully');
+            
+        } catch (error) {
+            console.error('❌ Error refreshing data:', error);
+            throw error;
+        }
+    }
+    
+    // ============================================================================
+    // APPLICATION INITIALIZATION
+    // ============================================================================
+    
+    /**
+     * Initialize the application
+     */
+    function initializeApp() {
+        console.log('🚀 Initializing GUST Bot Enhanced Core Application...');
+        
+        try {
+            // Set up error handling
+            window.addEventListener('error', (event) => {
+                console.error('💥 Global error:', event.error);
+            });
+            
+            // Set up unhandled promise rejection handling
+            window.addEventListener('unhandledrejection', (event) => {
+                console.error('💥 Unhandled promise rejection:', event.reason);
+            });
+            
+            // Initialize with default tab
+            setTimeout(() => {
+                if (window.location.hash) {
+                    const tab = window.location.hash.substring(1);
+                    showTab(tab);
+                } else {
+                    showTab('dashboard');
+                }
+            }, 500);
+            
+            // Load initial data
+            setTimeout(() => {
+                loadServerList().catch(console.error);
+            }, 1000);
+            
+            console.log('✅ Core application initialized');
+            
+        } catch (error) {
+            console.error('❌ Error initializing application:', error);
+        }
+    }
+    
+    /**
+     * Set up global event listeners
+     */
+    function setupEventListeners() {
+        console.log('🔧 Setting up core event listeners...');
+        
+        try {
+            // Handle back/forward navigation
+            window.addEventListener('popstate', (event) => {
+                if (window.location.hash) {
+                    const tab = window.location.hash.substring(1);
+                    showTab(tab);
+                }
+            });
+            
+            // Handle visibility change (tab switch, minimize)
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    console.log('📴 Page hidden - pausing intensive operations');
+                    // Pause auto-refresh operations
+                    if (typeof window.pauseAutoOperations === 'function') {
+                        window.pauseAutoOperations();
+                    }
+                } else {
+                    console.log('👁️ Page visible - resuming operations');
+                    // Resume auto-refresh operations
+                    if (typeof window.resumeAutoOperations === 'function') {
+                        window.resumeAutoOperations();
+                    }
+                }
+            });
+            
+            // Set up keyboard shortcuts
+            document.addEventListener('keydown', (event) => {
+                // Ctrl/Cmd + R for refresh
+                if ((event.ctrlKey || event.metaKey) && event.key === 'r' && !event.defaultPrevented) {
+                    event.preventDefault();
+                    refreshAllData().catch(console.error);
+                }
+                
+                // Tab navigation with Ctrl/Cmd + 1-9
+                if ((event.ctrlKey || event.metaKey) && event.key >= '1' && event.key <= '9') {
+                    const tabIndex = parseInt(event.key) - 1;
+                    const tabs = ['dashboard', 'server-manager', 'console', 'server-health', 'events', 'economy', 'gambling', 'clans', 'logs'];
+                    if (tabs[tabIndex]) {
+                        event.preventDefault();
+                        showTab(tabs[tabIndex]);
+                    }
+                }
+            });
+            
+            console.log('✅ Core event listeners set up');
+            
+        } catch (error) {
+            console.error('❌ Error setting up event listeners:', error);
+        }
+    }
+    
+    // ============================================================================
+    // SAFE FUNCTION EXECUTION
+    // ============================================================================
+    
+    /**
+     * Safe function caller with enhanced error handling
+     */
+    function safeCall(functionName, ...args) {
+        try {
+            if (typeof window[functionName] === 'function') {
+                console.log(`🔧 Calling ${functionName}`);
+                return window[functionName](...args);
+            } else {
+                console.warn(`⚠️ Function ${functionName} not available`);
+                return null;
+            }
+        } catch (error) {
+            console.error(`❌ Error calling ${functionName}:`, error);
+            return null;
+        }
+    }
+    
+    /**
+     * Create placeholder view for missing tabs
+     */
+    function createPlaceholderView(tabId) {
+        console.log('🔧 Creating placeholder view for:', tabId);
+        
+        try {
+            const container = document.querySelector('.main-content') || document.querySelector('main') || document.body;
+            
+            const placeholderView = document.createElement('div');
+            placeholderView.id = tabId + '-view';
+            placeholderView.className = 'view bg-gray-800 p-6 rounded-lg';
+            
+            const title = tabId.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+            
+            placeholderView.innerHTML = `
+                <h2 class="text-2xl font-bold mb-4">🔧 ${title}</h2>
+                <p class="text-gray-400 mb-4">This section is currently being loaded...</p>
+                <div class="text-sm text-gray-500">
+                    <p>Tab ID: ${tabId}</p>
+                    <p>Timestamp: ${new Date().toISOString()}</p>
+                </div>
+                <div class="mt-4">
+                    <button onclick="refreshAllData()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded transition-colors">
+                        🔄 Retry Loading
+                    </button>
+                </div>
+            `;
+            
+            container.appendChild(placeholderView);
+            console.log('✅ Placeholder view created for:', tabId);
+            
+        } catch (error) {
+            console.error('❌ Error creating placeholder view:', error);
+        }
+    }
+    
+    // ============================================================================
+    // GLOBAL FUNCTION EXPOSURE
+    // ============================================================================
+    
+    // Core navigation functions
+    window.showTab = showTab;
+    window.loadTabModule = loadTabModule;
+    window.ensureServerManagerLoaded = ensureServerManagerLoaded;
+    
+    // Data loading functions
+    window.loadServerList = loadServerList;
+    window.refreshAllData = refreshAllData;
+    
+    // Application lifecycle functions
+    window.initializeApp = initializeApp;
+    window.setupEventListeners = setupEventListeners;
+    
+    // Utility functions
+    window.safeCall = safeCall;
+    window.createPlaceholderView = createPlaceholderView;
+    
+    console.log('✅ Core Application Functions Module loaded and exposed globally');
+    
+    // Auto-initialize if DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeApp);
+        document.addEventListener('DOMContentLoaded', setupEventListeners);
+    } else {
+        // DOM already loaded
+        setTimeout(initializeApp, 100);
+        setTimeout(setupEventListeners, 150);
+    }
+    
+</script>

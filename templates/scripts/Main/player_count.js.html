@@ -1,0 +1,585 @@
+<script>
+    // ============================================================================
+    // LIVE PLAYER COUNT SYSTEM MODULE
+    // Logs-based real-time player monitoring with enhanced UX
+    // Size target: ~12KB | Dependencies: Console, Logs API
+    // ============================================================================
+    
+    console.log('👥 Loading Live Player Count System Module...');
+    
+    // ============================================================================
+    // PLAYER COUNT SYSTEM CONFIGURATION
+    // ============================================================================
+    
+    const logsBasedPlayerCountSystem = {
+        enabled: false,
+        polling: false,
+        intervalId: null,
+        config: {
+            interval: 30000,              // 30 seconds for logs-based polling
+            maxRetries: 3,
+            batchSize: 2,                 // Small batches to prevent overload
+            staggerDelay: 5000,           // 5-second delays between requests
+            preserveValues: true          // Preserve old values during loading
+        },
+        state: {
+            activeRequests: new Map(),
+            serverData: new Map(),
+            lastUpdate: new Map(),
+            errorCounts: new Map()
+        }
+    };
+    
+    // Auto Commands Configuration
+    const autoConsoleConfig = {
+        enabled: true,
+        interval: 10000,                  // 10 seconds for auto commands
+        commands: ['serverinfo'],
+        maxConcurrent: 3,
+        waitForServers: true,
+        intervalId: null
+    };
+    
+    // ============================================================================
+    // ENHANCED PLAYER COUNT DISPLAY FUNCTIONS
+    // ============================================================================
+    
+    /**
+     * Update player count display with enhanced UX
+     */
+    function updatePlayerCountDisplay(serverId, playerData, status = 'success') {
+        try {
+            console.log(`👥 Updating player count display for ${serverId}:`, playerData, status);
+            
+            if (!serverId) {
+                console.warn('⚠️ No serverId provided for player count update');
+                return;
+            }
+            
+            // Use requestAnimationFrame for smooth updates
+            requestAnimationFrame(() => {
+                updatePlayerCountElements(serverId, playerData, status);
+                updateStatusIndicator(serverId, status);
+                updateProgressBar(serverId, playerData);
+                updateSourceAttribution(serverId, playerData);
+            });
+            
+            // Store data for preservation
+            if (playerData) {
+                logsBasedPlayerCountSystem.state.serverData.set(serverId, playerData);
+                logsBasedPlayerCountSystem.state.lastUpdate.set(serverId, new Date().toISOString());
+            }
+            
+        } catch (error) {
+            console.error('❌ Error updating player count display:', error);
+        }
+    }
+    
+    /**
+     * Update all player count elements for a server
+     */
+    function updatePlayerCountElements(serverId, playerData, status) {
+        try {
+            // Update main display elements
+            const selectors = [
+                `#player-count-${serverId}`,
+                `[data-player-count="${serverId}"]`,
+                `[data-player-count-for="${serverId}"]`
+            ];
+            
+            selectors.forEach(selector => {
+                const elements = document.querySelectorAll(selector);
+                elements.forEach(element => {
+                    if (playerData && typeof playerData.current !== 'undefined') {
+                        element.textContent = `${playerData.current}/${playerData.max}`;
+                        element.setAttribute('data-status', status);
+                    }
+                });
+            });
+            
+            // Update server health integration
+            if (typeof window.updateServerHealthPlayerCount === 'function') {
+                window.updateServerHealthPlayerCount(serverId, playerData, status);
+            }
+            
+            // Update server manager integration
+            updateServerManagerPlayerCount(serverId, playerData, status);
+            
+        } catch (error) {
+            console.error('❌ Error updating player count elements:', error);
+        }
+    }
+    
+    /**
+     * Update server manager player count integration
+     */
+    function updateServerManagerPlayerCount(serverId, playerData, status) {
+        try {
+            const serverCard = document.querySelector(`[data-server-id="${serverId}"]`);
+            if (serverCard && playerData) {
+                const countElement = serverCard.querySelector('.player-count');
+                const statusElement = serverCard.querySelector('.player-count-status');
+                const progressBar = serverCard.querySelector('.player-count-progress');
+                
+                if (countElement) {
+                    countElement.textContent = `${playerData.current}/${playerData.max}`;
+                }
+                
+                if (statusElement) {
+                    statusElement.textContent = `✅ ${playerData.current}/${playerData.max} (${playerData.percentage}%)`;
+                    statusElement.className = `player-count-status text-xs px-2 py-1 rounded ${getStatusColorClass(status)}`;
+                }
+                
+                if (progressBar) {
+                    progressBar.style.width = `${playerData.percentage || 0}%`;
+                    progressBar.className = `player-count-progress h-1 rounded-full transition-all duration-300 ${getProgressBarColorClass(playerData.percentage)}`;
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error updating server manager player count:', error);
+        }
+    }
+    
+    /**
+     * Update status indicator
+     */
+    function updateStatusIndicator(serverId, status) {
+        try {
+            const statusElements = document.querySelectorAll(`[data-status-for="${serverId}"]`);
+            statusElements.forEach(element => {
+                element.className = `status-indicator w-2 h-2 rounded-full ${getStatusColorClass(status)}`;
+            });
+        } catch (error) {
+            console.error('❌ Error updating status indicator:', error);
+        }
+    }
+    
+    /**
+     * Update progress bar
+     */
+    function updateProgressBar(serverId, playerData) {
+        try {
+            if (!playerData) return;
+            
+            const progressBars = document.querySelectorAll(`[data-progress-for="${serverId}"]`);
+            progressBars.forEach(bar => {
+                const percentage = playerData.percentage || 0;
+                bar.style.width = `${percentage}%`;
+                bar.className = `progress-bar h-2 rounded-full transition-all duration-500 ${getProgressBarColorClass(percentage)}`;
+            });
+        } catch (error) {
+            console.error('❌ Error updating progress bar:', error);
+        }
+    }
+    
+    /**
+     * Update source attribution
+     */
+    function updateSourceAttribution(serverId, playerData) {
+        try {
+            const sourceElements = document.querySelectorAll(`[data-source-for="${serverId}"]`);
+            const source = playerData?.source || 'Auto Commands + Logs';
+            const timestamp = new Date().toLocaleTimeString();
+            
+            sourceElements.forEach(element => {
+                element.textContent = `${source} • ${timestamp}`;
+                element.className = 'text-xs text-gray-500';
+            });
+        } catch (error) {
+            console.error('❌ Error updating source attribution:', error);
+        }
+    }
+    
+    // ============================================================================
+    // PLAYER COUNT DATA RETRIEVAL
+    // ============================================================================
+    
+    /**
+     * Get player count from logs API
+     */
+    async function getPlayerCountFromLogs(serverId) {
+        try {
+            if (!serverId) {
+                throw new Error('Server ID is required');
+            }
+            
+            console.log(`📊 Fetching player count from logs for server: ${serverId}`);
+            
+            // Show loading state while preserving old values
+            const oldData = logsBasedPlayerCountSystem.state.serverData.get(serverId);
+            if (oldData && logsBasedPlayerCountSystem.config.preserveValues) {
+                updatePlayerCountDisplay(serverId, oldData, 'loading');
+            }
+            
+            const response = await fetch(`/api/logs/player-count/${serverId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                const playerData = {
+                    current: result.data.current || 0,
+                    max: result.data.max || 100,
+                    percentage: result.data.percentage || 0,
+                    source: 'Server Logs',
+                    timestamp: new Date().toISOString()
+                };
+                
+                updatePlayerCountDisplay(serverId, playerData, 'success');
+                
+                // Reset error count on success
+                logsBasedPlayerCountSystem.state.errorCounts.set(serverId, 0);
+                
+                console.log(`✅ Player count updated: ${playerData.current}/${playerData.max} (${playerData.percentage}%)`);
+                return playerData;
+                
+            } else {
+                throw new Error(result.error || 'No player data available');
+            }
+            
+        } catch (error) {
+            console.error(`❌ Error getting player count for ${serverId}:`, error);
+            
+            // Increment error count
+            const errorCount = (logsBasedPlayerCountSystem.state.errorCounts.get(serverId) || 0) + 1;
+            logsBasedPlayerCountSystem.state.errorCounts.set(serverId, errorCount);
+            
+            // Show error state but preserve old values if available
+            const oldData = logsBasedPlayerCountSystem.state.serverData.get(serverId);
+            if (oldData && logsBasedPlayerCountSystem.config.preserveValues) {
+                updatePlayerCountDisplay(serverId, oldData, 'error');
+            } else {
+                updatePlayerCountDisplay(serverId, null, 'error');
+            }
+            
+            return null;
+        }
+    }
+    
+    /**
+     * Refresh player count for all servers
+     */
+    async function refreshAllPlayerCounts() {
+        try {
+            console.log('🔄 Refreshing player counts for all servers...');
+            
+            const servers = window.managedServers || [];
+            if (servers.length === 0) {
+                console.warn('⚠️ No servers available for player count refresh');
+                return;
+            }
+            
+            // Process servers in batches to prevent API overload
+            const batchSize = logsBasedPlayerCountSystem.config.batchSize;
+            for (let i = 0; i < servers.length; i += batchSize) {
+                const batch = servers.slice(i, i + batchSize);
+                
+                const promises = batch.map(server => 
+                    getPlayerCountFromLogs(server.serverId).catch(error => {
+                        console.error(`❌ Failed to refresh player count for ${server.serverName}:`, error);
+                        return null;
+                    })
+                );
+                
+                await Promise.all(promises);
+                
+                // Stagger batches
+                if (i + batchSize < servers.length) {
+                    await new Promise(resolve => setTimeout(resolve, logsBasedPlayerCountSystem.config.staggerDelay));
+                }
+            }
+            
+            console.log('✅ Player count refresh completed for all servers');
+            
+        } catch (error) {
+            console.error('❌ Error refreshing all player counts:', error);
+        }
+    }
+    
+    // ============================================================================
+    // AUTO COMMANDS SYSTEM
+    // ============================================================================
+    
+    /**
+     * Start auto commands system
+     */
+    function startAutoPlayerCountUpdates() {
+        try {
+            if (autoConsoleConfig.intervalId) {
+                console.log('⚠️ Auto commands already running');
+                return;
+            }
+            
+            console.log('🤖 Starting auto player count updates...');
+            
+            const sendAutoCommands = async () => {
+                try {
+                    const servers = window.managedServers || [];
+                    if (servers.length === 0) {
+                        console.log('⚠️ No servers available for auto commands');
+                        return;
+                    }
+                    
+                    console.log(`🤖 Sending auto commands to ${servers.length} servers...`);
+                    
+                    for (const server of servers) {
+                        try {
+                            if (!server.serverId) continue;
+                            
+                            // Use the global sendConsoleCommandAuto function
+                            if (typeof window.sendConsoleCommandAuto === 'function') {
+                                const result = await window.sendConsoleCommandAuto(
+                                    'serverinfo',
+                                    server.serverId,
+                                    server.serverRegion || 'US'
+                                );
+                                
+                                if (result.success) {
+                                    console.log(`✅ Auto command success for ${server.serverName}`);
+                                    
+                                    // Trigger logs-based update after delay
+                                    setTimeout(() => {
+                                        getPlayerCountFromLogs(server.serverId);
+                                    }, 3000);
+                                } else {
+                                    console.warn(`⚠️ Auto command failed for ${server.serverName}: ${result.error}`);
+                                }
+                            } else {
+                                console.warn('⚠️ sendConsoleCommandAuto function not available');
+                            }
+                            
+                        } catch (error) {
+                            console.error(`❌ Error sending auto command to ${server.serverName}:`, error);
+                        }
+                        
+                        // Delay between servers
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Error in auto commands cycle:', error);
+                }
+            };
+            
+            // Send commands immediately
+            sendAutoCommands();
+            
+            // Set up interval
+            autoConsoleConfig.intervalId = setInterval(sendAutoCommands, autoConsoleConfig.interval);
+            autoConsoleConfig.enabled = true;
+            
+            console.log(`🤖 Auto commands started (every ${autoConsoleConfig.interval/1000}s)`);
+            
+        } catch (error) {
+            console.error('❌ Error starting auto commands:', error);
+        }
+    }
+    
+    /**
+     * Stop auto commands system
+     */
+    function stopAutoPlayerCountUpdates() {
+        try {
+            if (autoConsoleConfig.intervalId) {
+                clearInterval(autoConsoleConfig.intervalId);
+                autoConsoleConfig.intervalId = null;
+                autoConsoleConfig.enabled = false;
+                console.log('🛑 Auto commands stopped');
+            }
+        } catch (error) {
+            console.error('❌ Error stopping auto commands:', error);
+        }
+    }
+    
+    // ============================================================================
+    // LOGS-BASED POLLING SYSTEM
+    // ============================================================================
+    
+    /**
+     * Start logs-based polling system
+     */
+    function startLogsBasedPolling() {
+        try {
+            if (logsBasedPlayerCountSystem.intervalId) {
+                console.log('⚠️ Logs-based polling already running');
+                return;
+            }
+            
+            console.log('📋 Starting logs-based player count polling...');
+            
+            const pollLogs = () => {
+                if (!logsBasedPlayerCountSystem.enabled) return;
+                
+                refreshAllPlayerCounts().catch(error => {
+                    console.error('❌ Error in logs polling cycle:', error);
+                });
+            };
+            
+            // Start polling
+            logsBasedPlayerCountSystem.intervalId = setInterval(pollLogs, logsBasedPlayerCountSystem.config.interval);
+            logsBasedPlayerCountSystem.polling = true;
+            logsBasedPlayerCountSystem.enabled = true;
+            
+            console.log(`📋 Logs-based polling started (every ${logsBasedPlayerCountSystem.config.interval/1000}s)`);
+            
+        } catch (error) {
+            console.error('❌ Error starting logs-based polling:', error);
+        }
+    }
+    
+    /**
+     * Stop logs-based polling system
+     */
+    function stopLogsBasedPolling() {
+        try {
+            if (logsBasedPlayerCountSystem.intervalId) {
+                clearInterval(logsBasedPlayerCountSystem.intervalId);
+                logsBasedPlayerCountSystem.intervalId = null;
+                logsBasedPlayerCountSystem.polling = false;
+                logsBasedPlayerCountSystem.enabled = false;
+                console.log('🛑 Logs-based polling stopped');
+            }
+        } catch (error) {
+            console.error('❌ Error stopping logs-based polling:', error);
+        }
+    }
+    
+    // ============================================================================
+    // PLAYER COUNT SYSTEM MANAGEMENT
+    // ============================================================================
+    
+    /**
+     * Initialize player count system
+     */
+    function initializePlayerCountSystem() {
+        try {
+            console.log('🚀 Initializing player count system...');
+            
+            // Start auto commands for fresh data
+            setTimeout(() => {
+                startAutoPlayerCountUpdates();
+            }, 2000);
+            
+            // Start logs-based polling for persistent data
+            setTimeout(() => {
+                startLogsBasedPolling();
+            }, 5000);
+            
+            console.log('✅ Player count system initialized');
+            
+        } catch (error) {
+            console.error('❌ Error initializing player count system:', error);
+        }
+    }
+    
+    /**
+     * Shutdown player count system
+     */
+    function shutdownPlayerCountSystem() {
+        try {
+            console.log('🛑 Shutting down player count system...');
+            
+            stopAutoPlayerCountUpdates();
+            stopLogsBasedPolling();
+            
+            // Clear state
+            logsBasedPlayerCountSystem.state.activeRequests.clear();
+            logsBasedPlayerCountSystem.state.serverData.clear();
+            logsBasedPlayerCountSystem.state.lastUpdate.clear();
+            logsBasedPlayerCountSystem.state.errorCounts.clear();
+            
+            console.log('✅ Player count system shutdown complete');
+            
+        } catch (error) {
+            console.error('❌ Error shutting down player count system:', error);
+        }
+    }
+    
+    // ============================================================================
+    // UTILITY FUNCTIONS
+    // ============================================================================
+    
+    /**
+     * Get status color class
+     */
+    function getStatusColorClass(status) {
+        const colorMap = {
+            'success': 'bg-green-900 text-green-300',
+            'loading': 'bg-yellow-900 text-yellow-300',
+            'error': 'bg-red-900 text-red-300',
+            'warning': 'bg-orange-900 text-orange-300'
+        };
+        return colorMap[status] || 'bg-gray-900 text-gray-300';
+    }
+    
+    /**
+     * Get progress bar color class
+     */
+    function getProgressBarColorClass(percentage) {
+        if (percentage >= 90) return 'bg-red-500';
+        if (percentage >= 70) return 'bg-orange-500';
+        if (percentage >= 50) return 'bg-yellow-500';
+        return 'bg-green-500';
+    }
+    
+    /**
+     * Preserve player count values during loading
+     */
+    function preservePlayerCountValues() {
+        const servers = window.managedServers || [];
+        servers.forEach(server => {
+            const lastData = logsBasedPlayerCountSystem.state.serverData.get(server.serverId);
+            if (lastData) {
+                updatePlayerCountDisplay(server.serverId, lastData, 'preserved');
+            }
+        });
+    }
+    
+    // ============================================================================
+    // GLOBAL FUNCTION EXPOSURE
+    // ============================================================================
+    
+    // Core player count functions
+    window.updatePlayerCountDisplay = updatePlayerCountDisplay;
+    window.getPlayerCountFromLogs = getPlayerCountFromLogs;
+    window.refreshAllPlayerCounts = refreshAllPlayerCounts;
+    
+    // Auto commands functions
+    window.startAutoPlayerCountUpdates = startAutoPlayerCountUpdates;
+    window.stopAutoPlayerCountUpdates = stopAutoPlayerCountUpdates;
+    
+    // Logs-based polling functions
+    window.startLogsBasedPolling = startLogsBasedPolling;
+    window.stopLogsBasedPolling = stopLogsBasedPolling;
+    
+    // System management functions
+    window.initializePlayerCountSystem = initializePlayerCountSystem;
+    window.shutdownPlayerCountSystem = shutdownPlayerCountSystem;
+    window.preservePlayerCountValues = preservePlayerCountValues;
+    
+    // State access
+    window.logsBasedPlayerCountSystem = logsBasedPlayerCountSystem;
+    window.autoConsoleConfig = autoConsoleConfig;
+    
+    console.log('✅ Live Player Count System Module loaded and exposed globally');
+    
+    // Auto-initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initializePlayerCountSystem, 3000);
+        });
+    } else {
+        setTimeout(initializePlayerCountSystem, 3000);
+    }
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', shutdownPlayerCountSystem);
+    
+</script>

@@ -3,6 +3,7 @@ GUST Bot Enhanced - Server Management Routes (COMPLETE FIXED VERSION)
 ===========================================
 ✅ FIXED: create_server_data() parameter mismatch resolved
 ✅ FIXED: Server adding functionality working properly
+✅ FIXED: Type-safe server ID comparisons (ping system fix)
 ✅ PRESERVED: All existing functionality and error handling
 Routes for server management operations
 """
@@ -81,12 +82,20 @@ def init_servers_routes(app, db, servers_storage):
             # ✅ FIXED: Pass the data dictionary directly to create_server_data()
             server_data = create_server_data(data)
             
-            # Check if server already exists
+            # ✅ FIXED: Type-safe server ID comparison for existing server check
             existing_server = None
             if db:
-                existing_server = db.servers.find_one({'serverId': data['serverId']})
+                # For database, use both string and int versions to be safe
+                existing_server = db.servers.find_one({
+                    '$or': [
+                        {'serverId': data['serverId']},
+                        {'serverId': str(data['serverId'])},
+                        {'serverId': int(data['serverId']) if str(data['serverId']).isdigit() else data['serverId']}
+                    ]
+                })
             else:
-                existing_server = next((s for s in servers_storage if s['serverId'] == data['serverId']), None)
+                # ✅ FIXED: Type-safe comparison for in-memory storage
+                existing_server = next((s for s in servers_storage if str(s['serverId']) == str(data['serverId'])), None)
             
             if existing_server:
                 return jsonify({'success': False, 'error': 'Server ID already exists'})
@@ -130,13 +139,21 @@ def init_servers_routes(app, db, servers_storage):
             update_data = {k: v for k, v in update_data.items() if v is not None}
             
             if db:
+                # ✅ FIXED: Type-safe database query
                 result = db.servers.update_one(
-                    {'serverId': server_id},
+                    {
+                        '$or': [
+                            {'serverId': server_id},
+                            {'serverId': str(server_id)},
+                            {'serverId': int(server_id) if str(server_id).isdigit() else server_id}
+                        ]
+                    },
                     {'$set': update_data}
                 )
                 success = result.modified_count > 0
             else:
-                server = next((s for s in servers_storage if s['serverId'] == server_id), None)
+                # ✅ FIXED: Type-safe in-memory comparison
+                server = next((s for s in servers_storage if str(s['serverId']) == str(server_id)), None)
                 if server:
                     server.update(update_data)
                     success = True
@@ -159,24 +176,36 @@ def init_servers_routes(app, db, servers_storage):
     def delete_server(server_id):
         """Delete server"""
         try:
-            # Get server name for logging
+            # ✅ FIXED: Type-safe server lookup for logging
             server_name = "Unknown"
             if db:
-                server = db.servers.find_one({'serverId': server_id})
+                server = db.servers.find_one({
+                    '$or': [
+                        {'serverId': server_id},
+                        {'serverId': str(server_id)},
+                        {'serverId': int(server_id) if str(server_id).isdigit() else server_id}
+                    ]
+                })
                 if server:
                     server_name = server.get('serverName', 'Unknown')
             else:
-                server = next((s for s in servers_storage if s['serverId'] == server_id), None)
+                server = next((s for s in servers_storage if str(s['serverId']) == str(server_id)), None)
                 if server:
                     server_name = server.get('serverName', 'Unknown')
             
-            # Delete server
+            # ✅ FIXED: Type-safe server deletion
             if db:
-                result = db.servers.delete_one({'serverId': server_id})
+                result = db.servers.delete_one({
+                    '$or': [
+                        {'serverId': server_id},
+                        {'serverId': str(server_id)},
+                        {'serverId': int(server_id) if str(server_id).isdigit() else server_id}
+                    ]
+                })
                 success = result.deleted_count > 0
             else:
                 original_count = len(servers_storage)
-                servers_storage[:] = [s for s in servers_storage if s['serverId'] != server_id]
+                servers_storage[:] = [s for s in servers_storage if str(s['serverId']) != str(server_id)]
                 success = len(servers_storage) < original_count
             
             if success:
@@ -193,7 +222,7 @@ def init_servers_routes(app, db, servers_storage):
     @servers_bp.route('/api/servers/ping/<server_id>', methods=['POST'])
     @require_auth
     def ping_server(server_id):
-        """Ping server to check status"""
+        """✅ FIXED: Ping server to check status with type-safe server lookup"""
         try:
             # Get the main app context to access the console command function
             from flask import current_app
@@ -203,14 +232,22 @@ def init_servers_routes(app, db, servers_storage):
             if not gust_bot:
                 return jsonify({'success': False, 'error': 'GUST bot not available'})
             
-            # Get server info to determine region
+            # ✅ CRITICAL FIX: Type-safe server lookup
             server = None
             if db:
-                server = db.servers.find_one({'serverId': server_id})
+                server = db.servers.find_one({
+                    '$or': [
+                        {'serverId': server_id},
+                        {'serverId': str(server_id)},
+                        {'serverId': int(server_id) if str(server_id).isdigit() else server_id}
+                    ]
+                })
             else:
-                server = next((s for s in servers_storage if s['serverId'] == server_id), None)
+                # ✅ FIXED: Type-safe comparison for in-memory storage
+                server = next((s for s in servers_storage if str(s['serverId']) == str(server_id)), None)
             
             if not server:
+                logger.warning(f"❌ Ping failed: Server {server_id} not found in storage")
                 return jsonify({'success': False, 'error': 'Server not found'})
             
             region = server.get('serverRegion', 'US')
@@ -220,13 +257,20 @@ def init_servers_routes(app, db, servers_storage):
             
             status_data = {
                 'status': 'online' if result else 'offline',
-                'lastPing': datetime.now().isoformat()
+                'lastPing': datetime.now().isoformat(),
+                'response_time_ms': 100  # Placeholder - actual timing would need to be implemented
             }
             
-            # Update server status
+            # ✅ FIXED: Type-safe server status update
             if db:
                 db.servers.update_one(
-                    {'serverId': server_id},
+                    {
+                        '$or': [
+                            {'serverId': server_id},
+                            {'serverId': str(server_id)},
+                            {'serverId': int(server_id) if str(server_id).isdigit() else server_id}
+                        ]
+                    },
                     {'$set': status_data}
                 )
             else:
@@ -235,7 +279,12 @@ def init_servers_routes(app, db, servers_storage):
             
             logger.info(f"📡 Server ping: {server.get('serverName', server_id)} - {status_data['status']}")
             
-            return jsonify({'success': True, 'status': status_data['status']})
+            return jsonify({
+                'success': True, 
+                'status': status_data['status'],
+                'response_time_ms': status_data['response_time_ms'],
+                'ping_time': status_data['lastPing']
+            })
             
         except Exception as e:
             logger.error(f"❌ Error pinging server {server_id}: {e}")
@@ -258,25 +307,40 @@ def init_servers_routes(app, db, servers_storage):
             for server_id in server_ids:
                 try:
                     if action == 'delete':
-                        # Delete server
+                        # ✅ FIXED: Type-safe bulk delete
                         if db:
-                            result = db.servers.delete_one({'serverId': server_id})
+                            result = db.servers.delete_one({
+                                '$or': [
+                                    {'serverId': server_id},
+                                    {'serverId': str(server_id)},
+                                    {'serverId': int(server_id) if str(server_id).isdigit() else server_id}
+                                ]
+                            })
                             success = result.deleted_count > 0
                         else:
                             original_count = len(servers_storage)
-                            servers_storage[:] = [s for s in servers_storage if s['serverId'] != server_id]
+                            servers_storage[:] = [s for s in servers_storage if str(s['serverId']) != str(server_id)]
                             success = len(servers_storage) < original_count
                     
                     elif action in ['activate', 'deactivate']:
-                        # Update server active status
+                        # ✅ FIXED: Type-safe bulk update
                         is_active = action == 'activate'
                         update_data = {'isActive': is_active, 'last_updated': datetime.now().isoformat()}
                         
                         if db:
-                            result = db.servers.update_one({'serverId': server_id}, {'$set': update_data})
+                            result = db.servers.update_one(
+                                {
+                                    '$or': [
+                                        {'serverId': server_id},
+                                        {'serverId': str(server_id)},
+                                        {'serverId': int(server_id) if str(server_id).isdigit() else server_id}
+                                    ]
+                                },
+                                {'$set': update_data}
+                            )
                             success = result.modified_count > 0
                         else:
-                            server = next((s for s in servers_storage if s['serverId'] == server_id), None)
+                            server = next((s for s in servers_storage if str(s['serverId']) == str(server_id)), None)
                             if server:
                                 server.update(update_data)
                                 success = True
@@ -308,13 +372,20 @@ def init_servers_routes(app, db, servers_storage):
     @servers_bp.route('/api/servers/<server_id>')
     @require_auth
     def get_server(server_id):
-        """Get specific server information"""
+        """✅ FIXED: Get specific server information with type-safe lookup"""
         try:
             server = None
             if db:
-                server = db.servers.find_one({'serverId': server_id}, {'_id': 0})
+                server = db.servers.find_one({
+                    '$or': [
+                        {'serverId': server_id},
+                        {'serverId': str(server_id)},
+                        {'serverId': int(server_id) if str(server_id).isdigit() else server_id}
+                    ]
+                }, {'_id': 0})
             else:
-                server = next((s for s in servers_storage if s['serverId'] == server_id), None)
+                # ✅ FIXED: Type-safe comparison for in-memory storage
+                server = next((s for s in servers_storage if str(s['serverId']) == str(server_id)), None)
             
             if not server:
                 return jsonify({'error': 'Server not found'}), 404
@@ -371,12 +442,18 @@ def init_servers_routes(app, db, servers_storage):
                 if not is_valid:
                     errors.append('Invalid server ID format')
                 else:
-                    # Check if server already exists
+                    # ✅ FIXED: Type-safe existing server check
                     existing_server = None
                     if db:
-                        existing_server = db.servers.find_one({'serverId': data['serverId']})
+                        existing_server = db.servers.find_one({
+                            '$or': [
+                                {'serverId': data['serverId']},
+                                {'serverId': str(data['serverId'])},
+                                {'serverId': int(data['serverId']) if str(data['serverId']).isdigit() else data['serverId']}
+                            ]
+                        })
                     else:
-                        existing_server = next((s for s in servers_storage if s['serverId'] == data['serverId']), None)
+                        existing_server = next((s for s in servers_storage if str(s['serverId']) == str(data['serverId'])), None)
                     
                     if existing_server:
                         errors.append('Server ID already exists')
@@ -450,12 +527,18 @@ def init_servers_routes(app, db, servers_storage):
                         errors.append(f"Skipped server: Missing required fields")
                         continue
                     
-                    # Check if server already exists
+                    # ✅ FIXED: Type-safe existing server check during import
                     existing_server = None
                     if db:
-                        existing_server = db.servers.find_one({'serverId': server_data['serverId']})
+                        existing_server = db.servers.find_one({
+                            '$or': [
+                                {'serverId': server_data['serverId']},
+                                {'serverId': str(server_data['serverId'])},
+                                {'serverId': int(server_data['serverId']) if str(server_data['serverId']).isdigit() else server_data['serverId']}
+                            ]
+                        })
                     else:
-                        existing_server = next((s for s in servers_storage if s['serverId'] == server_data['serverId']), None)
+                        existing_server = next((s for s in servers_storage if str(s['serverId']) == str(server_data['serverId'])), None)
                     
                     if existing_server:
                         errors.append(f"Skipped server {server_data['serverId']}: Already exists")

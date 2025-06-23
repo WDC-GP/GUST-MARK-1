@@ -8,7 +8,6 @@ GUST Bot Enhanced - Main Flask Application (COMPLETE FIXED VERSION)
 ✅ FIXED: All GraphQL communication issues resolved
 ✅ NEW: Auto command API endpoint for serverinfo commands
 ✅ NEW: Enhanced authentication and demo mode handling
-✅ CRITICAL FIX: Auto console command 'int' object has no attribute 'strip' error resolved
 """
 
 import os
@@ -364,12 +363,32 @@ class GustBotEnhanced:
                     logger.error("❌ Invalid JSON data format")
                     return jsonify({'success': False, 'error': 'Invalid JSON format'}), 400
                 
-                # ✅ CRITICAL FIX: Safe data extraction with string conversion first
+                # FIXED: Safe data extraction with comprehensive None checking
+                command = None
+                server_id = None
+                region = None
+                
                 try:
-                    # Convert to string first, then strip to avoid 'int' object has no attribute 'strip' error
-                    command = str(data.get('command', '')).strip()
-                    server_id = str(data.get('serverId', '')).strip()
-                    region = str(data.get('region', 'US')).strip().upper()
+                    command = data.get('command')
+                    if command is None:
+                        command = ''
+                    elif not isinstance(command, str):
+                        command = str(command)
+                    command = command.strip()
+                    
+                    server_id = data.get('serverId')
+                    if server_id is None:
+                        server_id = ''
+                    elif not isinstance(server_id, str):
+                        server_id = str(server_id)
+                    server_id = server_id.strip()
+                    
+                    region = data.get('region')
+                    if region is None:
+                        region = 'US'
+                    elif not isinstance(region, str):
+                        region = str(region)
+                    region = region.strip().upper()
                     
                 except Exception as extract_error:
                     logger.error(f"❌ Data extraction error: {extract_error}")
@@ -443,12 +462,12 @@ class GustBotEnhanced:
                 logger.error(f"❌ Console route traceback: {traceback.format_exc()}")
                 return jsonify({'success': False, 'error': f'Request processing error: {str(outer_error)}'}), 500
         
-        # ✅ CRITICAL FIX: Auto command endpoint with proper string handling
+        # ✅ NEW: Auto command endpoint for serverinfo commands
         @self.app.route('/api/console/send-auto', methods=['POST'])
         def send_auto_console_command():
             """
-            FIXED: Dedicated endpoint for auto commands (serverinfo)
-            ✅ CRITICAL FIX: Handles integer server IDs properly by converting to string first
+            NEW: Dedicated endpoint for auto commands (serverinfo)
+            This fixes the auto command system by providing a proper API endpoint
             """
             if 'logged_in' not in session:
                 return jsonify({'error': 'Authentication required'}), 401
@@ -456,11 +475,9 @@ class GustBotEnhanced:
             try:
                 # Get request data
                 data = request.json if request.json else {}
-                
-                # ✅ CRITICAL FIX: Convert to string FIRST, then strip to avoid 'int' has no attribute 'strip' error
-                command = str(data.get('command', '')).strip()
-                server_id = str(data.get('serverId', '')).strip()
-                region = str(data.get('region', 'US')).strip().upper()
+                command = data.get('command', '').strip()
+                server_id = data.get('serverId', '').strip()
+                region = data.get('region', 'US').strip().upper()
                 
                 logger.debug(f"🤖 Auto command request: command='{command}', server_id='{server_id}', region='{region}'")
                 
@@ -1422,7 +1439,6 @@ class GustBotEnhanced:
         logger.info(f"📊 Health Monitoring: 75/25 layout with real-time metrics and command feed")
         logger.info(f"✅ CRITICAL FIX: GraphQL endpoint correctly configured (no '/graphql' suffix)")
         logger.info(f"🤖 NEW: Auto command API endpoint added for serverinfo commands")
-        logger.info(f"✅ CRITICAL FIX: Auto console command 'int' object has no attribute 'strip' error resolved")
         
         try:
             self.app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)

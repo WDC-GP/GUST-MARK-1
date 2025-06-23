@@ -5,14 +5,15 @@
      ✅ FIXED: Better integration with new request queue system
      ✅ FIXED: Improved API endpoint handling
      ✅ FIXED: Compatible with template fallback functions
+     ✅ NEW: Permanent ping fix with data normalization and type-safe lookups
      ============================================================================ -->
 
 <script>
     // ============================================================================
-    // SERVER MANAGER MODULE - ENHANCED WITH FIXES
+    // SERVER MANAGER MODULE - ENHANCED WITH PERMANENT PING FIXES
     // ============================================================================
     
-    console.log('📦 Loading Server Manager module with fixes...');
+    console.log('📦 Loading Server Manager module with permanent ping fixes...');
     
     // ============================================================================
     // ENHANCED UTILITY FUNCTIONS
@@ -77,21 +78,48 @@
     }
     
     // ============================================================================
-    // FUNCTION 1: loadManagedServers (ENHANCED)
+    // FUNCTION 1: loadManagedServers (ENHANCED WITH DATA NORMALIZATION)
     // ============================================================================
     
     async function loadManagedServers() {
-        console.log('🔄 Loading managed servers...');
+        console.log('🔄 Loading managed servers with data normalization...');
         
         try {
-            const servers = await makeServerAPICall('/api/servers');
+            const response = await makeServerAPICall('/api/servers');
+            const rawServers = response.servers || response || [];
             
-            // Update global variable
-            if (window.managedServers) {
-                window.managedServers = servers;
-            } else {
-                window.managedServers = servers;
-            }
+            // ✅ PERMANENT FIX: Normalize server data structure
+            const normalizedServers = rawServers.map(server => ({
+                // Handle different ID field names
+                serverId: server.serverId || server.id || server.server_id,
+                id: server.serverId || server.id || server.server_id,
+                
+                // Handle different name field names  
+                serverName: server.serverName || server.name || server.server_name || 'Unknown Server',
+                name: server.serverName || server.name || server.server_name || 'Unknown Server',
+                
+                // Handle different region field names
+                serverRegion: server.serverRegion || server.region || server.server_region || 'US',
+                region: server.serverRegion || server.region || server.server_region || 'US',
+                
+                // Server type and status
+                serverType: server.serverType || server.type || 'Standard',
+                status: server.status || 'unknown',
+                isActive: server.isActive !== false, // Default to true
+                
+                // Additional fields
+                description: server.description || '',
+                lastPing: server.lastPing || null,
+                responseTime: server.responseTime || 0,
+                
+                // Copy all original fields
+                ...server
+            }));
+            
+            // Update global variable with normalized data
+            window.managedServers = normalizedServers;
+            
+            console.log('✅ Server data normalized:', window.managedServers);
             
             // Update server dropdowns across the application
             updateAllServerDropdowns();
@@ -99,13 +127,20 @@
             // Update display
             refreshServerList();
             
-            console.log(`✅ Loaded ${servers.length} managed servers`);
-            addLiveConsoleMessage(`Loaded ${servers.length} managed servers`, '', 'success');
+            console.log(`✅ Loaded ${normalizedServers.length} managed servers`);
+            addLiveConsoleMessage(`Loaded ${normalizedServers.length} managed servers`, '', 'success');
             
-            return servers;
+            // Trigger events for other modules
+            document.dispatchEvent(new CustomEvent('managedServersLoaded'));
+            if (typeof emitStateEvent === 'function') {
+                emitStateEvent('managedServers:updated', normalizedServers);
+            }
+            
+            return normalizedServers;
             
         } catch (error) {
             console.error('❌ Error loading managed servers:', error);
+            window.managedServers = [];
             addLiveConsoleMessage(`Error loading servers: ${error.message}`, '', 'error');
             throw error;
         }
@@ -388,76 +423,175 @@
     }
     
     // ============================================================================
-    // FUNCTION 10: pingSingleServer (ENHANCED)
+    // FUNCTION 10: pingSingleServer (COMPLETELY FIXED WITH PERMANENT SOLUTION)
     // ============================================================================
     
     async function pingSingleServer(serverId) {
-        console.log(`🏓 Pinging server: ${serverId}`);
+        console.log(`🏓 [FIXED] Pinging server: ${serverId}`);
         
         try {
-            const server = (window.managedServers || []).find(s => s.serverId === serverId);
+            // ✅ TYPE-SAFE: Convert serverId to string for comparison
+            const serverIdStr = String(serverId);
+            
+            // ✅ ENHANCED: Multi-field server lookup with type safety
+            let server = (window.managedServers || []).find(s => 
+                String(s.serverId) === serverIdStr || 
+                String(s.id) === serverIdStr ||
+                String(s.server_id) === serverIdStr
+            );
+            
             if (!server) {
-                throw new Error(`Server ${serverId} not found`);
+                console.warn(`⚠️ Server ${serverId} not found. Reloading server list...`);
+                
+                // Try to reload servers first
+                await loadManagedServers();
+                
+                // Try lookup again after reload
+                server = (window.managedServers || []).find(s => 
+                    String(s.serverId) === serverIdStr || 
+                    String(s.id) === serverIdStr ||
+                    String(s.server_id) === serverIdStr
+                );
+                
+                if (!server) {
+                    throw new Error(`Server ${serverId} not found even after reload`);
+                }
             }
             
+            const serverName = server.serverName || server.name || `Server ${serverId}`;
+            const region = server.serverRegion || server.region || 'US';
+            
+            console.log(`🎯 Pinging: ${serverName} (${serverIdStr}) in region ${region}`);
+            
+            // Update UI to show pinging
+            updateServerStatus(serverIdStr, 'connecting');
+            
             // Make ping API call
-            const result = await makeServerAPICall(`/api/servers/ping/${serverId}`, {
+            const startTime = Date.now();
+            const result = await makeServerAPICall(`/api/servers/ping/${serverIdStr}`, {
                 method: 'POST',
                 priority: 'high'
             });
             
+            const responseTime = Date.now() - startTime;
+            
             if (result.success) {
-                console.log(`✅ Ping successful: ${server.serverName} (${result.response_time_ms}ms)`);
+                console.log(`✅ Ping successful: ${serverName} (${responseTime}ms)`);
                 
-                // Update server status if we have the servers array
+                // Update server status in memory with enhanced lookup
                 if (window.managedServers) {
-                    const serverIndex = window.managedServers.findIndex(s => s.serverId === serverId);
+                    const serverIndex = window.managedServers.findIndex(s => 
+                        String(s.serverId) === serverIdStr || 
+                        String(s.id) === serverIdStr ||
+                        String(s.server_id) === serverIdStr
+                    );
                     if (serverIndex !== -1) {
-                        window.managedServers[serverIndex].status = result.status;
-                        window.managedServers[serverIndex].lastPing = result.ping_time;
-                        window.managedServers[serverIndex].responseTime = result.response_time_ms;
+                        window.managedServers[serverIndex].status = result.status || 'online';
+                        window.managedServers[serverIndex].lastPing = new Date().toISOString();
+                        window.managedServers[serverIndex].responseTime = responseTime;
                     }
                 }
+                
+                // Update UI
+                updateServerStatus(serverIdStr, result.status || 'online');
                 
                 // Update dropdowns and refresh display
                 updateAllServerDropdowns();
                 refreshServerList();
                 
                 addLiveConsoleMessage(
-                    `Ping successful: ${server.serverName} (${result.response_time_ms}ms)`,
-                    serverId,
+                    `Ping successful: ${serverName} (${responseTime}ms)`,
+                    serverIdStr,
                     'success'
                 );
                 
-                return result;
+                return { success: true, status: result.status || 'online', response_time_ms: responseTime };
                 
             } else {
-                throw new Error(result.message || 'Ping failed');
+                console.log(`❌ Ping failed: ${serverName} - ${result.error}`);
+                updateServerStatus(serverIdStr, 'offline');
+                
+                addLiveConsoleMessage(`Ping failed: ${result.error}`, serverIdStr, 'error');
+                return { success: false, status: 'offline', error: result.error };
             }
             
         } catch (error) {
-            console.error(`❌ Ping failed for server ${serverId}:`, error);
+            console.error(`❌ Ping error for server ${serverId}:`, error);
             
-            // Update server status to error
+            // Update server status to error with type-safe ID
+            const serverIdStr = String(serverId);
             if (window.managedServers) {
-                const serverIndex = window.managedServers.findIndex(s => s.serverId === serverId);
+                const serverIndex = window.managedServers.findIndex(s => 
+                    String(s.serverId) === serverIdStr || 
+                    String(s.id) === serverIdStr ||
+                    String(s.server_id) === serverIdStr
+                );
                 if (serverIndex !== -1) {
                     window.managedServers[serverIndex].status = 'error';
                     window.managedServers[serverIndex].lastPing = new Date().toISOString();
                 }
             }
             
+            updateServerStatus(serverIdStr, 'error');
             updateAllServerDropdowns();
             refreshServerList();
             
-            addLiveConsoleMessage(
-                `Ping failed: ${error.message}`,
-                serverId,
-                'error'
-            );
+            addLiveConsoleMessage(`Ping error: ${error.message}`, serverIdStr, 'error');
             
-            throw error;
+            return { success: false, error: error.message };
         }
+    }
+    
+    // ============================================================================
+    // NEW: updateServerStatus (ENHANCED STATUS UPDATE FUNCTION)
+    // ============================================================================
+    
+    function updateServerStatus(serverId, status) {
+        const serverIdStr = String(serverId);
+        
+        // Update in managedServers array with enhanced lookup
+        if (window.managedServers) {
+            const serverIndex = window.managedServers.findIndex(s => 
+                String(s.serverId) === serverIdStr || 
+                String(s.id) === serverIdStr ||
+                String(s.server_id) === serverIdStr
+            );
+            if (serverIndex !== -1) {
+                window.managedServers[serverIndex].status = status;
+                window.managedServers[serverIndex].lastPing = new Date().toISOString();
+            }
+        }
+        
+        // Update UI elements with multiple selector attempts
+        const selectors = [
+            `[data-server-id="${serverIdStr}"]`,
+            `[data-server="${serverIdStr}"]`,
+            `#server-${serverIdStr}`,
+            `.server-card[data-id="${serverIdStr}"]`
+        ];
+        
+        let serverCard = null;
+        for (const selector of selectors) {
+            serverCard = document.querySelector(selector);
+            if (serverCard) break;
+        }
+        
+        if (serverCard) {
+            // Update status text
+            const statusElement = serverCard.querySelector('.server-status, .status, .status-text');
+            if (statusElement) {
+                statusElement.textContent = getStatusText(status);
+                statusElement.className = `server-status ${getStatusClass(status)}`;
+            }
+            
+            // Update status indicator
+            const statusIndicator = serverCard.querySelector('.status-indicator, .status-dot');
+            if (statusIndicator) {
+                statusIndicator.className = `status-indicator ${getStatusClass(status)}`;
+            }
+        }
+        
+        console.log(`✅ Updated server ${serverIdStr} status to: ${status}`);
     }
     
     // ============================================================================
@@ -540,7 +674,7 @@
                 const statusText = getStatusText(server.status || 'unknown');
                 
                 return `
-                    <div class="bg-gray-700 p-4 rounded-lg border border-gray-600 hover:border-gray-500 transition-colors">
+                    <div class="bg-gray-700 p-4 rounded-lg border border-gray-600 hover:border-gray-500 transition-colors" data-server-id="${server.serverId}">
                         <div class="flex items-center justify-between">
                             <div class="flex-1">
                                 <h4 class="font-semibold text-lg">${escapeHtml(server.serverName || 'Unknown Server')}</h4>
@@ -553,7 +687,7 @@
                                 ${server.lastPing ? `<p class="text-gray-500 text-xs mt-1">Last ping: ${new Date(server.lastPing).toLocaleTimeString()}</p>` : ''}
                             </div>
                             <div class="flex items-center space-x-2">
-                                <span class="px-2 py-1 rounded text-xs ${statusClass}">
+                                <span class="px-2 py-1 rounded text-xs server-status ${statusClass}">
                                     ${statusText}
                                 </span>
                                 <button onclick="pingSingleServer('${server.serverId}')" 
@@ -679,7 +813,7 @@
     // ✅ ENHANCED MODULE INITIALIZATION AND FUNCTION EXPOSURE
     // ============================================================================
     
-    console.log('📦 Server Manager module loaded - 14 functions available (ENHANCED VERSION)');
+    console.log('📦 Server Manager module loaded - 14 functions available (ENHANCED VERSION WITH PERMANENT PING FIX)');
     
     // ✅ CRITICAL: Expose all functions to global scope immediately
     if (typeof window !== 'undefined') {
@@ -694,6 +828,7 @@
         window.getStatusClass = getStatusClass;
         window.getStatusText = getStatusText;
         window.pingSingleServer = pingSingleServer;
+        window.updateServerStatus = updateServerStatus; // ✅ NEW: Expose new function
         window.deleteServer = deleteServer;
         window.refreshServerList = refreshServerList;
         window.updateAllServerDropdowns = updateAllServerDropdowns;
@@ -709,13 +844,14 @@
             loadServerManager: typeof window.loadServerManager,
             clearServerForm: typeof window.clearServerForm,
             pingSingleServer: typeof window.pingSingleServer,
+            updateServerStatus: typeof window.updateServerStatus,
             deleteServer: typeof window.deleteServer
         });
     }
     
     // ✅ ENHANCED: DOM ready initialization
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('✅ Server Manager module initialized (ENHANCED VERSION)');
+        console.log('✅ Server Manager module initialized (ENHANCED VERSION WITH PERMANENT PING FIX)');
         
         // Set up keyboard shortcuts for server form
         const serverFormInputs = ['newServerId', 'newServerName', 'newServerDescription'];
@@ -733,9 +869,9 @@
             }
         });
         
-        console.log('🎯 Server Manager ready - Add Server button should work immediately');
+        console.log('🎯 Server Manager ready - Ping button should now work perfectly!');
     });
     
-    console.log('🚀 Server Manager module fully loaded and enhanced');
+    console.log('🚀 Server Manager module fully loaded with permanent ping fixes applied');
 
 </script>

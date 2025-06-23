@@ -1,0 +1,671 @@
+<script>
+    // ============================================================================
+    // STATE MANAGEMENT MODULE
+    // Global state variables and cross-module communication
+    // Size target: ~8KB | Dependencies: None
+    // ============================================================================
+    
+    console.log('🗄️ Loading State Management Module...');
+    
+    // ============================================================================
+    // CORE APPLICATION STATE
+    // ============================================================================
+    
+    /**
+     * Current active tab
+     */
+    let currentTab = 'dashboard';
+    
+    /**
+     * Managed servers configuration
+     */
+    let managedServers = [];
+    
+    /**
+     * Selected servers for bulk operations
+     */
+    let selectedServers = new Set();
+    
+    /**
+     * WebSocket connection instance
+     */
+    let wsConnection = null;
+    
+    /**
+     * Demo mode flag
+     */
+    let isDemo = false;
+    
+    /**
+     * WebSocket connection status for each server
+     */
+    let connectionStatus = {};
+    
+    /**
+     * Server filter for display
+     */
+    let serverFilter = 'all';
+    
+    /**
+     * Message type filter
+     */
+    let messageTypeFilter = 'all';
+    
+    /**
+     * Auto-scroll setting for console
+     */
+    let autoScroll = true;
+    
+    /**
+     * WebSocket availability flag
+     */
+    let websocketsAvailable = false;
+    
+    // ============================================================================
+    // ENHANCED REQUEST SYSTEM STATE
+    // ============================================================================
+    
+    /**
+     * Enhanced configuration for request system
+     */
+    const ENHANCED_CONFIG = {
+        requestQueue: {
+            maxConcurrent: 3,
+            maxRetries: 3,
+            retryDelay: 1000,
+            timeoutMs: 30000,
+            priority: {
+                HIGH: 1,
+                MEDIUM: 2,
+                LOW: 3
+            }
+        },
+        performance: {
+            enableMetrics: true,
+            logSlowRequests: true,
+            slowRequestThreshold: 2000
+        },
+        recovery: {
+            enableAutoRecovery: true,
+            recoveryThreshold: 5,
+            recoveryDelay: 5000
+        }
+    };
+    
+    /**
+     * Request queue state
+     */
+    const requestQueueState = {
+        activeRequests: new Map(),
+        pendingRequests: [],
+        completedRequests: [],
+        failedRequests: [],
+        metrics: {
+            totalRequests: 0,
+            successfulRequests: 0,
+            failedRequests: 0,
+            averageResponseTime: 0,
+            slowRequests: 0
+        },
+        health: {
+            healthy: true,
+            lastHealthCheck: new Date(),
+            consecutiveFailures: 0,
+            recoveryInProgress: false
+        }
+    };
+    
+    // ============================================================================
+    // PLAYER COUNT SYSTEM STATE (from architecture analysis)
+    // ============================================================================
+    
+    /**
+     * Live player count system state
+     */
+    const playerCountSystemState = {
+        enabled: false,
+        autoCommandsActive: false,
+        logsPollingActive: false,
+        lastRefresh: null,
+        serverData: new Map(),
+        errorCounts: new Map(),
+        config: {
+            autoCommandInterval: 10000,    // 10 seconds
+            logsPollingInterval: 30000,    // 30 seconds
+            maxErrorsBeforeDisable: 5,
+            preserveValuesOnError: true
+        }
+    };
+    
+    // ============================================================================
+    // MODULE LOADING STATE
+    // ============================================================================
+    
+    /**
+     * Track loaded modules
+     */
+    const moduleState = {
+        loaded: new Set(),
+        loading: new Set(),
+        failed: new Set(),
+        dependencies: new Map()
+    };
+    
+    /**
+     * Module loading configuration
+     */
+    const moduleConfig = {
+        retryAttempts: 3,
+        retryDelay: 1000,
+        timeout: 10000
+    };
+    
+    // ============================================================================
+    // UI STATE MANAGEMENT
+    // ============================================================================
+    
+    /**
+     * UI state tracking
+     */
+    const uiState = {
+        sidebarCollapsed: false,
+        currentTheme: 'dark',
+        notifications: [],
+        modals: {
+            open: new Set(),
+            stack: []
+        },
+        loading: {
+            global: false,
+            components: new Set()
+        }
+    };
+    
+    /**
+     * View state for each tab
+     */
+    const viewState = {
+        dashboard: { initialized: false, lastRefresh: null },
+        'server-manager': { initialized: false, lastRefresh: null, editMode: false },
+        console: { initialized: false, lastRefresh: null, selectedServer: null },
+        'server-health': { initialized: false, lastRefresh: null, selectedServer: null },
+        events: { initialized: false, lastRefresh: null },
+        economy: { initialized: false, lastRefresh: null },
+        gambling: { initialized: false, lastRefresh: null },
+        clans: { initialized: false, lastRefresh: null },
+        'user-management': { initialized: false, lastRefresh: null },
+        logs: { initialized: false, lastRefresh: null }
+    };
+    
+    // ============================================================================
+    // STATE MANAGEMENT FUNCTIONS
+    // ============================================================================
+    
+    /**
+     * Update current tab state
+     */
+    function setCurrentTab(tab) {
+        try {
+            if (tab && tab !== currentTab) {
+                const previousTab = currentTab;
+                currentTab = tab;
+                
+                // Update view state
+                if (viewState[tab]) {
+                    viewState[tab].lastRefresh = new Date();
+                }
+                
+                // Emit tab change event
+                emitStateEvent('tab:changed', {
+                    previous: previousTab,
+                    current: tab,
+                    timestamp: new Date()
+                });
+                
+                console.log(`🔄 Tab changed: ${previousTab} → ${tab}`);
+            }
+        } catch (error) {
+            console.error('❌ Error setting current tab:', error);
+        }
+    }
+    
+    /**
+     * Update managed servers
+     */
+    function setManagedServers(servers) {
+        try {
+            if (Array.isArray(servers)) {
+                managedServers = [...servers];
+                
+                // Update connection status for new servers
+                servers.forEach(server => {
+                    if (server.serverId && !connectionStatus[server.serverId]) {
+                        connectionStatus[server.serverId] = {
+                            connected: false,
+                            lastAttempt: null,
+                            errors: 0
+                        };
+                    }
+                });
+                
+                // Emit servers updated event
+                emitStateEvent('servers:updated', {
+                    servers: managedServers,
+                    count: servers.length,
+                    timestamp: new Date()
+                });
+                
+                console.log(`📊 Managed servers updated: ${servers.length} servers`);
+            }
+        } catch (error) {
+            console.error('❌ Error setting managed servers:', error);
+        }
+    }
+    
+    /**
+     * Update server selection
+     */
+    function updateServerSelection(serverId, selected) {
+        try {
+            if (selected) {
+                selectedServers.add(serverId);
+            } else {
+                selectedServers.delete(serverId);
+            }
+            
+            emitStateEvent('servers:selection-changed', {
+                serverId,
+                selected,
+                totalSelected: selectedServers.size,
+                selectedServers: Array.from(selectedServers)
+            });
+            
+        } catch (error) {
+            console.error('❌ Error updating server selection:', error);
+        }
+    }
+    
+    /**
+     * Update connection status
+     */
+    function updateConnectionStatus(serverId, status) {
+        try {
+            if (!connectionStatus[serverId]) {
+                connectionStatus[serverId] = {};
+            }
+            
+            Object.assign(connectionStatus[serverId], status, {
+                lastUpdate: new Date()
+            });
+            
+            emitStateEvent('connection:status-changed', {
+                serverId,
+                status: connectionStatus[serverId]
+            });
+            
+        } catch (error) {
+            console.error('❌ Error updating connection status:', error);
+        }
+    }
+    
+    // ============================================================================
+    // STATE PERSISTENCE
+    // ============================================================================
+    
+    /**
+     * Save state to localStorage (where supported)
+     */
+    function saveStateToStorage() {
+        try {
+            // Note: localStorage not supported in Claude.ai artifacts
+            // This would work in a real deployment
+            const stateToSave = {
+                currentTab,
+                serverFilter,
+                messageTypeFilter,
+                autoScroll,
+                uiState: {
+                    sidebarCollapsed: uiState.sidebarCollapsed,
+                    currentTheme: uiState.currentTheme
+                },
+                timestamp: new Date().toISOString()
+            };
+            
+            console.log('💾 State would be saved:', stateToSave);
+            
+        } catch (error) {
+            console.error('❌ Error saving state:', error);
+        }
+    }
+    
+    /**
+     * Load state from localStorage (where supported)
+     */
+    function loadStateFromStorage() {
+        try {
+            // Note: localStorage not supported in Claude.ai artifacts
+            // This would work in a real deployment
+            console.log('📥 State would be loaded from storage');
+            
+        } catch (error) {
+            console.error('❌ Error loading state:', error);
+        }
+    }
+    
+    // ============================================================================
+    // EVENT SYSTEM FOR CROSS-MODULE COMMUNICATION
+    // ============================================================================
+    
+    /**
+     * Event listeners for state changes
+     */
+    const stateEventListeners = new Map();
+    
+    /**
+     * Subscribe to state events
+     */
+    function onStateEvent(eventType, callback) {
+        try {
+            if (!stateEventListeners.has(eventType)) {
+                stateEventListeners.set(eventType, new Set());
+            }
+            
+            stateEventListeners.get(eventType).add(callback);
+            
+            // Return unsubscribe function
+            return () => {
+                const listeners = stateEventListeners.get(eventType);
+                if (listeners) {
+                    listeners.delete(callback);
+                }
+            };
+        } catch (error) {
+            console.error('❌ Error subscribing to state event:', error);
+            return () => {};
+        }
+    }
+    
+    /**
+     * Emit state event to all listeners
+     */
+    function emitStateEvent(eventType, data) {
+        try {
+            const listeners = stateEventListeners.get(eventType);
+            if (listeners) {
+                listeners.forEach(callback => {
+                    try {
+                        callback(data);
+                    } catch (error) {
+                        console.error(`❌ Error in state event listener for ${eventType}:`, error);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('❌ Error emitting state event:', error);
+        }
+    }
+    
+    // ============================================================================
+    // REQUEST QUEUE MANAGEMENT
+    // ============================================================================
+    
+    /**
+     * Enhanced request queue implementation
+     */
+    const requestQueue = {
+        // Add request to queue
+        enqueue(requestFn, priority = ENHANCED_CONFIG.requestQueue.priority.MEDIUM) {
+            return new Promise((resolve, reject) => {
+                const request = {
+                    id: Date.now() + Math.random(),
+                    fn: requestFn,
+                    priority,
+                    resolve,
+                    reject,
+                    attempts: 0,
+                    createdAt: new Date()
+                };
+                
+                requestQueueState.pendingRequests.push(request);
+                requestQueueState.pendingRequests.sort((a, b) => a.priority - b.priority);
+                
+                this.processQueue();
+            });
+        },
+        
+        // Process queue
+        async processQueue() {
+            const maxConcurrent = ENHANCED_CONFIG.requestQueue.maxConcurrent;
+            
+            while (requestQueueState.activeRequests.size < maxConcurrent && 
+                   requestQueueState.pendingRequests.length > 0) {
+                
+                const request = requestQueueState.pendingRequests.shift();
+                this.executeRequest(request);
+            }
+        },
+        
+        // Execute single request
+        async executeRequest(request) {
+            try {
+                requestQueueState.activeRequests.set(request.id, request);
+                requestQueueState.metrics.totalRequests++;
+                
+                const startTime = performance.now();
+                const result = await request.fn();
+                const duration = performance.now() - startTime;
+                
+                // Update metrics
+                requestQueueState.metrics.successfulRequests++;
+                this.updateResponseTimeMetrics(duration);
+                
+                // Check for slow requests
+                if (duration > ENHANCED_CONFIG.performance.slowRequestThreshold) {
+                    requestQueueState.metrics.slowRequests++;
+                    console.warn(`🐌 Slow request detected: ${duration.toFixed(2)}ms`);
+                }
+                
+                requestQueueState.activeRequests.delete(request.id);
+                requestQueueState.completedRequests.push({
+                    ...request,
+                    completedAt: new Date(),
+                    duration
+                });
+                
+                request.resolve(result);
+                this.processQueue();
+                
+            } catch (error) {
+                this.handleRequestError(request, error);
+            }
+        },
+        
+        // Handle request errors
+        async handleRequestError(request, error) {
+            request.attempts++;
+            requestQueueState.metrics.failedRequests++;
+            requestQueueState.health.consecutiveFailures++;
+            
+            if (request.attempts < ENHANCED_CONFIG.requestQueue.maxRetries) {
+                // Retry with exponential backoff
+                const delay = ENHANCED_CONFIG.requestQueue.retryDelay * Math.pow(2, request.attempts - 1);
+                setTimeout(() => {
+                    requestQueueState.pendingRequests.unshift(request);
+                    this.processQueue();
+                }, delay);
+            } else {
+                // Max retries exceeded
+                requestQueueState.activeRequests.delete(request.id);
+                requestQueueState.failedRequests.push({
+                    ...request,
+                    failedAt: new Date(),
+                    error
+                });
+                
+                request.reject(error);
+                this.processQueue();
+            }
+            
+            // Check if recovery is needed
+            if (requestQueueState.health.consecutiveFailures >= ENHANCED_CONFIG.recovery.recoveryThreshold) {
+                this.performRecovery();
+            }
+        },
+        
+        // Update response time metrics
+        updateResponseTimeMetrics(duration) {
+            const metrics = requestQueueState.metrics;
+            const total = metrics.successfulRequests;
+            metrics.averageResponseTime = ((metrics.averageResponseTime * (total - 1)) + duration) / total;
+        },
+        
+        // Perform system recovery
+        async performRecovery() {
+            if (requestQueueState.health.recoveryInProgress) return;
+            
+            console.warn('🔧 Performing request queue recovery...');
+            requestQueueState.health.recoveryInProgress = true;
+            requestQueueState.health.healthy = false;
+            
+            // Clear failed requests
+            requestQueueState.failedRequests = [];
+            requestQueueState.health.consecutiveFailures = 0;
+            
+            // Wait for recovery delay
+            await new Promise(resolve => setTimeout(resolve, ENHANCED_CONFIG.recovery.recoveryDelay));
+            
+            requestQueueState.health.recoveryInProgress = false;
+            requestQueueState.health.healthy = true;
+            requestQueueState.health.lastHealthCheck = new Date();
+            
+            console.log('✅ Request queue recovery completed');
+        },
+        
+        // Force reset queue
+        forceReset() {
+            requestQueueState.activeRequests.clear();
+            requestQueueState.pendingRequests = [];
+            requestQueueState.health.consecutiveFailures = 0;
+            requestQueueState.health.healthy = true;
+            console.log('🔄 Request queue force reset');
+        },
+        
+        // Get queue statistics
+        getStats() {
+            return {
+                active: requestQueueState.activeRequests.size,
+                pending: requestQueueState.pendingRequests.length,
+                completed: requestQueueState.completedRequests.length,
+                failed: requestQueueState.failedRequests.length,
+                metrics: { ...requestQueueState.metrics },
+                health: { ...requestQueueState.health }
+            };
+        }
+    };
+    
+    // ============================================================================
+    // STATE DEBUGGING AND MONITORING
+    // ============================================================================
+    
+    /**
+     * Get current state snapshot
+     */
+    function getStateSnapshot() {
+        return {
+            app: {
+                currentTab,
+                isDemo,
+                serverFilter,
+                messageTypeFilter,
+                autoScroll
+            },
+            servers: {
+                managed: managedServers.length,
+                selected: selectedServers.size,
+                connectionStatus: Object.keys(connectionStatus).length
+            },
+            playerCount: {
+                enabled: playerCountSystemState.enabled,
+                autoCommandsActive: playerCountSystemState.autoCommandsActive,
+                logsPollingActive: playerCountSystemState.logsPollingActive,
+                lastRefresh: playerCountSystemState.lastRefresh
+            },
+            ui: { ...uiState },
+            modules: {
+                loaded: moduleState.loaded.size,
+                loading: moduleState.loading.size,
+                failed: moduleState.failed.size
+            },
+            requestQueue: requestQueue.getStats(),
+            timestamp: new Date().toISOString()
+        };
+    }
+    
+    /**
+     * Debug state information
+     */
+    function debugState() {
+        console.group('🗄️ State Management Debug Information');
+        console.log('📊 Current State:', getStateSnapshot());
+        console.log('🔗 Event Listeners:', Array.from(stateEventListeners.keys()));
+        console.log('📈 Request Queue Stats:', requestQueue.getStats());
+        console.groupEnd();
+    }
+    
+    // ============================================================================
+    // GLOBAL STATE EXPOSURE
+    // ============================================================================
+    
+    // Core state variables
+    window.currentTab = currentTab;
+    window.managedServers = managedServers;
+    window.selectedServers = selectedServers;
+    window.wsConnection = wsConnection;
+    window.isDemo = isDemo;
+    window.connectionStatus = connectionStatus;
+    window.serverFilter = serverFilter;
+    window.messageTypeFilter = messageTypeFilter;
+    window.autoScroll = autoScroll;
+    window.websocketsAvailable = websocketsAvailable;
+    
+    // State management functions
+    window.setCurrentTab = setCurrentTab;
+    window.setManagedServers = setManagedServers;
+    window.updateServerSelection = updateServerSelection;
+    window.updateConnectionStatus = updateConnectionStatus;
+    
+    // Event system
+    window.onStateEvent = onStateEvent;
+    window.emitStateEvent = emitStateEvent;
+    
+    // Request queue
+    window.requestQueue = requestQueue;
+    window.ENHANCED_CONFIG = ENHANCED_CONFIG;
+    
+    // State objects
+    window.playerCountSystemState = playerCountSystemState;
+    window.uiState = uiState;
+    window.viewState = viewState;
+    window.moduleState = moduleState;
+    
+    // Debugging
+    window.getStateSnapshot = getStateSnapshot;
+    window.debugState = debugState;
+    
+    // Persistence
+    window.saveStateToStorage = saveStateToStorage;
+    window.loadStateFromStorage = loadStateFromStorage;
+    
+    console.log('✅ State Management Module loaded and exposed globally');
+    
+    // Initialize state persistence
+    setTimeout(() => {
+        loadStateFromStorage();
+    }, 1000);
+    
+    // Auto-save state periodically
+    setInterval(() => {
+        saveStateToStorage();
+    }, 30000); // Every 30 seconds
+    
+</script>

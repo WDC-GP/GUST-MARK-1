@@ -1,0 +1,461 @@
+<script>
+    // ============================================================================
+    // LOGS UI MODULE - CLEAN SIMPLE VERSION THAT WORKS (RESTORED)
+    // ============================================================================
+    
+    console.log('📋 Loading Logs UI Module (CLEAN WORKING VERSION)...');
+    
+    // ============================================================================
+    // TAB MANAGEMENT AND INITIALIZATION
+    // ============================================================================
+    
+    function showLogsTab() {
+        console.log('📋 Showing Logs tab...');
+        
+        // Hide other views
+        const views = ['dashboard-view', 'server-manager-view', 'console-view', 'server-health', 'events-view', 'economy-view', 'gambling-view', 'clans-view', 'user-management-view'];
+        views.forEach(viewId => {
+            const view = document.getElementById(viewId);
+            if (view) {
+                view.style.display = 'none';
+            }
+        });
+        
+        // Show logs view
+        const logsView = document.getElementById('logs-view');
+        if (logsView) {
+            logsView.style.display = 'block';
+            
+            // Activate tab
+            const tabs = document.querySelectorAll('.tab-button');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            const logsTab = document.querySelector('[data-tab="logs"]');
+            if (logsTab) {
+                logsTab.classList.add('active');
+            }
+        }
+        
+        setTimeout(() => {
+            initializeLogs();
+            loadLogs();
+        }, 100);
+    }
+    
+    function loadLogsTab() {
+        console.log('📋 Loading Logs tab content...');
+        showLogsTab();
+    }
+    
+    function initializeLogs() {
+        console.log('📋 Initializing Logs interface (WORKING VERSION)...');
+        
+        // Initialize server dropdown
+        populateLogsServerDropdown();
+        
+        // Bind event listeners
+        bindLogsEventHandlers();
+        
+        // Load initial logs list
+        if (typeof loadLogs === 'function') {
+            loadLogs();
+        }
+        
+        showLogsStatus('📋 Logs interface initialized', 'success');
+    }
+    
+    // ============================================================================
+    // SIMPLE SERVER DROPDOWN MANAGEMENT (WORKING VERSION)
+    // ============================================================================
+    
+    function populateLogsServerDropdown() {
+        console.log('📋 Populating logs server dropdown (WORKING VERSION)...');
+        
+        // Use correct dropdown ID from HTML template
+        const dropdown = document.getElementById('server-select');
+        if (!dropdown) {
+            console.warn('❌ server-select dropdown not found');
+            return false;
+        }
+        
+        // Get servers from the global variable
+        const servers = window.managedServers || [];
+        
+        if (servers.length === 0) {
+            dropdown.innerHTML = '<option value="">No servers available</option>';
+            showLogsStatus('⚠️ No servers available. Add servers in Server Manager first.', 'warning');
+            return false;
+        }
+        
+        // Store current selection
+        const currentValue = dropdown.value;
+        
+        // Create options with basic compatibility
+        let optionsHTML = '<option value="">Select a server...</option>';
+        
+        servers.forEach(server => {
+            // Handle different field name variations simply
+            const serverId = server.serverId || server.id || server.server_id || '';
+            const serverName = server.serverName || server.name || server.server_name || 'Unknown Server';
+            const status = server.status || 'unknown';
+            
+            if (serverId) {
+                // Simple status icon
+                const statusIcon = status === 'online' ? '🟢' : 
+                                 status === 'offline' ? '🔴' : 
+                                 status === 'connecting' ? '🟡' : '⚪';
+                
+                // Simple HTML escaping
+                const safeName = String(serverName).replace(/[<>&"]/g, function(m) {
+                    return {'<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;'}[m];
+                });
+                
+                optionsHTML += `<option value="${serverId}">${statusIcon} ${safeName} (${serverId})</option>`;
+            }
+        });
+        
+        // Update dropdown
+        dropdown.innerHTML = optionsHTML;
+        
+        // Restore selection if valid
+        if (currentValue && servers.some(s => (s.serverId || s.id || s.server_id) === currentValue)) {
+            dropdown.value = currentValue;
+        }
+        
+        console.log(`✅ Logs dropdown populated: ${servers.length} servers`);
+        showLogsStatus(`✅ ${servers.length} servers loaded`, 'success');
+        
+        return true;
+    }
+    
+    function handleServerSelection() {
+        const dropdown = document.getElementById('server-select');
+        if (!dropdown) return;
+        
+        const selectedServerId = dropdown.value;
+        if (selectedServerId) {
+            console.log(`📋 Server selected for logs: ${selectedServerId}`);
+            showLogsStatus(`📋 Selected server: ${selectedServerId}`, 'info');
+            
+            // Enable download button
+            const downloadBtn = document.getElementById('download-logs-btn');
+            if (downloadBtn) {
+                downloadBtn.disabled = false;
+            }
+        } else {
+            // Disable download button
+            const downloadBtn = document.getElementById('download-logs-btn');
+            if (downloadBtn) {
+                downloadBtn.disabled = true;
+            }
+        }
+    }
+    
+    // ============================================================================
+    // EVENT HANDLERS (SIMPLE VERSION)
+    // ============================================================================
+    
+    function bindLogsEventHandlers() {
+        console.log('📋 Binding logs event handlers...');
+        
+        // Server dropdown change
+        const dropdown = document.getElementById('server-select');
+        if (dropdown) {
+            dropdown.addEventListener('change', handleServerSelection);
+        }
+        
+        // Download button
+        const downloadBtn = document.getElementById('download-logs-btn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => {
+                const selectedServer = document.getElementById('server-select').value;
+                if (selectedServer && typeof downloadServerLogs === 'function') {
+                    downloadServerLogs(selectedServer);
+                } else if (selectedServer && typeof downloadLogs === 'function') {
+                    downloadLogs();
+                } else {
+                    showLogsStatus('Please select a server first', 'warning');
+                }
+            });
+        }
+        
+        // Refresh button
+        const refreshBtn = document.getElementById('refresh-logs-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                if (typeof refreshLogsList === 'function') {
+                    refreshLogsList();
+                } else if (typeof refreshLogs === 'function') {
+                    refreshLogs();
+                }
+            });
+        }
+        
+        console.log('✅ Logs event handlers bound');
+    }
+    
+    // ============================================================================
+    // LOG DISPLAY AND PREVIEW
+    // ============================================================================
+    
+    function displayLogsList(logs) {
+        const container = document.getElementById('logs-list');
+        if (!container) return;
+        
+        if (!logs || logs.length === 0) {
+            container.innerHTML = `
+                <div class="text-gray-400 text-center py-8">
+                    <div class="text-4xl mb-4">📋</div>
+                    <div>No logs available</div>
+                    <div class="text-sm mt-2">Download logs from your servers to see them here</div>
+                </div>
+            `;
+            return;
+        }
+        
+        const logsHTML = logs.map(log => `
+            <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <h4 class="font-semibold text-lg">${escapeHtml(log.server_name || 'Unknown Server')}</h4>
+                        <p class="text-gray-400 text-sm">Server ID: ${escapeHtml(log.server_id || 'N/A')}</p>
+                        <p class="text-gray-400 text-xs">Downloaded: ${new Date(log.timestamp || log.download_time).toLocaleString()}</p>
+                        <p class="text-gray-400 text-xs">Entries: ${log.parsed_entries || log.entries_count || 0}</p>
+                        ${log.file_size ? `<p class="text-gray-400 text-xs">Size: ${formatFileSize(log.file_size)}</p>` : ''}
+                    </div>
+                    <div class="flex flex-col space-y-2">
+                        <button onclick="viewLogDetails('${log.id || log.log_id}')" 
+                                class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm">
+                            👁️ View
+                        </button>
+                        <button onclick="downloadLogFile('${log.id || log.log_id}')" 
+                                class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm">
+                            📥 Download
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+        container.innerHTML = logsHTML;
+        showLogsStatus(`📋 Showing ${logs.length} log files`, 'success');
+    }
+    
+    function showLogPreview(entries) {
+        const previewContainer = document.getElementById('log-preview-container');
+        const previewDiv = document.getElementById('log-preview');
+        
+        if (!previewContainer || !previewDiv) return;
+        
+        previewDiv.innerHTML = entries.map(entry => `
+            <div class="border-b border-gray-700 pb-2 mb-2">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-blue-400">${entry.timestamp || 'Unknown time'}</span>
+                    <span class="text-purple-400">${entry.level || 'INFO'}</span>
+                </div>
+                <div class="text-gray-300 mt-1 font-mono text-sm">
+                    ${escapeHtml(entry.message || entry.raw || 'No message')}
+                </div>
+            </div>
+        `).join('');
+        
+        previewContainer.classList.remove('hidden');
+        showLogsStatus('👁️ Showing log preview', 'info');
+    }
+    
+    function hideLogPreview() {
+        const previewContainer = document.getElementById('log-preview-container');
+        if (previewContainer) {
+            previewContainer.classList.add('hidden');
+        }
+        showLogsStatus('📋 Log preview closed', 'info');
+    }
+    
+    function viewLogDetails(logId) {
+        console.log(`👁️ Viewing log details: ${logId}`);
+        
+        if (typeof getLogDetails === 'function') {
+            getLogDetails(logId);
+        } else {
+            const basicInfo = [{
+                timestamp: new Date().toISOString(),
+                level: 'INFO',
+                message: `Log ID: ${logId} - Download the full log file to view all entries.`,
+                raw: `Log ID: ${logId} | Click "Download" to get the complete log file`
+            }];
+            
+            showLogPreview(basicInfo);
+            showLogsStatus('ℹ️ Showing basic info - download the full log file to view entries', 'info');
+        }
+    }
+    
+    function downloadLogFile(logId) {
+        const downloadUrl = `/api/logs/${logId}/download`;
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `log_${logId}.json`;
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showLogsStatus('✅ Download started', 'success');
+    }
+    
+    // ============================================================================
+    // STATUS AND FEEDBACK (SIMPLE VERSION)
+    // ============================================================================
+    
+    function showLogsStatus(message, type = 'info') {
+        console.log(`📋 Logs Status [${type.toUpperCase()}]: ${message}`);
+        
+        const statusDiv = document.getElementById('logs-status');
+        if (statusDiv) {
+            statusDiv.classList.remove('hidden');
+            
+            // Just set text content safely
+            const messageText = String(message);
+            
+            statusDiv.className = 'mt-4 p-3 rounded ' + 
+                (type === 'success' ? 'bg-green-800 text-green-200 border border-green-600' :
+                 type === 'error' ? 'bg-red-800 text-red-200 border border-red-600' :
+                 type === 'warning' ? 'bg-yellow-800 text-yellow-200 border border-yellow-600' :
+                 'bg-blue-800 text-blue-200 border border-blue-600');
+            
+            statusDiv.textContent = messageText;
+            
+            // Auto-clear messages
+            if (type !== 'error') {
+                setTimeout(() => {
+                    if (statusDiv.textContent === messageText) {
+                        statusDiv.textContent = '';
+                        statusDiv.classList.add('hidden');
+                    }
+                }, 5000);
+            }
+        }
+    }
+    
+    function updateLogsInterface() {
+        console.log('📋 Updating logs interface...');
+        populateLogsServerDropdown();
+        if (typeof loadLogs === 'function') {
+            loadLogs();
+        }
+        showLogsStatus('🔄 Interface updated', 'info');
+    }
+    
+    // ============================================================================
+    // UTILITY FUNCTIONS (SIMPLE VERSIONS)
+    // ============================================================================
+    
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
+    }
+    
+    function formatFileSize(bytes) {
+        if (!bytes) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    // ============================================================================
+    // SIMPLE EVENT LISTENERS (WORKING VERSION)
+    // ============================================================================
+    
+    // Simple refresh when servers are loaded
+    function refreshDropdownWhenServersLoad() {
+        // Simple check every few seconds
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        const checkForServers = () => {
+            attempts++;
+            
+            if (window.managedServers && window.managedServers.length > 0) {
+                const dropdown = document.getElementById('server-select');
+                if (dropdown && (dropdown.innerHTML.includes('Loading') || dropdown.innerHTML.includes('No servers'))) {
+                    console.log('📋 Servers found, updating dropdown...');
+                    populateLogsServerDropdown();
+                }
+                return;
+            }
+            
+            if (attempts < maxAttempts) {
+                setTimeout(checkForServers, 2000);
+            }
+        };
+        
+        setTimeout(checkForServers, 1000);
+    }
+    
+    // Hook into server manager updates (WORKING VERSION)
+    function setupServerManagerIntegration() {
+        // Simple integration without breaking anything
+        if (typeof window.updateAllServerDropdowns === 'function') {
+            const original = window.updateAllServerDropdowns;
+            window.updateAllServerDropdowns = function() {
+                original();
+                setTimeout(() => {
+                    populateLogsServerDropdown();
+                }, 100);
+            };
+            console.log('✅ Logs dropdown integrated with server manager');
+        }
+        
+        // Listen for server events
+        document.addEventListener('managedServersLoaded', () => {
+            console.log('📡 managedServersLoaded - updating logs dropdown');
+            setTimeout(populateLogsServerDropdown, 200);
+        });
+    }
+    
+    // ============================================================================
+    // MODULE INITIALIZATION (WORKING VERSION)
+    // ============================================================================
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('📋 Logs UI module ready (WORKING VERSION)');
+        
+        if (window.location.hash === '#logs') {
+            setTimeout(initializeLogs, 100);
+        }
+        
+        if (typeof window.tabInitializers === 'undefined') {
+            window.tabInitializers = {};
+        }
+        window.tabInitializers.logs = initializeLogs;
+        
+        // Set up integration
+        setupServerManagerIntegration();
+        
+        // Simple server checking
+        refreshDropdownWhenServersLoad();
+    });
+    
+    // ============================================================================
+    // EXPORT FUNCTIONS (WORKING VERSION)
+    // ============================================================================
+    
+    window.showLogsTab = showLogsTab;
+    window.loadLogsTab = loadLogsTab;
+    window.initializeLogs = initializeLogs;
+    window.showLogPreview = showLogPreview;
+    window.hideLogPreview = hideLogPreview;
+    window.displayLogsList = displayLogsList;
+    window.viewLogDetails = viewLogDetails;
+    window.downloadLogFile = downloadLogFile;
+    window.showLogsStatus = showLogsStatus;
+    window.updateLogsInterface = updateLogsInterface;
+    window.handleServerSelection = handleServerSelection;
+    window.populateLogsServerDropdown = populateLogsServerDropdown;
+    
+    console.log('✅ Logs UI Module loaded successfully (WORKING VERSION)');
+    
+</script>
