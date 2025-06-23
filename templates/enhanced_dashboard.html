@@ -396,16 +396,19 @@
     <!-- ============================================================================ -->
     <!-- LOGS MANAGEMENT - MODULAR ARCHITECTURE -->
     <!-- Organized in dedicated /scripts/logs/ directory -->
-    <!-- Load order: UI → API → Commands (dependencies flow) -->
+    <!-- Load order: Coordinator → UI → API → Commands (dependencies flow) -->
     <!-- ============================================================================ -->
     
-    <!-- 1. LOGS UI MODULE (First - provides interface functions) -->
+    <!-- 0. LOGS COORDINATOR MODULE (First - restores lost functionality from modularization) -->
+    {% include 'scripts/logs/logs_coordinator.js.html' %}
+    
+    <!-- 1. LOGS UI MODULE (Second - provides interface functions) -->
     {% include 'scripts/logs/logs_ui.js.html' %}
     
-    <!-- 2. LOGS API MODULE (Second - provides data communication) -->
+    <!-- 2. LOGS API MODULE (Third - provides data communication) -->
     {% include 'scripts/logs/logs_api.js.html' %}
     
-    <!-- 3. LOGS AUTO-COMMAND MODULE (Third - depends on UI and API) -->
+    <!-- 3. LOGS AUTO-COMMAND MODULE (Fourth - depends on UI and API) -->
     {% include 'scripts/logs/logs_commands.js.html' %}
     
     <!-- ============================================================================ -->
@@ -421,6 +424,7 @@
         console.log('📁 Main modules organized in /scripts/Main/ folder');
         console.log('📁 Logs modules organized in /scripts/logs/ folder');
         console.log('🔧 Frontend fixes for optimized storage system applied');
+        console.log('🎯 Logs Coordinator loaded to restore lost functionality');
         
         // Verify module loading completion
         function verifyModularArchitecture() {
@@ -446,6 +450,10 @@
                 ],
                 'Server Health (Fixed)': [
                     'processEnhancedHealthData', 'loadEnhancedHealthData', 'safeLoadServerHealth', 'showHealthError'
+                ],
+                'Logs Coordinator (Restored)': [
+                    'startFinalDropdownSolution', 'getAvailableServersForAutoCommands', 'waitForServersToLoad',
+                    'setupRestoredEventHandling', 'forceRefreshAutoCommands'
                 ],
                 'Logs UI': [
                     'showLogsTab', 'loadLogsTab', 'initializeLogs', 'showLogPreview',
@@ -556,6 +564,29 @@
                     console.warn('⚠️ Enhanced error handling not available');
                 }
                 
+                // Test 6: Logs coordinator functions
+                console.log('🧪 Testing logs coordinator restored functions...');
+                const coordinatorFunctions = [
+                    'startFinalDropdownSolution', 
+                    'initializeAutoConsoleCommands', 
+                    'getAutoCommandStatus'
+                ];
+                let coordinatorWorking = 0;
+                coordinatorFunctions.forEach(func => {
+                    if (typeof window[func] === 'function') {
+                        console.log(`✅ ${func} restored`);
+                        coordinatorWorking++;
+                    } else {
+                        console.warn(`⚠️ ${func} not restored`);
+                    }
+                });
+                
+                if (coordinatorWorking > 0) {
+                    console.log(`✅ Logs coordinator: ${coordinatorWorking}/${coordinatorFunctions.length} functions restored`);
+                } else {
+                    console.warn('⚠️ Logs coordinator functions not available');
+                }
+                
                 console.log('✅ Enhanced integration testing completed');
                 
             } catch (error) {
@@ -587,7 +618,7 @@
         
         // Initialize modular architecture
         function initializeModularArchitecture() {
-            console.log('🚀 Initializing enhanced modular architecture...');
+            console.log('🚀 Initializing enhanced modular architecture with logs coordinator...');
             
             // Wait for all modules to load
             setTimeout(() => {
@@ -609,13 +640,20 @@
                         // initializePlayerCountSystem() is called automatically by player count module
                     }
                     
+                    // Start logs coordinator functionality
+                    if (typeof startFinalDropdownSolution === 'function') {
+                        console.log('🎯 Starting logs coordinator functionality...');
+                        setTimeout(startFinalDropdownSolution, 1000);
+                    }
+                    
                     console.log('✅ Enhanced modular architecture initialization complete!');
                     console.log('📁 Architecture: Main modules in /scripts/Main/, Logs modules in /scripts/logs/');
                     console.log('🔧 Optimized storage system fixes applied and tested');
+                    console.log('🎯 Logs coordinator loaded to restore sophisticated functionality');
                     
                     // Show success message
                     if (typeof showStatus === 'function') {
-                        showStatus('🎉 GUST-MARK-1 Enhanced Dashboard loaded successfully with optimized storage!', 'success', 3000);
+                        showStatus('🎉 GUST-MARK-1 Enhanced Dashboard loaded successfully with logs coordinator!', 'success', 3000);
                     }
                     
                 } else {
@@ -655,6 +693,7 @@
                 'playerCount': ['updatePlayerCountDisplay', 'getPlayerCountFromLogs', 'logsBasedPlayerCountSystem'],
                 'core': ['showTab', 'loadTabModule', 'initializeApp', 'safeCall'],
                 'serverHealth': ['processEnhancedHealthData', 'loadEnhancedHealthData', 'safeLoadServerHealth', 'showHealthError'],
+                'logsCoordinator': ['startFinalDropdownSolution', 'getAvailableServersForAutoCommands', 'waitForServersToLoad', 'setupRestoredEventHandling'],
                 'logs': ['showLogsTab', 'downloadServerLogs', 'autoConsoleConfig'],
                 'logsUI': ['showLogsTab', 'initializeLogs', 'showLogPreview', 'displayLogsList'],
                 'logsAPI': ['downloadServerLogs', 'loadLogs', 'getLogDetails', 'fetchWithRetry'],
@@ -681,7 +720,8 @@
                 organization: {
                     main: 'Main modules in /scripts/Main/ folder',
                     logs: 'Logs modules in /scripts/logs/ folder',
-                    fixes: 'Frontend fixes for optimized storage system applied'
+                    fixes: 'Frontend fixes for optimized storage system applied',
+                    coordinator: 'Logs coordinator restores sophisticated functionality'
                 },
                 optimizedStorage: {
                     backendPerformance: '99.8% faster (345ms → 0.5ms)',
@@ -697,10 +737,11 @@
                         averageModuleSize: '~10KB per module'
                     },
                     logs: {
-                        loaded: ['logs_ui', 'logs_api', 'logs_commands'],
+                        loaded: ['logs_coordinator', 'logs_ui', 'logs_api', 'logs_commands'],
                         location: 'templates/scripts/logs/',
-                        totalSize: '~30KB split into 3 modules',
-                        averageModuleSize: '~10KB per module'
+                        totalSize: '~40KB split into 4 modules',
+                        averageModuleSize: '~10KB per module',
+                        coordinator: 'Restores lost functionality from modularization'
                     },
                     fixes: {
                         applied: ['autoConsoleConfig fix', 'dataSources.includes fix', 'enhanced error handling'],
@@ -710,8 +751,15 @@
                 autoCommands: typeof autoConsoleConfig !== 'undefined' ? {
                     enabled: autoConsoleConfig.enabled,
                     running: window.autoCommandsRunning || false,
-                    interval: autoConsoleConfig.interval
-                } : 'Not available'
+                    interval: autoConsoleConfig.interval,
+                    coordinator: 'Sophisticated functionality restored'
+                } : 'Not available',
+                coordinatorFunctions: {
+                    startFinalDropdownSolution: typeof startFinalDropdownSolution,
+                    initializeAutoConsoleCommands: typeof initializeAutoConsoleCommands,
+                    getAutoCommandStatus: typeof getAutoCommandStatus,
+                    waitForServersToLoad: typeof waitForServersToLoad
+                }
             };
             
             if (typeof getStateSnapshot === 'function') {
@@ -728,8 +776,9 @@
         console.log('🔧 Enhanced development helpers loaded: verifyModularArchitecture(), testModularIntegration(), inspectModule(), getModularStats()');
         console.log('📁 Main modules location: templates/scripts/Main/');
         console.log('📁 Logs modules location: templates/scripts/logs/');
+        console.log('🎯 Logs coordinator: Restores sophisticated functionality lost during modularization');
         console.log('🚀 Optimized storage system: 99.8% performance improvement achieved');
-        console.log('📊 Use getModularStats() to see complete organization details including storage optimization');
+        console.log('📊 Use getModularStats() to see complete organization details including coordinator status');
         
     </script>
 </body>
