@@ -1,0 +1,242 @@
+<!-- ============================================================================
+     GUST-MARK-1 Server Health Module Coordinator (__init__.js.html)
+     ============================================================================
+     PURPOSE: Main module coordinator for server health JavaScript components
+     LOADING ORDER: 1st - Provides module structure and coordination
+     INTEGRATION: Works with enhanced_dashboard.html include pattern
+     ============================================================================ -->
+
+<script>
+    // ============================================================================
+    // SERVER HEALTH MODULE COORDINATOR - MODULAR ARCHITECTURE
+    // ============================================================================
+    
+    console.log('📦 Loading Server Health Module Coordinator...');
+    
+    // ============================================================================
+    // MAIN SERVER HEALTH MODULE NAMESPACE
+    // ============================================================================
+    
+    window.ServerHealth = {
+        // Module components (initialized by sub-modules)
+        charts: {},
+        api: {},
+        realtime: {},
+        ui: {},
+        
+        // Shared state object
+        state: {
+            currentServer: null,
+            isActive: false,
+            refreshInterval: null,
+            refreshRate: 30000, // 30 seconds
+            chartInstances: {},
+            commandFilter: 'all',
+            healthStatus: null,
+            debugMode: true,
+            serverLoadAttempts: 0,
+            maxLoadAttempts: 50,
+            loadCheckInterval: 1000,
+            // Data source tracking for real vs estimated data
+            dataSources: {
+                cpu: 'loading',
+                memory: 'loading',
+                response_time: 'loading',
+                player_count: 'loading'
+            },
+            // Real data availability flags
+            realDataAvailable: {
+                cpu: false,
+                memory: false,
+                sensors: false
+            }
+        },
+        
+        // Module initialization coordinator
+        init: function() {
+            console.log('🏥 Initializing Server Health Modular System...');
+            
+            try {
+                // Initialize in dependency order
+                if (this.ui.init) this.ui.init();
+                if (this.charts.init) this.charts.init();
+                if (this.api.init) this.api.init();
+                if (this.realtime.init) this.realtime.init();
+                
+                console.log('✅ Server Health modular system initialized successfully');
+                return true;
+            } catch (error) {
+                console.error('❌ Server Health module initialization failed:', error);
+                return false;
+            }
+        },
+        
+        // Global function exposure for backward compatibility
+        exposeGlobalFunctions: function() {
+            console.log('🌐 Exposing Server Health global functions...');
+            
+            // Main interface functions
+            window.loadServerHealth = this.ui.loadServerHealth || function() { 
+                console.warn('⚠️ loadServerHealth not yet loaded'); 
+            };
+            
+            // Enhanced data functions
+            window.loadEnhancedHealthData = this.api.loadEnhancedHealthData || function() {
+                console.warn('⚠️ loadEnhancedHealthData not yet loaded');
+            };
+            
+            // Chart functions
+            window.initializeHealthCharts = this.charts.initializeHealthCharts || function() {
+                console.warn('⚠️ initializeHealthCharts not yet loaded');
+            };
+            
+            // UI functions
+            window.updateEnhancedStatusCards = this.ui.updateEnhancedStatusCards || function() {
+                console.warn('⚠️ updateEnhancedStatusCards not yet loaded');
+            };
+            
+            // Real-time functions
+            window.refreshHealthData = this.realtime.refreshHealthData || function() {
+                console.warn('⚠️ refreshHealthData not yet loaded');
+            };
+            
+            // Command functions
+            window.filterCommands = this.ui.filterCommands || function() {
+                console.warn('⚠️ filterCommands not yet loaded');
+            };
+            
+            // Player count integration functions
+            window.updateServerHealthPlayerCount = this.api.updateServerHealthPlayerCount || function() {
+                console.warn('⚠️ updateServerHealthPlayerCount not yet loaded');
+            };
+            
+            window.broadcastPlayerCountUpdate = this.realtime.broadcastPlayerCountUpdate || function() {
+                console.warn('⚠️ broadcastPlayerCountUpdate not yet loaded');
+            };
+            
+            window.updateAllPlayerCountDisplays = this.ui.updateAllPlayerCountDisplays || function() {
+                console.warn('⚠️ updateAllPlayerCountDisplays not yet loaded');
+            };
+            
+            // Debug and utility functions
+            window.debugServerHealth = this.getDebugInfo;
+            window.refreshServerHealth = this.forceRefresh;
+            window.forceServerHealthRefresh = this.forceRefresh;
+            
+            console.log('✅ Server Health global functions exposed');
+        },
+        
+        // Utility methods
+        getDebugInfo: function() {
+            console.log('🔍 Server Health Debug Info:');
+            console.log('- Current server:', this.state.currentServer);
+            console.log('- Managed servers:', window.managedServers);
+            console.log('- Is active:', this.state.isActive);
+            console.log('- Charts:', Object.keys(this.state.chartInstances));
+            console.log('- Health status:', this.state.healthStatus);
+            console.log('- Load attempts:', this.state.serverLoadAttempts);
+            console.log('- Player count cache:', window.playerCountCache);
+            console.log('- Data sources:', this.state.dataSources);
+            console.log('- Real data available:', this.state.realDataAvailable);
+            
+            return {
+                state: this.state,
+                modules: {
+                    charts: !!this.charts.init,
+                    api: !!this.api.init,
+                    realtime: !!this.realtime.init,
+                    ui: !!this.ui.init
+                }
+            };
+        },
+        
+        forceRefresh: function() {
+            console.log('🔄 FORCE REFRESH: Server Health system');
+            this.state.serverLoadAttempts = 0;
+            
+            if (this.ui.setupServerSelector) {
+                this.ui.setupServerSelector();
+            }
+            
+            if (this.state.currentServer && this.api.loadEnhancedHealthData) {
+                this.api.loadEnhancedHealthData();
+            }
+        }
+    };
+    
+    // ============================================================================
+    // GLOBAL PLAYER COUNT CACHE INITIALIZATION
+    // ============================================================================
+    
+    // Initialize global player count cache for cross-module sharing
+    if (!window.playerCountCache) {
+        window.playerCountCache = {};
+        console.log('🎯 Initialized global player count cache');
+    }
+    
+    // ============================================================================
+    // BACKWARD COMPATIBILITY FUNCTIONS
+    // ============================================================================
+    
+    // Legacy compatibility - expose functions immediately with placeholders
+    window.ServerHealth.exposeGlobalFunctions();
+    
+    // Enhanced compatibility functions that will be replaced by modules
+    // Check if functions already exist to prevent conflicts
+    if (typeof window.updatePlayerCountDisplay === 'undefined') {
+        window.updatePlayerCountDisplay = function(serverId, playerData, status = 'success') {
+            console.log(`🔄 MODULAR: Player count update request for ${serverId}`);
+            
+            if (window.playerCountCache && window.playerCountCache[serverId]) {
+                const cachedData = window.playerCountCache[serverId];
+                if (window.ServerHealth.ui.updateAllPlayerCountDisplays) {
+                    window.ServerHealth.ui.updateAllPlayerCountDisplays(serverId, cachedData, status);
+                }
+                return;
+            }
+            
+            if (window.ServerHealth.state.currentServer === serverId && window.ServerHealth.api.loadEnhancedHealthData) {
+                window.ServerHealth.api.loadEnhancedHealthData();
+            }
+        };
+    }
+    
+    if (typeof window.refreshPlayerCount === 'undefined') {
+        window.refreshPlayerCount = function(serverId) {
+            console.log(`🔄 MODULAR: Player count refresh for ${serverId}`);
+            
+            if (window.ServerHealth.state.currentServer === serverId && window.ServerHealth.api.loadEnhancedHealthData) {
+                window.ServerHealth.api.loadEnhancedHealthData();
+            } else if (window.ServerHealth.api.refreshPlayerCountForServer) {
+                window.ServerHealth.api.refreshPlayerCountForServer(serverId);
+            }
+        };
+    }
+    
+    if (typeof window.getPlayerCountFromLogs === 'undefined') {
+        window.getPlayerCountFromLogs = function(serverId) {
+            console.log(`📋 MODULAR: Player count from logs request for ${serverId}`);
+            window.refreshPlayerCount(serverId);
+        };
+    }
+    
+    // IMPORTANT: Do not redeclare autoConsoleConfig or other existing variables
+    // to prevent "Identifier has already been declared" errors
+    
+    // ============================================================================
+    // MODULE LOADING VERIFICATION
+    // ============================================================================
+    
+    console.log('✅ Server Health Module Coordinator loaded');
+    console.log('📁 Ready for module loading: charts → ui → api → realtime');
+    console.log('🔧 Module state initialized with backward compatibility');
+    
+    // Set up initialization timer
+    setTimeout(() => {
+        if (window.ServerHealth.init) {
+            console.log('⏰ Auto-initializing Server Health modules...');
+            window.ServerHealth.init();
+        }
+    }, 1000);
+    
+</script>

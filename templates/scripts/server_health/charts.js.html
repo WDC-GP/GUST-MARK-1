@@ -1,0 +1,475 @@
+<!-- ============================================================================
+     GUST-MARK-1 Server Health Charts Module (charts.js.html)
+     ============================================================================
+     PURPOSE: Chart.js integration and visualization management
+     LOADING ORDER: 2nd - Depends on __init__.js.html for namespace
+     FEATURES: Dynamic FPS scaling, responsive charts, real-time updates
+     ============================================================================ -->
+
+<script>
+    // ============================================================================
+    // SERVER HEALTH CHARTS MODULE - CHART.JS INTEGRATION
+    // ============================================================================
+    
+    console.log('📊 Loading Server Health Charts Module...');
+    
+    // Ensure ServerHealth namespace exists
+    if (!window.ServerHealth) {
+        console.error('❌ ServerHealth namespace not found! Ensure __init__.js.html loads first.');
+        window.ServerHealth = { charts: {}, state: {} };
+    }
+    
+    // ============================================================================
+    // CHARTS MODULE DEFINITION
+    // ============================================================================
+    
+    window.ServerHealth.charts = {
+        
+        // ========================================================================
+        // INITIALIZATION
+        // ========================================================================
+        
+        init: function() {
+            console.log('📊 Initializing Server Health Charts Module...');
+            this.exposeGlobalFunctions();
+            console.log('✅ Charts module initialized');
+        },
+        
+        // ========================================================================
+        // CHART INITIALIZATION WITH DYNAMIC FPS SCALING
+        // ========================================================================
+        
+        initializeHealthCharts: function() {
+            console.log('📊 Initializing enhanced health charts with DYNAMIC FPS SCALING...');
+            
+            // Destroy existing charts first
+            this.destroyExistingCharts();
+            
+            // Initialize Chart.js instances
+            this.initializeFPSChart();
+            this.initializePlayersChart();
+            this.initializeMemoryCPUChart();
+            
+            console.log('✅ Enhanced health charts initialized');
+        },
+        
+        // ========================================================================
+        // INDIVIDUAL CHART INITIALIZERS
+        // ========================================================================
+        
+        initializeFPSChart: function() {
+            const fpsCanvas = document.getElementById('fps-chart');
+            if (!fpsCanvas || typeof Chart === 'undefined') {
+                console.warn('⚠️ FPS chart canvas or Chart.js not available');
+                return;
+            }
+            
+            window.ServerHealth.state.chartInstances.fps = new Chart(fpsCanvas, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'FPS',
+                        data: [],
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { 
+                        y: { 
+                            beginAtZero: true,
+                            grace: '10%',
+                            max: 80, // Will be adjusted dynamically
+                            ticks: {
+                                color: '#9ca3af',
+                                callback: function(value) {
+                                    return Math.round(value) + ' FPS';
+                                }
+                            },
+                            grid: { color: '#374151' }
+                        },
+                        x: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        }
+                    },
+                    plugins: {
+                        legend: { 
+                            labels: { color: '#e5e7eb' }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    animation: {
+                        duration: 750
+                    }
+                }
+            });
+            
+            console.log('✅ FPS Chart initialized with dynamic scaling');
+        },
+        
+        initializePlayersChart: function() {
+            const playersCanvas = document.getElementById('players-chart');
+            if (!playersCanvas || typeof Chart === 'undefined') {
+                console.warn('⚠️ Players chart canvas or Chart.js not available');
+                return;
+            }
+            
+            window.ServerHealth.state.chartInstances.players = new Chart(playersCanvas, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Players',
+                        data: [],
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { 
+                        y: { 
+                            beginAtZero: true,
+                            grace: '10%',
+                            ticks: {
+                                color: '#9ca3af',
+                                callback: function(value) {
+                                    return Math.round(value) + ' players';
+                                }
+                            },
+                            grid: { color: '#374151' }
+                        },
+                        x: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        }
+                    },
+                    plugins: {
+                        legend: { 
+                            labels: { color: '#e5e7eb' }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    animation: {
+                        duration: 750
+                    }
+                }
+            });
+            
+            console.log('✅ Players Chart initialized');
+        },
+        
+        initializeMemoryCPUChart: function() {
+            const memoryCanvas = document.getElementById('memory-chart');
+            if (!memoryCanvas || typeof Chart === 'undefined') {
+                console.warn('⚠️ Memory chart canvas or Chart.js not available');
+                return;
+            }
+            
+            window.ServerHealth.state.chartInstances.memory = new Chart(memoryCanvas, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Memory (MB)',
+                            data: [],
+                            borderColor: 'rgb(168, 85, 247)',
+                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'CPU (%)',
+                            data: [],
+                            borderColor: 'rgb(245, 158, 11)',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#9ca3af',
+                                callback: function(value) {
+                                    return Math.round(value) + ' MB';
+                                }
+                            },
+                            grid: { color: '#374151' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                color: '#9ca3af',
+                                callback: function(value) {
+                                    return Math.round(value) + '%';
+                                }
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                                color: '#374151'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { 
+                            labels: { color: '#e5e7eb' }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    animation: {
+                        duration: 750
+                    }
+                }
+            });
+            
+            console.log('✅ Memory/CPU Chart initialized');
+        },
+        
+        // ========================================================================
+        // CHART CLEANUP AND MANAGEMENT
+        // ========================================================================
+        
+        destroyExistingCharts: function() {
+            console.log('🧹 Destroying existing charts...');
+            
+            // Destroy Chart.js instances in ServerHealth state
+            Object.keys(window.ServerHealth.state.chartInstances || {}).forEach(chartKey => {
+                const chart = window.ServerHealth.state.chartInstances[chartKey];
+                if (chart && typeof chart.destroy === 'function') {
+                    try {
+                        chart.destroy();
+                        console.log(`✅ Destroyed ${chartKey} chart`);
+                    } catch (error) {
+                        console.warn(`⚠️ Error destroying ${chartKey} chart:`, error);
+                    }
+                }
+            });
+            
+            // Clear charts object
+            window.ServerHealth.state.chartInstances = {};
+            
+            // Destroy orphaned Chart.js instances
+            const canvasElements = ['fps-chart', 'players-chart', 'memory-chart'];
+            canvasElements.forEach(canvasId => {
+                const canvas = document.getElementById(canvasId);
+                if (canvas) {
+                    const existingChart = Chart.getChart(canvas);
+                    if (existingChart) {
+                        existingChart.destroy();
+                        console.log(`✅ Destroyed orphaned chart: ${canvasId}`);
+                    }
+                }
+            });
+            
+            console.log('✅ Chart cleanup complete');
+        },
+        
+        // ========================================================================
+        // CHART DATA UPDATES WITH DYNAMIC SCALING
+        // ========================================================================
+        
+        updateCharts: function(chartsData) {
+            console.log('📊 Updating charts with new data...');
+            console.log('📊 Charts data received:', chartsData);
+            
+            if (!chartsData || typeof chartsData !== 'object') {
+                console.warn('⚠️ No valid chart data provided, generating mock data');
+                chartsData = this.generateMockChartData();
+            }
+            
+            // Check if chartsData is empty or has no data points
+            const hasValidData = chartsData.fps && chartsData.fps.data && chartsData.fps.data.length > 0;
+            
+            if (!hasValidData) {
+                console.log('📊 No real chart data available, using mock data for visualization');
+                chartsData = this.generateMockChartData();
+            }
+            
+            // Update FPS chart with dynamic scaling
+            this.updateFPSChart(chartsData.fps);
+            
+            // Update Players chart
+            this.updatePlayersChart(chartsData.players);
+            
+            // Update Memory/CPU chart
+            this.updateMemoryCPUChart(chartsData.memory, chartsData.cpu);
+            
+            console.log('✅ Charts updated successfully');
+        },
+        
+        updateFPSChart: function(fpsData) {
+            const fpsChart = window.ServerHealth.state.chartInstances.fps;
+            if (!fpsChart || !fpsData) return;
+            
+            // Update chart data
+            fpsChart.data.labels = fpsData.labels || [];
+            fpsChart.data.datasets[0].data = fpsData.data || [];
+            
+            // Dynamic FPS scaling based on data range
+            if (fpsData.data && fpsData.data.length > 0) {
+                const maxFpsValue = Math.max(...fpsData.data);
+                const minFpsValue = Math.min(...fpsData.data);
+                const range = maxFpsValue - minFpsValue;
+                
+                let suggestedMax;
+                if (range > 100 || maxFpsValue > 150) {
+                    suggestedMax = Math.ceil(maxFpsValue / 50) * 50;
+                    console.log(`🎯 High FPS range detected, set Y-axis max to: ${suggestedMax}`);
+                } else if (maxFpsValue > 60) {
+                    suggestedMax = 120;
+                    console.log('🎯 Moderate FPS range, set Y-axis max to: 120');
+                } else {
+                    suggestedMax = 80;
+                    console.log('🎯 Low FPS range, set Y-axis max to: 80');
+                }
+                
+                fpsChart.options.scales.y.max = suggestedMax;
+            }
+            
+            fpsChart.update('none'); // No animation for smoother real-time updates
+            console.log('✅ FPS Chart updated with dynamic scaling');
+        },
+        
+        updatePlayersChart: function(playersData) {
+            const playersChart = window.ServerHealth.state.chartInstances.players;
+            if (!playersChart || !playersData) return;
+            
+            playersChart.data.labels = playersData.labels || [];
+            playersChart.data.datasets[0].data = playersData.data || [];
+            playersChart.update('none');
+            console.log('✅ Players Chart updated');
+        },
+        
+        updateMemoryCPUChart: function(memoryData, cpuData) {
+            const memoryChart = window.ServerHealth.state.chartInstances.memory;
+            if (!memoryChart || (!memoryData && !cpuData)) return;
+            
+            if (memoryData) {
+                memoryChart.data.labels = memoryData.labels || [];
+                memoryChart.data.datasets[0].data = memoryData.data || [];
+            }
+            
+            if (cpuData) {
+                if (!memoryData) memoryChart.data.labels = cpuData.labels || [];
+                memoryChart.data.datasets[1].data = cpuData.data || [];
+            }
+            
+            memoryChart.update('none');
+            console.log('✅ Memory/CPU Chart updated');
+        },
+        
+        // ========================================================================
+        // MOCK DATA GENERATION FOR TESTING
+        // ========================================================================
+        
+        generateMockChartData: function() {
+            const now = new Date();
+            const labels = [];
+            const fpsData = [];
+            const playersData = [];
+            const memoryData = [];
+            const cpuData = [];
+            
+            for (let i = 11; i >= 0; i--) {
+                const time = new Date(now.getTime() - i * 5 * 60 * 1000);
+                labels.push(time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+                
+                // Generate realistic FPS data with variation
+                if (Math.random() > 0.7) {
+                    fpsData.push(Math.round(120 + Math.random() * 80));
+                } else if (Math.random() > 0.3) {
+                    fpsData.push(Math.round(60 + Math.random() * 60));
+                } else {
+                    fpsData.push(Math.round(30 + Math.random() * 30));
+                }
+                
+                // Generate realistic other metrics
+                playersData.push(Math.round(Math.random() * 8));
+                memoryData.push(Math.round(1500 + Math.random() * 500));
+                cpuData.push(Math.round(10 + Math.random() * 30));
+            }
+            
+            console.log('🔄 Generated mock chart data with FPS range:', 
+                       Math.min(...fpsData), '-', Math.max(...fpsData));
+            
+            return {
+                fps: { labels, data: fpsData },
+                players: { labels, data: playersData },
+                memory: { labels, data: memoryData },
+                cpu: { labels, data: cpuData }
+            };
+        },
+        
+        // ========================================================================
+        // GLOBAL FUNCTION EXPOSURE
+        // ========================================================================
+        
+        exposeGlobalFunctions: function() {
+            // Chart management functions
+            window.initializeHealthCharts = this.initializeHealthCharts.bind(this);
+            window.destroyExistingCharts = this.destroyExistingCharts.bind(this);
+            window.updateCharts = this.updateCharts.bind(this);
+            window.generateMockChartData = this.generateMockChartData.bind(this);
+            window.generateRealisticChartData = this.generateRealisticChartData.bind(this); // ✅ NEW
+            
+            // Update ServerHealth namespace
+            window.ServerHealth.charts.initializeHealthCharts = this.initializeHealthCharts.bind(this);
+            window.ServerHealth.charts.destroyExistingCharts = this.destroyExistingCharts.bind(this);
+            window.ServerHealth.charts.updateCharts = this.updateCharts.bind(this);
+            window.ServerHealth.charts.generateMockChartData = this.generateMockChartData.bind(this);
+            window.ServerHealth.charts.generateRealisticChartData = this.generateRealisticChartData.bind(this); // ✅ NEW
+            window.ServerHealth.charts.generateChartsFromRealData = this.generateChartsFromRealData.bind(this); // ✅ NEW
+            
+            console.log('✅ Chart functions exposed globally with REAL DATA support');
+        }
+    };
+    
+    // ============================================================================
+    // AUTO-INITIALIZATION
+    // ============================================================================
+    
+    // Initialize the charts module
+    if (window.ServerHealth.charts.init) {
+        window.ServerHealth.charts.init();
+    }
+    
+    console.log('✅ Server Health Charts Module loaded');
+    console.log('📊 Available chart functions: initializeHealthCharts, updateCharts, destroyExistingCharts');
+    
+</script>

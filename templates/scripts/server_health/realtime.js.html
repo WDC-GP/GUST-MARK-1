@@ -1,0 +1,562 @@
+<!-- ============================================================================
+     GUST-MARK-1 Server Health Real-time Module (realtime.js.html)
+     ============================================================================
+     PURPOSE: Real-time features and WebSocket integration
+     LOADING ORDER: 5th - Depends on all other modules
+     FEATURES: Auto-refresh, live updates, WebSocket integration, performance monitoring
+     ============================================================================ -->
+
+<script>
+    // ============================================================================
+    // SERVER HEALTH REALTIME MODULE - LIVE DATA STREAMING
+    // ============================================================================
+    
+    console.log('⚡ Loading Server Health Real-time Module...');
+    
+    // Ensure ServerHealth namespace exists
+    if (!window.ServerHealth) {
+        console.error('❌ ServerHealth namespace not found! Ensure __init__.js.html loads first.');
+        window.ServerHealth = { realtime: {}, state: {} };
+    }
+    
+    // ============================================================================
+    // REALTIME MODULE DEFINITION
+    // ============================================================================
+    
+    window.ServerHealth.realtime = {
+        
+        // ========================================================================
+        // INITIALIZATION
+        // ========================================================================
+        
+        init: function() {
+            console.log('⚡ Initializing Server Health Real-time Module...');
+            this.setupPerformanceMonitoring();
+            this.setupWebSocketConnection();
+            this.exposeGlobalFunctions();
+            console.log('✅ Real-time module initialized');
+        },
+        
+        // ========================================================================
+        // AUTO-REFRESH SYSTEM
+        // ========================================================================
+        
+        startAutoRefresh: function() {
+            if (window.ServerHealth.state.refreshInterval) {
+                clearInterval(window.ServerHealth.state.refreshInterval);
+            }
+            
+            window.ServerHealth.state.refreshInterval = setInterval(() => {
+                if (window.ServerHealth.state.isActive && window.ServerHealth.state.currentServer) {
+                    console.log('🔄 Auto-refreshing Server Health data...');
+                    this.performRefreshCycle();
+                }
+            }, window.ServerHealth.state.refreshRate);
+            
+            console.log(`⏰ Auto-refresh started (${window.ServerHealth.state.refreshRate / 1000}s intervals)`);
+        },
+        
+        stopAutoRefresh: function() {
+            if (window.ServerHealth.state.refreshInterval) {
+                clearInterval(window.ServerHealth.state.refreshInterval);
+                window.ServerHealth.state.refreshInterval = null;
+                console.log('⏹️ Auto-refresh stopped');
+            }
+        },
+        
+        performRefreshCycle: function() {
+            const serverId = window.ServerHealth.state.currentServer;
+            if (!serverId) return;
+            
+            console.log(`🔄 Performing refresh cycle for server: ${serverId}`);
+            
+            // Track refresh performance
+            const refreshStart = performance.now();
+            
+            // Refresh health data
+            if (window.ServerHealth.api && window.ServerHealth.api.loadEnhancedHealthData) {
+                window.ServerHealth.api.loadEnhancedHealthData();
+            }
+            
+            // Refresh command feed
+            if (window.ServerHealth.ui && window.ServerHealth.ui.loadCommandFeed) {
+                window.ServerHealth.ui.loadCommandFeed(serverId);
+            }
+            
+            // Log performance
+            const refreshTime = performance.now() - refreshStart;
+            this.logPerformanceMetric('refresh_cycle', refreshTime);
+            
+            console.log(`✅ Refresh cycle completed in ${refreshTime.toFixed(2)}ms`);
+        },
+        
+        // ========================================================================
+        // WEBSOCKET INTEGRATION
+        // ========================================================================
+        
+        setupWebSocketConnection: function() {
+            console.log('🔌 Setting up WebSocket connection for real-time updates...');
+            
+            // Check if WebSocket is available
+            if (typeof WebSocket === 'undefined') {
+                console.warn('⚠️ WebSocket not available in this environment');
+                this.fallbackToPolling();
+                return;
+            }
+            
+            // Initialize WebSocket state
+            this.webSocket = {
+                connection: null,
+                reconnectAttempts: 0,
+                maxReconnectAttempts: 2, // Reduced from 5 to prevent spam
+                reconnectDelay: 10000,   // Increased delay
+                isConnected: false,
+                disabled: false
+            };
+            
+            // Only attempt WebSocket connection if explicitly enabled
+            // For now, skip WebSocket and use polling instead
+            console.log('🔄 WebSocket endpoint not implemented yet, using polling fallback');
+            this.fallbackToPolling();
+            
+            // Uncomment when WebSocket server is implemented:
+            // this.connectWebSocket();
+        },
+        
+        connectWebSocket: function() {
+            // Skip WebSocket connection if disabled or max attempts reached
+            if (this.webSocket.disabled || this.webSocket.reconnectAttempts >= this.webSocket.maxReconnectAttempts) {
+                console.log('🔌 WebSocket connection skipped - using polling fallback');
+                this.fallbackToPolling();
+                return;
+            }
+            
+            try {
+                // WebSocket URL would be determined by server configuration
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${wsProtocol}//${window.location.host}/ws/server_health`;
+                
+                console.log(`🔌 Attempting WebSocket connection to: ${wsUrl} (attempt ${this.webSocket.reconnectAttempts + 1})`);
+                
+                this.webSocket.connection = new WebSocket(wsUrl);
+                
+                this.webSocket.connection.onopen = (event) => {
+                    console.log('✅ WebSocket connection established');
+                    this.webSocket.isConnected = true;
+                    this.webSocket.reconnectAttempts = 0;
+                    this.handleWebSocketOpen(event);
+                };
+                
+                this.webSocket.connection.onmessage = (event) => {
+                    this.handleWebSocketMessage(event);
+                };
+                
+                this.webSocket.connection.onclose = (event) => {
+                    console.log('🔌 WebSocket connection closed');
+                    this.webSocket.isConnected = false;
+                    this.handleWebSocketClose(event);
+                };
+                
+                this.webSocket.connection.onerror = (error) => {
+                    this.handleWebSocketError(error);
+                };
+                
+            } catch (error) {
+                console.warn('⚠️ WebSocket connection failed:', error.message);
+                this.webSocket.disabled = true;
+                this.fallbackToPolling();
+            }
+        },
+        
+        handleWebSocketOpen: function(event) {
+            // Subscribe to server health updates
+            const currentServer = window.ServerHealth.state.currentServer;
+            if (currentServer) {
+                this.subscribeToServer(currentServer);
+            }
+        },
+        
+        handleWebSocketMessage: function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('📡 WebSocket message received:', data);
+                
+                switch (data.type) {
+                    case 'health_update':
+                        this.handleHealthUpdate(data);
+                        break;
+                    case 'command_update':
+                        this.handleCommandUpdate(data);
+                        break;
+                    case 'player_count_update':
+                        this.handlePlayerCountUpdate(data);
+                        break;
+                    default:
+                        console.log('🔍 Unknown WebSocket message type:', data.type);
+                }
+            } catch (error) {
+                console.error('❌ Error parsing WebSocket message:', error);
+            }
+        },
+        
+        handleWebSocketClose: function(event) {
+            this.webSocket.reconnectAttempts++;
+            
+            if (this.webSocket.reconnectAttempts < this.webSocket.maxReconnectAttempts) {
+                console.log(`🔄 WebSocket reconnection scheduled (${this.webSocket.reconnectAttempts}/${this.webSocket.maxReconnectAttempts}) in ${this.webSocket.reconnectDelay / 1000}s`);
+                
+                setTimeout(() => {
+                    if (!this.webSocket.disabled) {
+                        this.connectWebSocket();
+                    }
+                }, this.webSocket.reconnectDelay);
+            } else {
+                console.log('⚠️ Max WebSocket reconnection attempts reached, disabling WebSocket and using polling');
+                this.webSocket.disabled = true;
+                this.fallbackToPolling();
+            }
+        },
+        
+        handleWebSocketError: function(error) {
+            // Reduce error logging to prevent spam
+            if (this.webSocket.reconnectAttempts === 0) {
+                console.warn('⚠️ WebSocket connection failed - Server WebSocket not implemented yet');
+            }
+            
+            // Disable WebSocket after first error to prevent spam
+            this.webSocket.disabled = true;
+            this.fallbackToPolling();
+        },
+        
+        subscribeToServer: function(serverId) {
+            if (this.webSocket.isConnected && this.webSocket.connection) {
+                const subscriptionMessage = {
+                    type: 'subscribe',
+                    server_id: serverId,
+                    features: ['health', 'commands', 'player_count']
+                };
+                
+                this.webSocket.connection.send(JSON.stringify(subscriptionMessage));
+                console.log(`📡 Subscribed to WebSocket updates for server: ${serverId}`);
+            }
+        },
+        
+        fallbackToPolling: function() {
+            console.log('🔄 Falling back to polling-based updates');
+            // Auto-refresh is already handling polling
+            this.startAutoRefresh();
+        },
+        
+        // ========================================================================
+        // WEBSOCKET MESSAGE HANDLERS
+        // ========================================================================
+        
+        handleHealthUpdate: function(data) {
+            console.log('📊 Real-time health update received:', data);
+            
+            if (data.server_id === window.ServerHealth.state.currentServer) {
+                // Update UI with real-time data
+                if (window.ServerHealth.ui && window.ServerHealth.ui.updateEnhancedStatusCards) {
+                    window.ServerHealth.ui.updateEnhancedStatusCards(data.health_data);
+                }
+                
+                // Update charts if chart data is included
+                if (data.charts && window.ServerHealth.charts && window.ServerHealth.charts.updateCharts) {
+                    window.ServerHealth.charts.updateCharts(data.charts);
+                }
+            }
+        },
+        
+        handleCommandUpdate: function(data) {
+            console.log('📜 Real-time command update received:', data);
+            
+            if (data.server_id === window.ServerHealth.state.currentServer) {
+                // Refresh command feed
+                if (window.ServerHealth.ui && window.ServerHealth.ui.loadCommandFeed) {
+                    window.ServerHealth.ui.loadCommandFeed(data.server_id);
+                }
+            }
+        },
+        
+        handlePlayerCountUpdate: function(data) {
+            console.log('👥 Real-time player count update received:', data);
+            
+            const playerData = {
+                current: data.player_count,
+                max: data.max_players || 100,
+                percentage: data.max_players ? Math.round((data.player_count / data.max_players) * 100) : 0,
+                source: 'websocket'
+            };
+            
+            this.broadcastPlayerCountUpdate(data.server_id, playerData, 'success');
+        },
+        
+        // ========================================================================
+        // PLAYER COUNT BROADCASTING
+        // ========================================================================
+        
+        broadcastPlayerCountUpdate: function(serverId, playerData, status) {
+            console.log(`📡 Broadcasting player count update for ${serverId}:`, playerData);
+            
+            // Update player count cache
+            if (!window.playerCountCache) window.playerCountCache = {};
+            window.playerCountCache[serverId] = playerData;
+            
+            // Update UI displays
+            if (window.ServerHealth.ui && window.ServerHealth.ui.updateAllPlayerCountDisplays) {
+                window.ServerHealth.ui.updateAllPlayerCountDisplays(serverId, playerData, status);
+            }
+            
+            // Trigger custom event for other modules
+            const event = new CustomEvent('playerCountUpdated', {
+                detail: { serverId, playerData, status, source: 'realtime' }
+            });
+            window.dispatchEvent(event);
+            
+            // Update any external player count displays
+            this.updateExternalPlayerCountDisplays(serverId, playerData, status);
+        },
+        
+        updateExternalPlayerCountDisplays: function(serverId, playerData, status) {
+            // Find and update player count elements throughout the application
+            const playerElements = document.querySelectorAll(`[data-server-id="${serverId}"] .player-count, .player-count[data-server-id="${serverId}"]`);
+            
+            playerElements.forEach(element => {
+                if (playerData && playerData.current !== undefined) {
+                    element.textContent = `${playerData.current}/${playerData.max || '?'}`;
+                    element.title = `${playerData.current} players online (${playerData.percentage || 0}%) - Real-time data`;
+                } else {
+                    element.textContent = '?/?';
+                    element.title = 'Player count unavailable';
+                }
+                
+                // Add visual indicator for real-time data
+                element.classList.add('realtime-data');
+            });
+        },
+        
+        // ========================================================================
+        // PERFORMANCE MONITORING
+        // ========================================================================
+        
+        setupPerformanceMonitoring: function() {
+            this.performance = {
+                metrics: new Map(),
+                startTime: performance.now(),
+                refreshCycles: 0,
+                errors: 0,
+                averageRefreshTime: 0
+            };
+            
+            console.log('📊 Performance monitoring initialized');
+        },
+        
+        logPerformanceMetric: function(metric, value) {
+            if (!this.performance.metrics.has(metric)) {
+                this.performance.metrics.set(metric, []);
+            }
+            
+            const metrics = this.performance.metrics.get(metric);
+            metrics.push({ value, timestamp: Date.now() });
+            
+            // Keep only last 100 entries
+            if (metrics.length > 100) {
+                metrics.shift();
+            }
+            
+            // Update averages
+            if (metric === 'refresh_cycle') {
+                this.performance.refreshCycles++;
+                const total = metrics.reduce((sum, m) => sum + m.value, 0);
+                this.performance.averageRefreshTime = total / metrics.length;
+            }
+        },
+        
+        getPerformanceStats: function() {
+            const uptime = performance.now() - this.performance.startTime;
+            
+            return {
+                uptime: Math.round(uptime / 1000), // in seconds
+                refreshCycles: this.performance.refreshCycles,
+                averageRefreshTime: Math.round(this.performance.averageRefreshTime * 100) / 100,
+                errors: this.performance.errors,
+                webSocketConnected: this.webSocket.isConnected,
+                currentServer: window.ServerHealth.state.currentServer,
+                autoRefreshActive: !!window.ServerHealth.state.refreshInterval,
+                cacheSize: window.ServerHealth.api ? Object.keys(window.ServerHealth.api.getCacheInfo()).length : 0
+            };
+        },
+        
+        // ========================================================================
+        // HEALTH CHECK AND DIAGNOSTICS
+        // ========================================================================
+        
+        performHealthCheck: function() {
+            console.log('🔍 Performing real-time system health check...');
+            
+            const healthStatus = {
+                timestamp: new Date().toISOString(),
+                modules: {
+                    realtime: true,
+                    api: !!(window.ServerHealth.api && window.ServerHealth.api.init),
+                    ui: !!(window.ServerHealth.ui && window.ServerHealth.ui.init),
+                    charts: !!(window.ServerHealth.charts && window.ServerHealth.charts.init)
+                },
+                webSocket: {
+                    available: typeof WebSocket !== 'undefined',
+                    connected: this.webSocket.isConnected,
+                    reconnectAttempts: this.webSocket.reconnectAttempts
+                },
+                autoRefresh: {
+                    active: !!window.ServerHealth.state.refreshInterval,
+                    rate: window.ServerHealth.state.refreshRate,
+                    currentServer: window.ServerHealth.state.currentServer
+                },
+                performance: this.getPerformanceStats()
+            };
+            
+            console.log('🔍 Real-time system health check results:', healthStatus);
+            return healthStatus;
+        },
+        
+        // ========================================================================
+        // REFRESH MANAGEMENT
+        // ========================================================================
+        
+        refreshHealthData: function() {
+            console.log('🔄 Manual refresh triggered from real-time module');
+            
+            if (window.ServerHealth.state.currentServer) {
+                this.performRefreshCycle();
+            } else {
+                console.warn('⚠️ No server selected for refresh');
+                if (window.ServerHealth.ui && window.ServerHealth.ui.showSelectServerMessage) {
+                    window.ServerHealth.ui.showSelectServerMessage();
+                }
+            }
+        },
+        
+        setRefreshRate: function(newRate) {
+            if (newRate < 5000) {
+                console.warn('⚠️ Minimum refresh rate is 5 seconds');
+                newRate = 5000;
+            }
+            
+            window.ServerHealth.state.refreshRate = newRate;
+            console.log(`⏰ Refresh rate updated to ${newRate / 1000} seconds`);
+            
+            // Restart auto-refresh with new rate
+            if (window.ServerHealth.state.refreshInterval) {
+                this.stopAutoRefresh();
+                this.startAutoRefresh();
+            }
+        },
+        
+        // ========================================================================
+        // EVENT MANAGEMENT
+        // ========================================================================
+        
+        setupEventListeners: function() {
+            // Listen for server selection changes
+            window.addEventListener('serverChanged', (event) => {
+                const newServerId = event.detail.serverId;
+                console.log(`🔄 Server changed to: ${newServerId}`);
+                
+                // Update WebSocket subscription
+                if (this.webSocket.isConnected) {
+                    this.subscribeToServer(newServerId);
+                }
+                
+                // Start auto-refresh for new server
+                this.startAutoRefresh();
+            });
+            
+            // Listen for visibility changes to pause/resume updates
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    console.log('⏸️ Page hidden, pausing real-time updates');
+                    this.stopAutoRefresh();
+                } else {
+                    console.log('▶️ Page visible, resuming real-time updates');
+                    if (window.ServerHealth.state.isActive) {
+                        this.startAutoRefresh();
+                    }
+                }
+            });
+            
+            // Listen for network status changes
+            window.addEventListener('online', () => {
+                console.log('🌐 Network connection restored');
+                this.reconnectWebSocket();
+                this.startAutoRefresh();
+            });
+            
+            window.addEventListener('offline', () => {
+                console.log('📡 Network connection lost');
+                this.stopAutoRefresh();
+            });
+        },
+        
+        reconnectWebSocket: function() {
+            if (!this.webSocket.isConnected) {
+                console.log('🔄 Attempting WebSocket reconnection...');
+                this.webSocket.reconnectAttempts = 0;
+                this.connectWebSocket();
+            }
+        },
+        
+        // ========================================================================
+        // GLOBAL FUNCTION EXPOSURE
+        // ========================================================================
+        
+        exposeGlobalFunctions: function() {
+            // Auto-refresh functions
+            window.startAutoRefresh = this.startAutoRefresh.bind(this);
+            window.stopAutoRefresh = this.stopAutoRefresh.bind(this);
+            window.refreshHealthData = this.refreshHealthData.bind(this);
+            window.setHealthRefreshRate = this.setRefreshRate.bind(this);
+            
+            // Player count broadcasting
+            window.broadcastPlayerCountUpdate = this.broadcastPlayerCountUpdate.bind(this);
+            
+            // WebSocket functions
+            window.connectServerHealthWebSocket = this.connectWebSocket.bind(this);
+            window.disconnectServerHealthWebSocket = () => {
+                if (this.webSocket.connection) {
+                    this.webSocket.connection.close();
+                }
+            };
+            
+            // Performance and diagnostics
+            window.getServerHealthPerformance = this.getPerformanceStats.bind(this);
+            window.performServerHealthCheck = this.performHealthCheck.bind(this);
+            
+            // Update ServerHealth namespace
+            window.ServerHealth.realtime.startAutoRefresh = this.startAutoRefresh.bind(this);
+            window.ServerHealth.realtime.stopAutoRefresh = this.stopAutoRefresh.bind(this);
+            window.ServerHealth.realtime.refreshHealthData = this.refreshHealthData.bind(this);
+            window.ServerHealth.realtime.broadcastPlayerCountUpdate = this.broadcastPlayerCountUpdate.bind(this);
+            window.ServerHealth.realtime.performHealthCheck = this.performHealthCheck.bind(this);
+            
+            console.log('✅ Real-time functions exposed globally');
+        }
+    };
+    
+    // ============================================================================
+    // AUTO-INITIALIZATION
+    // ============================================================================
+    
+    // Initialize the real-time module
+    if (window.ServerHealth.realtime.init) {
+        window.ServerHealth.realtime.init();
+    }
+    
+    // Set up event listeners
+    if (window.ServerHealth.realtime.setupEventListeners) {
+        window.ServerHealth.realtime.setupEventListeners();
+    }
+    
+    console.log('✅ Server Health Real-time Module loaded');
+    console.log('⚡ Available real-time functions: startAutoRefresh, refreshHealthData, broadcastPlayerCountUpdate');
+    
+</script>
