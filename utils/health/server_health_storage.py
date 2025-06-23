@@ -23,7 +23,7 @@ import logging
 
 # ✅ FIXED: GraphQL Sensors import with better error handling
 try:
-    from utils.graphql_sensors import GPortalSensorsClient
+    from utils.health.graphql_sensors import GPortalSensorsClient
     GRAPHQL_SENSORS_AVAILABLE = True
     print("✅ GraphQL Sensors client imported successfully")
 except ImportError as import_error:

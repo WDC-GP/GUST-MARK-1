@@ -17,7 +17,7 @@ from routes.auth import require_auth
 
 
 # GUST database optimization imports
-from utils.gust_db_optimization import (
+from utils.database.gust_db_optimization import (
     get_user_with_cache,
     get_user_balance_cached,
     update_user_balance,

@@ -179,6 +179,17 @@ def safe_float(value, default=0.0):
     except (ValueError, TypeError):
         return default
 
+def safe_str(value, default=''):
+    """✅ RESTORED: Safe string conversion with fallback"""
+    try:
+        if value is None:
+            return default
+        if isinstance(value, str):
+            return value
+        return str(value)
+    except (ValueError, TypeError, UnicodeDecodeError):
+        return default
+
 # ================================================================
 # ✅ CRITICAL FIX: SERVER DATA CREATION
 # ================================================================
@@ -586,8 +597,8 @@ __all__ = [
     # Server utilities (FIXED)
     'get_server_region', 'create_server_data',
     
-    # Type conversion utilities
-    'safe_int', 'safe_float',
+    # Type conversion utilities (COMPLETE)
+    'safe_int', 'safe_float', 'safe_str',
     
     # String and text utilities
     'escape_html', 'truncate_string', 'sanitize_filename',

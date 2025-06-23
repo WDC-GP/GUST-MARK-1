@@ -16,7 +16,7 @@ from typing import Dict, Any, Optional
 
 # Import existing utilities
 from utils.helpers import load_token
-from utils.rate_limiter import RateLimiter
+from utils.core.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 

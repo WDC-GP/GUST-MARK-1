@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # Try to import credential manager (graceful fallback if not available)
 try:
-    from utils.credential_manager import credential_manager
+    from utils.auth.credential_manager import credential_manager  # 🔧 FIXED: Updated import path
     CREDENTIAL_MANAGER_AVAILABLE = True
 except ImportError:
     CREDENTIAL_MANAGER_AVAILABLE = False

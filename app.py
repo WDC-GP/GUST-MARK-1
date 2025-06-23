@@ -23,11 +23,11 @@ import logging
 
 # Import configuration and utilities
 from config import Config, WEBSOCKETS_AVAILABLE, ensure_directories, ensure_data_files
-from utils.rate_limiter import RateLimiter
+from utils.core.rate_limiter import RateLimiter
 from utils.helpers import load_token, format_command, validate_server_id, validate_region
 
 # Server Health components
-from utils.server_health_storage import ServerHealthStorage
+from utils.health.server_health_storage import ServerHealthStorage
 
 # Import systems
 from systems.koth import VanillaKothSystem

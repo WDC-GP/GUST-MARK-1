@@ -25,7 +25,7 @@ from routes.auth import require_auth
 
 # Import health check
 try:
-    from utils.gust_db_optimization import perform_optimization_health_check
+    from utils.database.gust_db_optimization import perform_optimization_health_check
     HEALTH_CHECK_AVAILABLE = True
 except ImportError:
     HEALTH_CHECK_AVAILABLE = False

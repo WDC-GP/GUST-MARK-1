@@ -118,7 +118,7 @@ def login():
             logger.info("🔐 Auto-auth enabled with empty credentials - attempting stored credential loading")
             
             try:
-                from utils.credential_manager import credential_manager
+                from utils.auth.credential_manager import credential_manager
                 
                 if not credential_manager:
                     logger.error("❌ Auto-auth: Credential manager not available")
@@ -188,7 +188,7 @@ def login():
         # Store credentials for auto-auth if requested (demo mode)
         if enable_auto_auth:
             try:
-                from utils.credential_manager import credential_manager
+                from utils.auth.credential_manager import credential_manager
                 credential_manager.store_credentials(username, password)
                 logger.info("🔐 Demo credentials stored for auto-authentication")
             except ImportError:
@@ -267,7 +267,7 @@ def login():
                                 # Store credentials for auto-auth if requested
                                 if enable_auto_auth:
                                     try:
-                                        from utils.credential_manager import credential_manager
+                                        from utils.auth.credential_manager import credential_manager
                                         credential_manager.store_credentials(username, password)
                                         logger.info("🔐 Credentials stored for auto-authentication")
                                         
@@ -352,7 +352,7 @@ def login():
                             # Store credentials for auto-auth if requested
                             if enable_auto_auth:
                                 try:
-                                    from utils.credential_manager import credential_manager
+                                    from utils.auth.credential_manager import credential_manager
                                     credential_manager.store_credentials(username, password)
                                     logger.info("🔐 Credentials stored for auto-authentication")
                                     
@@ -630,7 +630,7 @@ def auto_auth_status():
         
         # Get credential storage status
         try:
-            from utils.credential_manager import credential_manager
+            from utils.auth.credential_manager import credential_manager
             credentials_stored = credential_manager.credentials_exist()
         except ImportError:
             credentials_stored = False

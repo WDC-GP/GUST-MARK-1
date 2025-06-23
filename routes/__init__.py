@@ -76,7 +76,7 @@ def init_all_routes(app, db, user_storage, economy_storage=None, logs_storage=No
     
     # Initialize server health storage if not provided
     if server_health_storage is None:
-        from utils.server_health_storage import ServerHealthStorage
+        from utils.health.server_health_storage import ServerHealthStorage
         server_health_storage = ServerHealthStorage(db, user_storage)
         print("[🔧 INIT] Created Server Health storage instance")
     
@@ -170,7 +170,7 @@ def init_all_routes_enhanced(app, db, user_storage, economy_storage=None, logs_s
     
     # Initialize server health storage if not provided
     if server_health_storage is None:
-        from utils.server_health_storage import ServerHealthStorage
+        from utils.health.server_health_storage import ServerHealthStorage
         server_health_storage = ServerHealthStorage(db, user_storage)
         print("[🔧 INIT] Created Server Health storage instance")
     

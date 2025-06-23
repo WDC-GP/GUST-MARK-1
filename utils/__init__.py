@@ -1,143 +1,66 @@
 """
-GUST Bot Enhanced - Utilities Package (FIXED VERSION)
+GUST Bot Utils Package - Full Backwards Compatibility
 ====================================================
-✅ FIXED: Import errors resolved
-✅ FIXED: Only imports functions that actually exist
-✅ FIXED: Safe import structure with error handling
-✅ FIXED: No circular imports
+All imports work through both old and new paths.
 """
 
-# Import rate limiter first (always available)
+# Core utilities - primary imports
 try:
-    from .rate_limiter import RateLimiter
+    from .core.helpers import *
 except ImportError as e:
-    print(f"⚠️ Warning: Could not import RateLimiter: {e}")
-    # Create a dummy rate limiter for development
-    class RateLimiter:
-        def __init__(self, *args, **kwargs):
-            pass
-        def wait_if_needed(self, *args, **kwargs):
-            pass
+    print(f"Warning: Could not import core helpers: {e}")
 
-# Import helpers with error handling
+# Authentication
 try:
-    from .helpers import (
-        # Core token functions
-        load_token, refresh_token, save_token, 
-        is_valid_jwt_token, monitor_token_health, validate_token_file,
-        
-        # Console and command functions
-        parse_console_response, classify_message, get_type_icon, 
-        format_console_message, format_command,
-        
-        # Validation functions
-        validate_server_id, validate_region,
-        
-        # Utility functions
-        safe_int, safe_float, escape_html,
-        format_timestamp, sanitize_filename,
-        
-        # Data creation functions
-        create_server_data, get_countdown_announcements,
-        
-        # Status functions
-        get_status_class, get_status_text,
-        
-        # Steam ID validation
-        is_valid_steam_id,
-        
-        # String utilities
-        generate_random_string, truncate_string,
-        
-        # Dictionary utilities
-        deep_get, flatten_dict, merge_dicts,
-        
-        # List utilities
-        chunk_list, remove_duplicates,
-        
-        # Validation utilities
-        validate_email, validate_url,
-        
-        # Calculation utilities
-        calculate_percentage, format_bytes, format_duration
-    )
-    
-    print("✅ Successfully imported all helper functions")
-    
+    from .auth.auth_helpers import *
+    from .auth.auth_decorators import *
+    from .auth.credential_manager import *
+    from .auth.token_manager import *
 except ImportError as e:
-    print(f"⚠️ Warning: Could not import some helper functions: {e}")
-    
-    # Create minimal fallback functions
-    def load_token():
-        """Fallback token loader"""
-        import os, json
-        try:
-            if os.path.exists('gp-session.json'):
-                with open('gp-session.json', 'r') as f:
-                    data = json.load(f)
-                    return data.get('access_token', '')
-            return ''
-        except:
-            return ''
-    
-    def refresh_token():
-        """Fallback token refresh"""
-        return False
-    
-    def save_token(tokens, username='unknown'):
-        """Fallback token save"""
-        return False
-    
-    def validate_server_id(server_id):
-        """Fallback server ID validation"""
-        try:
-            return True, int(server_id)
-        except:
-            return False, None
-    
-    def validate_region(region):
-        """Fallback region validation"""
-        return str(region).upper() in ['US', 'EU', 'AS', 'AU']
-    
-    def safe_int(value, default=0):
-        """Fallback safe int conversion"""
-        try:
-            return int(value)
-        except:
-            return default
-    
-    def safe_float(value, default=0.0):
-        """Fallback safe float conversion"""
-        try:
-            return float(value)
-        except:
-            return default
+    print(f"Warning: Could not import auth modules: {e}")
 
-# Package exports
-__all__ = [
-    'RateLimiter',
-    'load_token', 'refresh_token', 'save_token',
-    'validate_server_id', 'validate_region',
-    'safe_int', 'safe_float'
-]
-
-# Add additional exports if they were imported successfully
+# Data processing
 try:
-    # Test if advanced functions are available
-    parse_console_response
-    __all__.extend([
-        'parse_console_response', 'classify_message', 'get_type_icon', 
-        'format_console_message', 'format_command',
-        'escape_html', 'format_timestamp', 'sanitize_filename',
-        'create_server_data', 'get_countdown_announcements',
-        'get_status_class', 'get_status_text', 'is_valid_steam_id'
-    ])
-except NameError:
-    pass
+    from .data.data_helpers import *
+    from .data.validation_helpers import *
+except ImportError as e:
+    print(f"Warning: Could not import data modules: {e}")
 
-# Package metadata
-__version__ = "2.0.0"
-__author__ = "GUST Bot Enhanced"
-__description__ = "Utility functions and helper classes - Fixed Version"
+# Console operations
+try:
+    from .console.console_helpers import *
+except ImportError as e:
+    print(f"Warning: Could not import console modules: {e}")
 
-print(f"✅ Utils package loaded successfully - Version {__version__}")
+# Database operations
+try:
+    from .database.db_helpers import *
+    from .database.user_helpers import *
+    from .database.user_migration import *
+    from .database.gust_db_optimization import *
+except ImportError as e:
+    print(f"Warning: Could not import database modules: {e}")
+
+# Health monitoring
+try:
+    from .health import *
+    from .health.server_monitor import *
+    from .health.graphql_sensors import *
+    from .health.server_health_storage import *
+except ImportError as e:
+    print(f"Warning: Could not import health modules: {e}")
+
+# Core utilities for backwards compatibility
+try:
+    from .core.rate_limiter import *
+    from .core.error_handlers import *
+    from .core.common_imports import *
+except ImportError as e:
+    print(f"Warning: Could not import core utilities: {e}")
+
+__version__ = "2.0.2"
+__description__ = "GUST Bot utilities - full backwards compatibility"
+
+import logging
+logger = logging.getLogger(__name__)
+logger.info("✅ GUST Utils v2.0.2 loaded with full backwards compatibility")
